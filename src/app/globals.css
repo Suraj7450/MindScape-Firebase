@@ -1,0 +1,156 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 0% 5%; /* #0D0D0D */
+    --foreground: 0 0% 92%; /* #EAEAEA */
+
+    --card: 180 0% 7%; /* #121212 */
+    --card-foreground: 0 0% 92%; /* #EAEAEA */
+
+    --popover: 180 0% 5%;
+    --popover-foreground: 0 0% 92%;
+
+    --primary: 259 59% 51%; /* #6B46C1 */
+    --primary-foreground: 0 0% 92%; /* #EAEAEA */
+    
+    --secondary: 0 0% 12%; /* #1E1E1E */
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%; /* #9CA3AF */
+
+    --accent: 275 92% 65%; /* #A855F7 */
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 10%; /* Lighter border for dark theme */
+    --input: 0 0% 10%; /* #1A1A1A */
+    --ring: 259 59% 51%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 180 0% 5%;
+    --foreground: 0 0% 92%;
+
+    --card: 180 0% 7%;
+    --card-foreground: 0 0% 92%;
+
+    --popover: 180 0% 5%;
+    --popover-foreground: 0 0% 92%;
+
+    --primary: 259 59% 51%;
+    --primary-foreground: 0 0% 92%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 275 92% 65%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 0 0% 10%;
+    --input: 0 0% 10%;
+    --ring: 259 59% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .prose {
+    @apply text-foreground;
+  }
+
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    @apply text-primary font-semibold;
+  }
+
+  .prose h1 {
+    @apply text-xl my-4;
+  }
+
+  .prose h2 {
+    @apply text-lg my-3;
+  }
+  .prose h3 {
+    @apply text-base my-2;
+  }
+  
+  .prose p {
+    @apply leading-relaxed my-2;
+  }
+
+  .prose ul, .prose ol {
+    @apply my-2 ml-6;
+  }
+
+  .prose ul {
+    @apply list-disc;
+  }
+
+  .prose ol {
+    @apply list-decimal;
+  }
+
+  .prose li {
+    @apply my-1;
+  }
+
+  .prose strong {
+    @apply font-semibold text-primary;
+  }
+
+  
+  /* Custom Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--secondary));
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.5);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.7);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  .glassmorphism {
+    @apply bg-card/95 backdrop-blur-xl border border-white/10 shadow-lg;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
