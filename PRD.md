@@ -1,5 +1,5 @@
 
-# **MindScape: Product Requirements Document (PRD)**
+# **MindStack: Product Requirements Document (PRD)**
 
 **Version:** 1.0
 **Date:** [Current Date]
@@ -10,13 +10,13 @@
 ## **1. Introduction & Vision**
 
 ### **1.1. Product Overview**
-MindScape is an intelligent, AI-powered web application designed to revolutionize how users visualize, explore, and interact with information. It transforms topics, concepts, and even user-uploaded documents into structured, multi-layered, and aesthetically pleasing mind maps. With integrated AI assistance, conversational map-building, and content generation tools, MindScape serves as a comprehensive platform for learning, brainstorming, and knowledge organization.
+MindStack is an intelligent, AI-powered web application designed to revolutionize how users visualize, explore, and interact with information. It transforms topics, concepts, and even user-uploaded documents into structured, multi-layered, and aesthetically pleasing mind maps. With integrated AI assistance, conversational map-building, and content generation tools, MindStack serves as a comprehensive platform for learning, brainstorming, and knowledge organization.
 
 ### **1.2. Problem Statement**
 Learning and researching new topics can be overwhelming. Information is often unstructured, making it difficult to see connections, hierarchies, and the bigger picture. Traditional note-taking and mind mapping tools are manual, time-consuming, and lack dynamic, intelligent capabilities to deepen understanding.
 
 ### **1.3. Solution & Value Proposition**
-MindScape solves this by leveraging generative AI to automate the creation of detailed mind maps. Its core value proposition is **"Visualize Smarter, Think Faster."** It empowers users to:
+MindStack solves this by leveraging generative AI to automate the creation of detailed mind maps. Its core value proposition is **"Visualize Smarter, Think Faster."** It empowers users to:
 *   **Instantly structure any topic** into a clear, hierarchical format.
 *   **Explore complex relationships** between concepts through comparison maps.
 *   **Transform existing notes and documents** into interactive mind maps (Vision Mode).

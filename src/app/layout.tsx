@@ -15,7 +15,7 @@ import { Icons } from '@/components/icons';
  * @type {Metadata}
  */
 export const metadata: Metadata = {
-  title: 'MindScape',
+  title: 'MindStack',
   description: 'Generate beautiful, multi-layered mind maps for any topic.',
 };
 
