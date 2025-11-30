@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
@@ -34,6 +35,7 @@ import {
 } from '@/app/actions';
 import { BreadcrumbNavigation } from '@/components/breadcrumb-navigation';
 import Image from 'next/image';
+import { mindscapeMap } from '@/lib/mindscape-data';
 
 /**
  * The core content component for the mind map page.
@@ -157,12 +159,16 @@ function MindMapPageContent() {
       const lang = searchParams.get('lang');
       const parentTopic = searchParams.get('parent');
       const isPublic = searchParams.get('public') === 'true';
+      const isSelfReference = searchParams.get('selfReference') === 'true';
 
       let result: { data: GenerateMindMapOutput | null; error: string | null } = { data: null, error: null };
       let currentMode = 'standard';
 
       try {
-        if (mapId) {
+        if (isSelfReference) {
+          currentMode = 'self-reference';
+          result.data = mindscapeMap as GenerateMindMapOutput;
+        } else if (mapId) {
             currentMode = isPublic ? 'public-saved' : 'saved';
             if (isPublic) {
                 // Public maps are fetched with a direct getDoc call because they are read-only
@@ -259,7 +265,7 @@ function MindMapPageContent() {
                 setActiveMindMapIndex(0);
             }
 
-            const isNewlyGenerated = !['saved', 'public-saved'].includes(currentMode);
+            const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
             if (isNewlyGenerated && user) {
                 await handleSaveMap(result.data);
             }
@@ -321,7 +327,13 @@ function MindMapPageContent() {
     const activeMap = mindMaps[index];
     const lang = searchParams.get('lang');
     const newParams = new URLSearchParams();
-    newParams.set('topic', activeMap.topic);
+
+    if (activeMap.topic.toLowerCase() === 'mindscape') {
+      newParams.set('selfReference', 'true');
+    } else {
+      newParams.set('topic', activeMap.topic);
+    }
+
     if (lang) newParams.set('lang', lang);
     if (index > 0) {
       newParams.set('parent', mindMaps[index - 1].topic);
@@ -332,7 +344,13 @@ function MindMapPageContent() {
 
   const ModeBadge = () => {
     let badgeContent;
-    if (mode === 'compare') {
+    if (mode === 'self-reference') {
+      badgeContent = {
+        icon: Brain,
+        text: 'About MindScape',
+        tooltip: 'This is a pre-defined mind map about the MindScape app itself.',
+      };
+    } else if (mode === 'compare') {
       badgeContent = {
         icon: Zap,
         text: 'Comparison Mode',
@@ -427,7 +445,7 @@ function MindMapPageContent() {
             onLanguageChange={handleLanguageChange}
             onRegenerate={handleRegenerate}
             isRegenerating={isLoading}
-            canRegenerate={!isPublic}
+            canRegenerate={!isPublic && mode !== 'self-reference'}
           />
         </div>
       </div>

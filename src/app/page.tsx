@@ -399,7 +399,16 @@ export default function Home() {
   const languageSelectRef = createRef<HTMLButtonElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
+  useEffect(() => {
+    const welcomeFlag = sessionStorage.getItem('welcome_back');
+    if (welcomeFlag) {
+      toast({
+        title: 'Welcome!',
+        description: 'You have been successfully logged in.',
+      });
+      sessionStorage.removeItem('welcome_back');
+    }
+  }, [toast]);
 
 
 
@@ -410,6 +419,13 @@ export default function Home() {
     fileInfo?: { name: string; type: string }
   ) => {
     setIsGenerating(true);
+
+    // Check if user is searching for "MindScape" itself
+    if (topic1.toLowerCase().trim() === 'mindscape' && !topic2 && !fileInfo) {
+      // Redirect to mindmap page with special flag
+      router.push(`/mindmap?selfReference=true&lang=${lang}`);
+      return;
+    }
 
     if (fileInfo) {
       const file = fileInputRef.current?.files?.[0];
