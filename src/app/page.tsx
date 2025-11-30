@@ -484,7 +484,8 @@ export default function Home() {
     // Handle regular text-based generation
     let query;
     if (mode === 'compare' && topic2) {
-
+      query = new URLSearchParams({ topic1, topic2, lang }).toString();
+    } else {
       query = new URLSearchParams({ topic: topic1, lang }).toString();
     }
     router.push(`/mindmap?${query}`);
@@ -504,9 +505,6 @@ export default function Home() {
         setLang={setLang}
         isGenerating={isGenerating}
         languageSelectRef={languageSelectRef}
-        searchHistory={[]}
-        onHistoryClick={() => { }}
-        onDeleteHistoryItem={() => { }}
         fileInputRef={fileInputRef}
       />
       <Features onDocMapClick={handleDocMapClick} />
