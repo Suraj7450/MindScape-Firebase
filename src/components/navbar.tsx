@@ -96,7 +96,7 @@ export function Navbar() {
         <div className="flex flex-1 items-center justify-start gap-3">
           <Link href="/" className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5">
             <Icons.logo className="h-8 w-8" />
-            <span className="text-xl font-bold tracking-tight text-shadow-glow">MindStack</span>
+            <span className="text-xl font-bold tracking-tight text-shadow-glow">MindScape</span>
           </Link>
         </div>
 

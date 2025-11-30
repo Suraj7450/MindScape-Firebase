@@ -263,7 +263,7 @@ function Hero({
             <div className="relative w-full max-w-sm aspect-square">
               <Image
                 src="/MindScape-Logo.png"
-                alt="MindStack Logo"
+                alt="MindScape Logo"
                 fill={true}
                 className="drop-shadow-[0_0_70px_hsl(var(--primary)/0.5)]"
               />
