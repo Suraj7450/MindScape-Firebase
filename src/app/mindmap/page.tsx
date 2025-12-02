@@ -60,7 +60,7 @@ function MindMapPageContent() {
     string | undefined
   >(undefined);
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
-  
+
   const hasFetchedRef = useRef(false);
 
   const mindMap = mindMaps[activeMindMapIndex] as (GenerateMindMapOutput & { id?: string; thumbnailUrl?: string; thumbnailPrompt?: string, summary?: string });
@@ -68,7 +68,7 @@ function MindMapPageContent() {
 
   const mapId = searchParams.get('mapId');
   const isPublic = searchParams.get('public') === 'true';
-  
+
   const docPath = useMemoFirebase(() => {
     if (!mapId) return null;
     if (isPublic) {
@@ -81,7 +81,7 @@ function MindMapPageContent() {
   }, [firestore, user, mapId, isPublic]);
 
   const { data: savedMindMap, isLoading: isFetchingSavedMap } = useDoc<GenerateMindMapOutput>(docPath);
-  
+
   const handleSaveMap = useCallback(async (mapToSave: GenerateMindMapOutput) => {
     if (!mapToSave || !user || (mapToSave as any).id) {
       return;
@@ -89,14 +89,14 @@ function MindMapPageContent() {
     setIsSaving(true);
     try {
       const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
-      
+
       const { summary: summaryData, error: summaryError } = await summarizeMindMapAction({ mindMapData: mapToSave });
       if (summaryError || !summaryData) {
         throw new Error(summaryError || 'Failed to generate mind map summary.');
       }
 
       const { ...cleanMapData } = mapToSave;
-      
+
       const thumbnailPrompt = `A cinematic 3D render of ${mapToSave.topic}, in futuristic purple tones, mind-map theme, highly detailed`;
       const thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}`;
 
@@ -112,7 +112,7 @@ function MindMapPageContent() {
       const docRef = await addDoc(mindMapsCollection, newMindMapData);
 
       const updatedMindMap = { ...newMindMapData, id: docRef.id } as any;
-      
+
       setMindMaps(prevMaps => {
         const newMaps = [...prevMaps];
         const mapIndex = newMaps.findIndex(m => m.topic === mapToSave.topic);
@@ -169,121 +169,121 @@ function MindMapPageContent() {
           currentMode = 'self-reference';
           result.data = mindscapeMap as GenerateMindMapOutput;
         } else if (mapId) {
-            currentMode = isPublic ? 'public-saved' : 'saved';
-            if (isPublic) {
-                // Public maps are fetched with a direct getDoc call because they are read-only
-                const publicDocRef = doc(firestore, 'publicMindmaps', mapId);
-                const docSnap = await getDoc(publicDocRef);
-                if (docSnap.exists()) {
-                    result.data = { ...(docSnap.data() as GenerateMindMapOutput), id: docSnap.id };
-                } else {
-                    result.error = 'Could not find the public mind map.';
-                }
+          currentMode = isPublic ? 'public-saved' : 'saved';
+          if (isPublic) {
+            // Public maps are fetched with a direct getDoc call because they are read-only
+            const publicDocRef = doc(firestore, 'publicMindmaps', mapId);
+            const docSnap = await getDoc(publicDocRef);
+            if (docSnap.exists()) {
+              result.data = { ...(docSnap.data() as GenerateMindMapOutput), id: docSnap.id };
             } else {
-                 if (isFetchingSavedMap) {
-                    hasFetchedRef.current = false;
-                    return;
-                }
-                if (savedMindMap) {
-                    result.data = { ...savedMindMap, id: mapId };
-                } else if (!isFetchingSavedMap && !savedMindMap) {
-                    result.error = 'Could not find the saved mind map or you do not have permission to view it.';
-                }
+              result.error = 'Could not find the public mind map.';
             }
+          } else {
+            if (isFetchingSavedMap) {
+              hasFetchedRef.current = false;
+              return;
+            }
+            if (savedMindMap) {
+              result.data = { ...savedMindMap, id: mapId };
+            } else if (!isFetchingSavedMap && !savedMindMap) {
+              result.error = 'Could not find the saved mind map or you do not have permission to view it.';
+            }
+          }
         } else if (singleTopic) {
-            currentMode = 'standard';
-            result = await generateMindMapAction({
-                topic: singleTopic,
-                parentTopic: parentTopic || undefined,
-                targetLang: lang || undefined,
-            });
+          currentMode = 'standard';
+          result = await generateMindMapAction({
+            topic: singleTopic,
+            parentTopic: parentTopic || undefined,
+            targetLang: lang || undefined,
+          });
         } else if (topic1 && topic2) {
-            currentMode = 'compare';
-            result = await generateComparisonMapAction({
-                topic1,
-                topic2,
-                targetLang: lang || undefined,
-            });
+          currentMode = 'compare';
+          result = await generateComparisonMapAction({
+            topic1,
+            topic2,
+            targetLang: lang || undefined,
+          });
         } else if (sessionId) {
-              const sessionType = sessionStorage.getItem(`session-type-${sessionId}`);
-            const sessionContent = sessionStorage.getItem(`session-content-${sessionId}`);
+          const sessionType = sessionStorage.getItem(`session-type-${sessionId}`);
+          const sessionContent = sessionStorage.getItem(`session-content-${sessionId}`);
 
-            if (sessionContent) {
-                let fileContent, additionalText;
-                try {
-                    const parsed = JSON.parse(sessionContent);
-                    fileContent = parsed.file;
-                    additionalText = parsed.text;
-                } catch {
-                    fileContent = sessionContent;
-                    additionalText = '';
-                }
-
-                if (sessionType === 'image') {
-                    currentMode = 'vision-image';
-                    result = await generateMindMapFromImageAction({
-                        imageDataUri: fileContent,
-                        targetLang: lang || undefined,
-                    });
-                } else if (sessionType === 'text') {
-                    currentMode = 'vision-text';
-                    result = await generateMindMapFromTextAction({
-                        text: fileContent,
-                        context: additionalText,
-                        targetLang: lang || undefined,
-                    });
-                } else if (sessionType === 'mindgpt') {
-                    currentMode = 'mindgpt';
-                    try {
-                        result.data = JSON.parse(fileContent);
-                    } catch (e) {
-                        result.error = 'Could not process the MindGPT result. It might be corrupted.';
-                    }
-                }
-                sessionStorage.removeItem(`session-type-${sessionId}`);
-                sessionStorage.removeItem(`session-content-${sessionId}`);
-            } else {
-                result.error = 'Could not retrieve session data. Please try again.';
+          if (sessionContent) {
+            let fileContent, additionalText;
+            try {
+              const parsed = JSON.parse(sessionContent);
+              fileContent = parsed.file;
+              additionalText = parsed.text;
+            } catch {
+              fileContent = sessionContent;
+              additionalText = '';
             }
+
+            if (sessionType === 'image') {
+              currentMode = 'vision-image';
+              result = await generateMindMapFromImageAction({
+                imageDataUri: fileContent,
+                targetLang: lang || undefined,
+              });
+            } else if (sessionType === 'text') {
+              currentMode = 'vision-text';
+              result = await generateMindMapFromTextAction({
+                text: fileContent,
+                context: additionalText,
+                targetLang: lang || undefined,
+              });
+            } else if (sessionType === 'mindgpt') {
+              currentMode = 'mindgpt';
+              try {
+                result.data = JSON.parse(fileContent);
+              } catch (e) {
+                result.error = 'Could not process the MindGPT result. It might be corrupted.';
+              }
+            }
+            sessionStorage.removeItem(`session-type-${sessionId}`);
+            sessionStorage.removeItem(`session-content-${sessionId}`);
+          } else {
+            result.error = 'Could not retrieve session data. Please try again.';
+          }
         } else {
-            result.error = 'Invalid parameters for mind map generation.';
+          result.error = 'Invalid parameters for mind map generation.';
         }
 
         setMode(currentMode);
 
         if (result.error) {
-            throw new Error(result.error);
+          throw new Error(result.error);
         }
 
         if (result.data) {
-            const isBranching = !!parentTopic;
-            if (isBranching) {
-                setMindMaps(prevMaps => [...prevMaps, result.data!]);
-                setActiveMindMapIndex(prevIndex => prevIndex + 1);
-            } else {
-                setMindMaps([result.data]);
-                setActiveMindMapIndex(0);
-            }
+          const isBranching = !!parentTopic;
+          if (isBranching) {
+            setMindMaps(prevMaps => [...prevMaps, result.data!]);
+            setActiveMindMapIndex(prevIndex => prevIndex + 1);
+          } else {
+            setMindMaps([result.data]);
+            setActiveMindMapIndex(0);
+          }
 
-            const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
-            if (isNewlyGenerated && user) {
-                await handleSaveMap(result.data);
-            }
+          const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
+          if (isNewlyGenerated && user) {
+            await handleSaveMap(result.data);
+          }
         }
       } catch (e: any) {
-          const errorMessage = e.message || 'An unknown error occurred.';
-          setError(errorMessage);
-          toast({
-              variant: 'destructive',
-              title: 'Error Generating Mind Map',
-              description: errorMessage,
-          });
+        const errorMessage = e.message || 'An unknown error occurred.';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error Generating Mind Map',
+          description: errorMessage,
+        });
       } finally {
-          setIsLoading(false);
-          setGeneratingNodeId(null);
+        setIsLoading(false);
+        setGeneratingNodeId(null);
       }
     };
-    
+
     fetchMindMapData();
   }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore]);
 
@@ -315,13 +315,13 @@ function MindMapPageContent() {
     newParams.set('lang', langCode);
     router.push(`/mindmap?${newParams.toString()}`);
   };
-  
+
   const handleRegenerate = () => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('_r', Date.now().toString()); // Add a random param to force re-fetch
     router.push(`/mindmap?${newParams.toString()}`);
   };
-  
+
   const handleBreadcrumbSelect = (index: number) => {
     setActiveMindMapIndex(index);
     const activeMap = mindMaps[index];
@@ -375,11 +375,11 @@ function MindMapPageContent() {
         tooltip: 'You are viewing a saved mind map.',
       };
     } else if (mode === 'public-saved') {
-        badgeContent = {
-          icon: Cloud,
-          text: 'Viewing Public Map',
-          tooltip: 'You are viewing a mind map from the community.',
-        };
+      badgeContent = {
+        icon: Cloud,
+        text: 'Viewing Public Map',
+        tooltip: 'You are viewing a mind map from the community.',
+      };
     } else {
       return null;
     }
@@ -423,7 +423,7 @@ function MindMapPageContent() {
       <div className="flex flex-col items-center px-4 sm:px-8 pt-4 sm:pt-6 pb-8">
         <div className="w-full max-w-6xl mx-auto -mt-[60px]">
           <div className="flex flex-wrap items-center gap-4 mb-6">
-             {mindMaps.length > 1 && (
+            {mindMaps.length > 1 && (
               <BreadcrumbNavigation
                 maps={mindMaps}
                 activeIndex={activeMindMapIndex}
@@ -451,7 +451,7 @@ function MindMapPageContent() {
       </div>
       <button
         onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white shadow-lg transition-transform hover:scale-110"
+        className="fixed bottom-6 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white shadow-lg transition-transform hover:scale-110 z-50"
         aria-label="Open AI Chat Assistant"
       >
         <Sparkles className="h-6 w-6" />
