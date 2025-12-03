@@ -189,7 +189,17 @@ export function ChatPanel({
     }
     setIsLoading(true);
 
-    const { response, error } = await chatAction({ question: content, topic });
+    // Prepare history (last 10 messages)
+    const history = updatedMessages.slice(-10).map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    const { response, error } = await chatAction({
+      question: content,
+      topic,
+      history
+    });
     setIsLoading(false);
 
     const assistantMessage: Message = {

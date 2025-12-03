@@ -65,9 +65,9 @@ import {
   EnhanceImagePromptOutput,
 } from '@/ai/flows/enhance-image-prompt';
 import {
-    summarizeMindMap,
-    SummarizeMindMapInput,
-    SummarizeMindMapOutput,
+  summarizeMindMap,
+  SummarizeMindMapInput,
+  SummarizeMindMapOutput,
 } from '@/ai/flows/summarize-mind-map';
 import { addDoc, collection } from 'firebase/firestore';
 
@@ -231,6 +231,11 @@ export async function generateQuizAction(
 /**
  * Server action to handle a chat conversation with the AI assistant.
  * @param {ChatWithAssistantInput} input - The input containing the user's question and the current topic context.
+ * @returns {Promise<{ response: ChatWithAssistantOutput | null; error: string | null }>} An object with either the chat response or an error message.
+ */
+/**
+ * Server action to handle a chat conversation with the AI assistant.
+ * @param {ChatWithAssistantInput} input - The input containing the user's question, topic, and chat history.
  * @returns {Promise<{ response: ChatWithAssistantOutput | null; error: string | null }>} An object with either the chat response or an error message.
  */
 export async function chatAction(

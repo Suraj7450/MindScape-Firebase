@@ -19,6 +19,15 @@ const ChatWithAssistantInputSchema = z.object({
     .describe(
       'The current mind map topic, providing context for the conversation.'
     ),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })
+    )
+    .optional()
+    .describe('Previous chat history to provide context.'),
 });
 export type ChatWithAssistantInput = z.infer<
   typeof ChatWithAssistantInputSchema
@@ -45,6 +54,13 @@ const prompt = ai.definePrompt({
 
 🧠 **Current Topic**: {{{topic}}}
 
+{{#if history}}
+**Chat History**:
+{{#each history}}
+- **{{role}}**: {{content}}
+{{/each}}
+{{/if}}
+
 **User Question**:
 "{{{question}}}"
 
@@ -53,7 +69,7 @@ const prompt = ai.definePrompt({
 ## 🎯 Your Mission
 Provide clear, engaging, and visually structured responses that are easy to scan and understand. Use modern formatting to enhance readability.
 
-## � Formatting Guidelines
+## 📋 Formatting Guidelines
 
 ### Structure
 - **Start with a brief intro** (1-2 sentences max)
