@@ -11,13 +11,15 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2 } from 'lucide-react';
+import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw } from 'lucide-react';
 import { chatAction, summarizeChatAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * Represents a single message in the chat.
@@ -70,7 +72,9 @@ export function ChatPanel({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
 
@@ -95,7 +99,7 @@ export function ChatPanel({
   useEffect(() => {
     let summarizedSessionId: string | null = null;
     let summarizedSession: ChatSession | null = null;
-    
+
     if (activeSession && activeSession.topic === 'General Conversation' && activeSession.messages.length > 0) {
       summarizedSessionId = activeSession.id;
       summarizedSession = activeSession;
@@ -106,7 +110,7 @@ export function ChatPanel({
         summarizeChatAction({ history: summarizedSession.messages.slice(0, 4) })
           .then(({ summary, error }) => {
             if (summary && !error) {
-              setSessions(prev => prev.map(s => 
+              setSessions(prev => prev.map(s =>
                 s.id === summarizedSessionId ? { ...s, topic: summary.topic } : s
               ));
             }
@@ -132,7 +136,7 @@ export function ChatPanel({
       // Reset flags when closed
       hasSentInitialMessage.current = false;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, topic]);
 
   /**
@@ -169,17 +173,17 @@ export function ChatPanel({
     if (!content || !activeSessionId) return;
 
     const newMessage: Message = { role: 'user', content };
-    
+
     // Update the state optimistically
     const currentMessages = activeSession?.messages ?? [];
     const updatedMessages = [...currentMessages, newMessage];
 
-    setSessions(prev => prev.map(s => 
-      s.id === activeSessionId 
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
         ? { ...s, messages: updatedMessages, timestamp: Date.now() }
         : s
     ));
-    
+
     if (!messageToSend) {
       setInput('');
     }
@@ -193,13 +197,70 @@ export function ChatPanel({
       content: error ? `Sorry, I ran into an error: ${error}` : response!.answer,
     };
 
-    setSessions(prev => prev.map(s => 
+    setSessions(prev => prev.map(s =>
       s.id === activeSessionId
         ? { ...s, messages: [...updatedMessages, assistantMessage] }
         : s
     ));
   };
-  
+
+  /**
+   * Copies a message to clipboard.
+   */
+  const handleCopy = async (content: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      toast({
+        title: 'Copied!',
+        description: 'Response copied to clipboard.',
+      });
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Copy failed',
+        description: 'Could not copy to clipboard.',
+      });
+    }
+  };
+
+  /**
+   * Regenerates the last assistant response.
+   */
+  const handleRegenerate = async (index: number) => {
+    if (!activeSessionId || !activeSession) return;
+
+    // Find the user message that prompted this response
+    const userMessageIndex = index - 1;
+    if (userMessageIndex < 0 || messages[userMessageIndex].role !== 'user') return;
+
+    const userMessage = messages[userMessageIndex].content;
+
+    // Remove the assistant message we're regenerating
+    const updatedMessages = messages.slice(0, index);
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: updatedMessages }
+        : s
+    ));
+
+    setIsLoading(true);
+    const { response, error } = await chatAction({ question: userMessage, topic });
+    setIsLoading(false);
+
+    const newAssistantMessage: Message = {
+      role: 'assistant',
+      content: error ? `Sorry, I ran into an error: ${error}` : response!.answer,
+    };
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: [...updatedMessages, newAssistantMessage] }
+        : s
+    ));
+  };
+
   /**
    * Selects a session from the history view.
    */
@@ -236,27 +297,27 @@ export function ChatPanel({
       <ScrollArea className="flex-grow px-4">
         <div className="flex flex-col gap-4 py-4">
           {messages.length === 0 && topic === 'General Conversation' && (
-             <div className="text-center p-4">
-                <Avatar className="h-12 w-12 border-2 border-primary mx-auto mb-4">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    <Bot className="h-7 w-7" />
-                  </AvatarFallback>
-                </Avatar>
-                <p className="text-lg font-semibold mb-2">How can I help you?</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {suggestionPrompts.map((prompt, index) => (
-                    <Button
-                      key={index}
-                      variant="ghost"
-                      className="h-auto justify-start p-3 text-left text-muted-foreground"
-                      onClick={() => handleSend(prompt.text)}
-                    >
-                      <prompt.icon className="h-4 w-4 mr-2 flex-shrink-0" />
-                      {prompt.text}
-                    </Button>
-                  ))}
-                </div>
-             </div>
+            <div className="text-center p-4">
+              <Avatar className="h-12 w-12 border-2 border-primary mx-auto mb-4">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  <Bot className="h-7 w-7" />
+                </AvatarFallback>
+              </Avatar>
+              <p className="text-lg font-semibold mb-2">How can I help you?</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {suggestionPrompts.map((prompt, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    className="h-auto justify-start p-3 text-left text-muted-foreground"
+                    onClick={() => handleSend(prompt.text)}
+                  >
+                    <prompt.icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    {prompt.text}
+                  </Button>
+                ))}
+              </div>
+            </div>
           )}
           {messages.map((message, index) => (
             <div
@@ -275,16 +336,62 @@ export function ChatPanel({
               )}
               <div
                 className={cn(
-                  'p-3 rounded-lg max-w-[80%]',
+                  'rounded-lg max-w-[80%]',
                   message.role === 'user'
                     ? 'bg-primary text-primary-foreground rounded-br-none'
                     : 'bg-secondary/80 rounded-bl-none'
                 )}
               >
-                <div
-                  className="text-sm prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                />
+                <div className="p-3">
+                  <div
+                    className="text-sm prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                  />
+
+                </div>
+                {message.role === 'assistant' && (
+                  <div className="flex items-center gap-1 px-3 pb-2 pt-0">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-secondary"
+                            onClick={() => handleCopy(message.content, index)}
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>{copiedIndex === index ? 'Copied!' : 'Copy'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-secondary"
+                            onClick={() => handleRegenerate(index)}
+                            disabled={isLoading}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Regenerate</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
               </div>
               {message.role === 'user' && (
                 <Avatar className="h-8 w-8 border">
@@ -295,7 +402,7 @@ export function ChatPanel({
               )}
             </div>
           ))}
-           <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
           {isLoading && (
             <div className="flex items-center gap-3 justify-start">
               <Avatar className="h-8 w-8 border">
@@ -312,28 +419,28 @@ export function ChatPanel({
       </ScrollArea>
       <div className="px-4 pb-4">
         <Separator className="mb-4" />
-          <form
+        <form
           onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
+            e.preventDefault();
+            handleSend();
           }}
           className="flex gap-2"
-          >
+        >
           <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
-              disabled={isLoading}
-              className="glassmorphism"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question..."
+            disabled={isLoading}
+            className="glassmorphism"
           />
           <Button type="submit" disabled={isLoading || !input.trim()}>
-              {isLoading ? (
+            {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+            ) : (
               <Send className="h-4 w-4" />
-              )}
+            )}
           </Button>
-          </form>
+        </form>
       </div>
     </>
   );
@@ -349,7 +456,7 @@ export function ChatPanel({
               className="relative group p-4 rounded-lg bg-white/5 border border-white/10 backdrop-blur-lg hover:border-purple-400/30 hover:shadow-[0_0_20px_rgba(168,85,247,0.2)] transition-all duration-300 cursor-pointer"
             >
               <div className="flex items-start gap-3">
-                 <MessageSquare className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                <MessageSquare className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-grow overflow-hidden">
                   <p className="font-semibold text-white truncate">
                     {session.topic}
@@ -407,10 +514,10 @@ export function ChatPanel({
               </>
             )}
             <SheetClose asChild>
-                <Button variant="ghost" size="icon">
-                    <X className="h-5 w-5" />
-                    <span className="sr-only">Close</span>
-                </Button>
+              <Button variant="ghost" size="icon">
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </Button>
             </SheetClose>
           </div>
         </div>

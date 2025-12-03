@@ -13,7 +13,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Formats a block of text, converting markdown-style syntax to HTML.
- * This version properly handles paragraphs, lists, and other structures.
+ * Supports: headings, bold, italic, code, lists, tables, and emojis.
  * @param {string} text - The block of text to format.
  * @returns {string} A string containing the formatted HTML.
  */
@@ -24,25 +24,78 @@ export const formatText = (text: string): string => {
   let html = '';
   let inList = false;
   let listType: 'ul' | 'ol' | null = null;
+  let inTable = false;
+  let tableRows: string[] = [];
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     let processedLine = line.trim();
+
+    // Handle table rows
+    if (processedLine.startsWith('|') && processedLine.endsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        tableRows = [];
+      }
+      tableRows.push(processedLine);
+
+      // Check if next line is not a table row or is the last line
+      const nextLine = lines[i + 1]?.trim();
+      if (!nextLine || (!nextLine.startsWith('|') || !nextLine.endsWith('|'))) {
+        // Process complete table
+        html += formatTable(tableRows);
+        inTable = false;
+        tableRows = [];
+      }
+      continue;
+    }
+
+    // Close list if we're in one and hit a non-list line
+    if (inList) {
+      const isListItem = /^\s*([*-]|\d+\.)\s+/.test(line);
+      const isEmptyLine = !processedLine;
+
+      // If it's not a list item, check if it's just an empty line between list items (loose list)
+      if (!isListItem) {
+        let shouldCloseList = true;
+
+        if (isEmptyLine) {
+          // Look ahead to see if the next non-empty line is a list item of the same type
+          for (let j = i + 1; j < lines.length; j++) {
+            const nextLine = lines[j].trim();
+            if (nextLine) {
+              const isNextUnordered = /^\s*([*-])\s+/.test(lines[j]);
+              const isNextOrdered = /^\s*\d+\.\s+/.test(lines[j]);
+
+              if ((listType === 'ul' && isNextUnordered) || (listType === 'ol' && isNextOrdered)) {
+                shouldCloseList = false;
+              }
+              break;
+            }
+          }
+        }
+
+        if (shouldCloseList) {
+          html += `</${listType}>`;
+          inList = false;
+        }
+      }
+    }
 
     // Handle headings
     if (processedLine.startsWith('#')) {
-      if (inList) {
-        html += `</${listType}>`;
-        inList = false;
-      }
       let level = processedLine.match(/^#+/)![0].length;
       let content = processedLine.substring(level).trim();
-      content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      content = formatInlineMarkdown(content);
       html += `<h${level}>${content}</h${level}>`;
       continue;
     }
-    
-    // Handle bold text within any line
-    processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Handle horizontal rules
+    if (processedLine === '---' || processedLine === '***') {
+      html += '<hr class="my-4 border-border" />';
+      continue;
+    }
 
     // Handle list items
     const isUnorderedListItem = /^\s*([*-])\s+/.test(line);
@@ -55,22 +108,16 @@ export const formatText = (text: string): string => {
         listType = currentListType;
         html += `<${listType}>`;
       } else if (listType !== currentListType) {
-        // Switch list type
         html += `</${listType}><${currentListType}>`;
         listType = currentListType;
       }
-      
-      const listItemContent = line.replace(/^\s*([*-]|\d+\.)\s+/, '').trim();
-      html += `<li>${listItemContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</li>`;
 
+      const listItemContent = line.replace(/^\s*([*-]|\d+\.)\s+/, '').trim();
+      html += `<li>${formatInlineMarkdown(listItemContent)}</li>`;
     } else {
-      if (inList) {
-        html += `</${listType}>`;
-        inList = false;
-      }
       // Handle paragraphs
       if (processedLine) {
-        html += `<p>${processedLine}</p>`;
+        html += `<p>${formatInlineMarkdown(processedLine)}</p>`;
       }
     }
   }
@@ -78,10 +125,56 @@ export const formatText = (text: string): string => {
   if (inList) {
     html += `</${listType}>`;
   }
-  
-  // Clean up any empty paragraphs that might have been created from newlines
+
   return html.replace(/<p><\/p>/g, '');
 };
+
+/**
+ * Formats inline markdown (bold, italic, code).
+ */
+function formatInlineMarkdown(text: string): string {
+  // Code blocks (backticks)
+  text = text.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">$1</code>');
+
+  // Bold
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  return text;
+}
+
+/**
+ * Formats markdown table into HTML table.
+ */
+function formatTable(rows: string[]): string {
+  if (rows.length < 2) return '';
+
+  let html = '<table class="w-full border-collapse my-4"><thead>';
+
+  // Header row
+  const headerCells = rows[0].split('|').filter(cell => cell.trim());
+  html += '<tr>';
+  headerCells.forEach(cell => {
+    html += `<th class="border border-border px-3 py-2 bg-muted font-semibold text-left">${formatInlineMarkdown(cell.trim())}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Skip separator row (index 1) and process data rows
+  for (let i = 2; i < rows.length; i++) {
+    const cells = rows[i].split('|').filter(cell => cell.trim());
+    html += '<tr>';
+    cells.forEach(cell => {
+      html += `<td class="border border-border px-3 py-2">${formatInlineMarkdown(cell.trim())}</td>`;
+    });
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  return html;
+}
+
 
 /**
  * Formats a date into a short, relative time string (e.g., "5m", "2h", "3d").
