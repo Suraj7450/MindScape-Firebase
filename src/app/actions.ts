@@ -235,7 +235,7 @@ export async function generateQuizAction(
  */
 /**
  * Server action to handle a chat conversation with the AI assistant.
- * @param {ChatWithAssistantInput} input - The input containing the user's question, topic, and chat history.
+ * @param {ChatWithAssistantInput} input - The input containing the user's question, topic, chat history, and persona.
  * @returns {Promise<{ response: ChatWithAssistantOutput | null; error: string | null }>} An object with either the chat response or an error message.
  */
 export async function chatAction(

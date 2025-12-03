@@ -28,6 +28,11 @@ const ChatWithAssistantInputSchema = z.object({
     )
     .optional()
     .describe('Previous chat history to provide context.'),
+  persona: z
+    .enum(['standard', 'teacher', 'concise', 'creative'])
+    .optional()
+    .default('standard')
+    .describe('The personality/style of the AI assistant.'),
 });
 export type ChatWithAssistantInput = z.infer<
   typeof ChatWithAssistantInputSchema
@@ -53,6 +58,7 @@ const prompt = ai.definePrompt({
   prompt: `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
 
 🧠 **Current Topic**: {{{topic}}}
+🎭 **Current Persona**: {{{persona}}}
 
 {{#if history}}
 **Chat History**:
@@ -67,7 +73,19 @@ const prompt = ai.definePrompt({
 ---
 
 ## 🎯 Your Mission
-Provide clear, engaging, and visually structured responses that are easy to scan and understand. Use modern formatting to enhance readability.
+Provide clear, engaging, and visually structured responses.
+
+## 🎭 Persona Instructions
+
+**Current Persona Mode**: {{{persona}}}
+
+{{#if persona}}
+Adjust your response style based on the persona:
+- **teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
+- **concise**: Be brief and direct. Use bullet points. Avoid fluff. Focus on the "what" and "how".
+- **creative**: Be imaginative and brainstorm ideas. Use colorful language and metaphors. Suggest out-of-the-box connections.
+- **standard**: Balanced, helpful, and professional with clear structure and moderate detail.
+{{/if}}
 
 ## 📋 Formatting Guidelines
 

@@ -11,7 +11,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw } from 'lucide-react';
+import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw, Sparkles, GraduationCap, Zap, Palette, Mic, MicOff, Download, Eraser } from 'lucide-react';
 import { chatAction, summarizeChatAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText } from '@/lib/utils';
@@ -20,6 +20,12 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Represents a single message in the chat.
@@ -38,6 +44,15 @@ interface ChatSession {
   messages: Message[];
   timestamp: number;
 }
+
+type Persona = 'standard' | 'teacher' | 'concise' | 'creative';
+
+const personas: { id: Persona; label: string; icon: any; color: string }[] = [
+  { id: 'standard', label: 'Standard', icon: Sparkles, color: 'text-blue-400' },
+  { id: 'teacher', label: 'Teacher', icon: GraduationCap, color: 'text-yellow-400' },
+  { id: 'concise', label: 'Concise', icon: Zap, color: 'text-orange-400' },
+  { id: 'creative', label: 'Creative', icon: Palette, color: 'text-pink-400' },
+];
 
 /**
  * Props for the ChatPanel component.
@@ -73,6 +88,8 @@ export function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [persona, setPersona] = useState<Persona>('standard');
+  const [isListening, setIsListening] = useState(false);
 
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -166,6 +183,79 @@ export function ChatPanel({
   };
 
   /**
+   * Exports the current chat session to a PDF file.
+   */
+  const exportChatToPDF = async () => {
+    if (!activeSession) return;
+
+    try {
+      // Dynamically import jsPDF to avoid SSR issues
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MindScape Chat Export', 20, 20);
+
+      // Topic
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Topic: ${activeSession.topic}`, 20, 30);
+      doc.text(`Date: ${new Date(activeSession.timestamp).toLocaleString()}`, 20, 37);
+
+      // Messages
+      let yPosition = 50;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 20;
+      const maxWidth = 170;
+
+      activeSession.messages.forEach((msg, index) => {
+        // Check if we need a new page
+        if (yPosition > pageHeight - 30) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        // Role label
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        const roleLabel = msg.role === 'user' ? 'You:' : 'MindScape AI:';
+        doc.text(roleLabel, margin, yPosition);
+
+        // Message content
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(msg.content, maxWidth);
+        yPosition += 7;
+
+        lines.forEach((line: string) => {
+          if (yPosition > pageHeight - 20) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(line, margin, yPosition);
+          yPosition += 5;
+        });
+
+        yPosition += 5; // Space between messages
+      });
+
+      // Save PDF
+      doc.save(`mindscape-chat-${activeSession.topic.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+
+      toast({ title: 'Exported', description: 'Chat history downloaded as PDF.' });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Export failed',
+        description: 'Could not generate PDF. Please try again.'
+      });
+    }
+  };
+
+  /**
    * Sends a message to the AI assistant and updates the current session.
    */
   const handleSend = async (messageToSend?: string) => {
@@ -198,7 +288,8 @@ export function ChatPanel({
     const { response, error } = await chatAction({
       question: content,
       topic,
-      history
+      history,
+      persona
     });
     setIsLoading(false);
 
@@ -256,7 +347,11 @@ export function ChatPanel({
     ));
 
     setIsLoading(true);
-    const { response, error } = await chatAction({ question: userMessage, topic });
+    const { response, error } = await chatAction({
+      question: userMessage,
+      topic,
+      persona
+    });
     setIsLoading(false);
 
     const newAssistantMessage: Message = {
@@ -301,6 +396,57 @@ export function ChatPanel({
     }
   }
 
+  /**
+   * Handles voice input using Web Speech API.
+   */
+  const handleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast({
+        variant: 'destructive',
+        title: 'Not supported',
+        description: 'Voice input is not supported in this browser.',
+      });
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast({
+        title: 'Listening...',
+        description: 'Speak now.',
+      });
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      setIsListening(false);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not recognize speech.',
+      });
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
 
   const renderChatView = () => (
     <>
@@ -313,16 +459,47 @@ export function ChatPanel({
                   <Bot className="h-7 w-7" />
                 </AvatarFallback>
               </Avatar>
-              <p className="text-lg font-semibold mb-2">How can I help you?</p>
+              <p className="text-lg font-semibold mb-6">How can I help you?</p>
+
+              {/* Quick Resume Cards */}
+              {sessions.length > 1 && (
+                <div className="mb-6">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium text-left">Jump back in</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {sessions
+                      .filter(s => s.id !== activeSessionId && s.messages.length > 0)
+                      .slice(0, 2)
+                      .map(session => (
+                        <button
+                          key={session.id}
+                          onClick={() => selectSession(session.id)}
+                          className="text-left p-3 rounded-lg bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all group"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <History className="h-3 w-3 text-primary" />
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(session.timestamp), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                            {session.topic}
+                          </p>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium text-left">Suggestions</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {suggestionPrompts.map((prompt, index) => (
                   <Button
                     key={index}
                     variant="ghost"
-                    className="h-auto justify-start p-3 text-left text-muted-foreground"
+                    className="h-auto justify-start p-3 text-left text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                     onClick={() => handleSend(prompt.text)}
                   >
-                    <prompt.icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <prompt.icon className="h-4 w-4 mr-2 flex-shrink-0 text-primary/70" />
                     {prompt.text}
                   </Button>
                 ))}
@@ -428,7 +605,31 @@ export function ChatPanel({
         </div>
       </ScrollArea>
       <div className="px-4 pb-4">
-        <Separator className="mb-4" />
+        {/* Context Awareness Pills */}
+        <div className="flex items-center gap-2 mb-2 px-1">
+          <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-full border border-border/50">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Context: {topic.length > 20 ? topic.substring(0, 20) + '...' : topic}
+            </span>
+          </div>
+
+          {/* Persona Pill */}
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/50 bg-secondary/50",
+            personas.find(p => p.id === persona)?.color
+          )}>
+            {(() => {
+              const p = personas.find(p => p.id === persona);
+              const Icon = p?.icon || Sparkles;
+              return <Icon className="w-3 h-3" />;
+            })()}
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              {personas.find(p => p.id === persona)?.label}
+            </span>
+          </div>
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -436,13 +637,28 @@ export function ChatPanel({
           }}
           className="flex gap-2"
         >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question..."
-            disabled={isLoading}
-            className="glassmorphism"
-          />
+          <div className="relative flex-grow">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isListening ? "Listening..." : "Ask a question..."}
+              disabled={isLoading}
+              className={cn("glassmorphism pr-10", isListening && "border-primary ring-1 ring-primary")}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent",
+                isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={handleVoiceInput}
+              disabled={isLoading}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          </div>
           <Button type="submit" disabled={isLoading || !input.trim()}>
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -510,9 +726,82 @@ export function ChatPanel({
               {view === 'history' ? 'Chat History' : activeSession?.topic ?? 'AI Chat'}
             </SheetTitle>
           </div>
-          <div className='flex items-center'>
+          <div className='flex items-center gap-1'>
             {view === 'chat' && (
               <>
+                {/* Persona Selector */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className={personas.find(p => p.id === persona)?.color}>
+                      {(() => {
+                        const p = personas.find(p => p.id === persona);
+                        const Icon = p?.icon || Sparkles;
+                        return <Icon className="h-5 w-5" />;
+                      })()}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {personas.map((p) => (
+                      <DropdownMenuItem
+                        key={p.id}
+                        onClick={() => setPersona(p.id)}
+                        className="gap-2"
+                      >
+                        <p.icon className={cn("h-4 w-4", p.color)} />
+                        <span>{p.label}</span>
+                        {persona === p.id && <Check className="h-3 w-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* PDF Export Button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={exportChatToPDF}
+                        disabled={!activeSession || messages.length === 0}
+                      >
+                        <Download className="h-5 w-5" />
+                        <span className="sr-only">Export to PDF</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Export to PDF</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Clear Chat Button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (activeSessionId) {
+                            setSessions(prev => prev.map(s =>
+                              s.id === activeSessionId ? { ...s, messages: [] } : s
+                            ));
+                            toast({ title: 'Chat cleared', description: 'Messages have been cleared.' });
+                          }
+                        }}
+                        disabled={!activeSession || messages.length === 0}
+                      >
+                        <Eraser className="h-5 w-5" />
+                        <span className="sr-only">Clear Chat</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Clear Chat</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
                 <Button variant="ghost" size="icon" onClick={() => setView('history')}>
                   <History className="h-5 w-5" />
                   <span className="sr-only">Chat History</span>
