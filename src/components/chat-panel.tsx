@@ -139,29 +139,25 @@ export function ChatPanel({
     scrollToBottom();
   }, [messages]);
 
-  // Summarize chat when closing or switching if it's a general conversation
+  // Summarize chat to generate a topic title
   useEffect(() => {
-    let summarizedSessionId: string | null = null;
-    let summarizedSession: ChatSession | null = null;
-
-    if (activeSession && activeSession.topic === 'General Conversation' && activeSession.messages.length > 0) {
-      summarizedSessionId = activeSession.id;
-      summarizedSession = activeSession;
+    if (
+      activeSession &&
+      activeSession.topic === 'General Conversation' &&
+      activeSession.messages.length >= 2 &&
+      !isLoading
+    ) {
+      const sessionIdToUpdate = activeSession.id;
+      summarizeChatAction({ history: activeSession.messages.slice(0, 4) })
+        .then(({ summary, error }) => {
+          if (summary && !error) {
+            setSessions(prev => prev.map(s =>
+              s.id === sessionIdToUpdate ? { ...s, topic: summary.topic } : s
+            ));
+          }
+        });
     }
-
-    return () => {
-      if (summarizedSession && summarizedSessionId) {
-        summarizeChatAction({ history: summarizedSession.messages.slice(0, 4) })
-          .then(({ summary, error }) => {
-            if (summary && !error) {
-              setSessions(prev => prev.map(s =>
-                s.id === summarizedSessionId ? { ...s, topic: summary.topic } : s
-              ));
-            }
-          });
-      }
-    };
-  }, [activeSessionId, activeSession, setSessions]);
+  }, [activeSession?.messages.length, isLoading, activeSession?.topic, activeSession?.id, setSessions]);
 
 
   /**
