@@ -11,7 +11,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw, Sparkles, GraduationCap, Zap, Palette, Mic, MicOff, Download, Eraser } from 'lucide-react';
+import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw, Sparkles, GraduationCap, Zap, Palette, Mic, MicOff, Download, Eraser, Github } from 'lucide-react';
 import { chatAction, summarizeChatAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText } from '@/lib/utils';
@@ -64,13 +64,31 @@ interface ChatPanelProps {
   initialMessage?: string;
 }
 
-const suggestionPrompts = [
-  { icon: Wand2, text: 'Suggest a creative topic' },
-  { icon: GitCompareArrows, text: 'How do I compare two topics?' },
-  { icon: FileQuestion, text: 'How do I use Vision Mode?' },
-  { icon: TestTube2, text: 'Can you quiz me on a topic?' },
-  { icon: Save, text: 'How do I save my mind maps?' },
-  { icon: HelpCircle, text: 'What is mind mapping?' },
+const allSuggestionPrompts = [
+  // Science & Tech
+  { icon: Wand2, text: 'Generate a mind map about space exploration', color: 'text-purple-400' },
+  { icon: GitCompareArrows, text: 'Compare AI vs Machine Learning', color: 'text-blue-400' },
+  { icon: TestTube2, text: 'Quiz me on world history', color: 'text-green-400' },
+  { icon: HelpCircle, text: 'Explain quantum computing simply', color: 'text-yellow-400' },
+  { icon: Zap, text: 'Explain the theory of relativity', color: 'text-orange-400' },
+  { icon: TestTube2, text: 'How does photosynthesis work?', color: 'text-green-500' },
+  { icon: Github, text: 'Explain Blockchain technology', color: 'text-gray-400' }, // Assuming Github icon available or use generic
+
+  // Creative & Ideas
+  { icon: Palette, text: 'Brainstorm marketing ideas for a coffee shop', color: 'text-pink-400' },
+  { icon: Sparkles, text: 'Write a short story about a time traveler', color: 'text-purple-300' },
+  { icon: Wand2, text: 'Design a workout routine for beginners', color: 'text-blue-300' },
+  { icon: GraduationCap, text: 'Give me 5 study tips for exams', color: 'text-yellow-500' },
+
+  // Philosophy & Soft Skills
+  { icon: HelpCircle, text: 'What is the philosophy of Stoicism?', color: 'text-orange-300' },
+  { icon: GitCompareArrows, text: 'Analyze the pros and cons of remote work', color: 'text-blue-500' },
+  { icon: Zap, text: 'How to improve public speaking skills?', color: 'text-yellow-300' },
+
+  // Fun & Random
+  { icon: Wand2, text: 'Suggest a creative hobby to start', color: 'text-pink-500' },
+  { icon: Sparkles, text: 'Plan a 3-day trip to Japan', color: 'text-red-400' },
+  { icon: TestTube2, text: 'Fun facts about the deep ocean', color: 'text-cyan-400' },
 ];
 
 /**
@@ -90,6 +108,7 @@ export function ChatPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [persona, setPersona] = useState<Persona>('standard');
   const [isListening, setIsListening] = useState(false);
+  const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
 
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -100,6 +119,14 @@ export function ChatPanel({
   }, [sessions, activeSessionId]);
 
   const messages = activeSession?.messages ?? [];
+
+  // Shuffle prompts when starting a fresh 'General Conversation' chat
+  useEffect(() => {
+    if (activeSessionId && activeSession?.topic === 'General Conversation' && activeSession.messages.length === 0) {
+      const shuffled = [...allSuggestionPrompts].sort(() => 0.5 - Math.random());
+      setDisplayedPrompts(shuffled.slice(0, 4));
+    }
+  }, [activeSessionId, activeSession?.topic, activeSession?.messages.length]);
 
   /**
    * Scrolls the chat view to the bottom.
@@ -193,53 +220,126 @@ export function ChatPanel({
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
 
-      // Title
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('MindScape Chat Export', 20, 20);
+      // Helper function to clean markdown and emojis from text
+      const cleanText = (text: string): string => {
+        return text
+          // Remove emojis and special unicode characters
+          .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+          // Remove markdown bold
+          .replace(/\*\*(.+?)\*\*/g, '$1')
+          // Remove markdown italic
+          .replace(/\*(.+?)\*/g, '$1')
+          // Remove markdown code
+          .replace(/`(.+?)`/g, '$1')
+          // Remove markdown headers
+          .replace(/^#{1,6}\s+/gm, '')
+          // Clean up bullet points
+          .replace(/^[\*\-]\s+/gm, '• ')
+          // Clean up numbered lists
+          .replace(/^\d+\.\s+/gm, '')
+          // Remove extra whitespace
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
 
-      // Topic
-      doc.setFontSize(12);
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MindScape Chat Export', 105, 20, { align: 'center' });
+
+      // Metadata box
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Topic: ${activeSession.topic}`, 20, 30);
-      doc.text(`Date: ${new Date(activeSession.timestamp).toLocaleString()}`, 20, 37);
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(15, 28, 180, 16);
+      doc.text(`Topic: ${activeSession.topic}`, 20, 34);
+      doc.text(`Date: ${new Date(activeSession.timestamp).toLocaleString()}`, 20, 40);
 
       // Messages
-      let yPosition = 50;
+      let yPosition = 55;
       const pageHeight = doc.internal.pageSize.height;
+      const pageWidth = doc.internal.pageSize.width;
       const margin = 20;
-      const maxWidth = 170;
+      const maxWidth = pageWidth - (margin * 2);
 
       activeSession.messages.forEach((msg, index) => {
         // Check if we need a new page
-        if (yPosition > pageHeight - 30) {
+        if (yPosition > pageHeight - 40) {
           doc.addPage();
           yPosition = 20;
         }
 
-        // Role label
+        // Role label with background
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
-        const roleLabel = msg.role === 'user' ? 'You:' : 'MindScape AI:';
-        doc.text(roleLabel, margin, yPosition);
+        const roleLabel = msg.role === 'user' ? 'You' : 'MindScape AI';
+        const roleColor = msg.role === 'user' ? [59, 130, 246] : [168, 85, 247]; // blue or purple
 
-        // Message content
+        // Draw role badge
+        doc.setFillColor(roleColor[0], roleColor[1], roleColor[2]);
+        doc.roundedRect(margin, yPosition - 4, 35, 7, 2, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(roleLabel, margin + 2, yPosition);
+        doc.setTextColor(0, 0, 0);
+
+        yPosition += 10;
+
+        // Message content - clean and format
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        const lines = doc.splitTextToSize(msg.content, maxWidth);
-        yPosition += 7;
 
-        lines.forEach((line: string) => {
-          if (yPosition > pageHeight - 20) {
+        // Clean the message content
+        const cleanedContent = cleanText(msg.content);
+
+        // Split into paragraphs
+        const paragraphs = cleanedContent.split('\n').filter(p => p.trim());
+
+        paragraphs.forEach((paragraph) => {
+          if (yPosition > pageHeight - 30) {
             doc.addPage();
             yPosition = 20;
           }
-          doc.text(line, margin, yPosition);
-          yPosition += 5;
+
+          // Handle bullet points
+          const isBullet = paragraph.trim().startsWith('•');
+          const indent = isBullet ? margin + 5 : margin;
+          const textWidth = isBullet ? maxWidth - 5 : maxWidth;
+
+          const lines = doc.splitTextToSize(paragraph, textWidth);
+
+          lines.forEach((line: string, lineIndex: number) => {
+            if (yPosition > pageHeight - 20) {
+              doc.addPage();
+              yPosition = 20;
+            }
+
+            doc.text(line, indent, yPosition);
+            yPosition += 5;
+          });
+
+          yPosition += 2; // Small gap between paragraphs
         });
 
-        yPosition += 5; // Space between messages
+        // Add separator between messages
+        yPosition += 3;
+        doc.setDrawColor(230, 230, 230);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 8;
       });
+
+      // Footer on last page
+      const totalPages = doc.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${i} of ${totalPages} • Generated by MindScape`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
 
       // Save PDF
       doc.save(`mindscape-chat-${activeSession.topic.replace(/\s+/g, '-').toLowerCase()}.pdf`);
@@ -379,21 +479,26 @@ export function ChatPanel({
    */
   const deleteSession = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    if (activeSessionId === sessionId) {
-      setActiveSessionId(null);
-      // Optional: switch to the most recent session or a new one
-      if (sessions.length > 1) {
-        const remainingSessions = sessions.filter(s => s.id !== sessionId);
+
+    // Use callback form to ensure we have the latest state
+    setSessions(prevSessions => {
+      const remainingSessions = prevSessions.filter(s => s.id !== sessionId);
+
+      // If we deleted the active session, switch to another one
+      if (activeSessionId === sessionId) {
         if (remainingSessions.length > 0) {
+          // Switch to the most recent remaining session
           setActiveSessionId(remainingSessions[0].id);
         } else {
-          startNewChat();
+          // No sessions left, create a new one
+          setActiveSessionId(null);
+          // Use setTimeout to ensure state update completes first
+          setTimeout(() => startNewChat(), 0);
         }
-      } else {
-        startNewChat();
       }
-    }
+
+      return remainingSessions;
+    });
   }
 
   /**
@@ -453,27 +558,39 @@ export function ChatPanel({
       <ScrollArea className="flex-grow px-4">
         <div className="flex flex-col gap-4 py-4">
           {messages.length === 0 && topic === 'General Conversation' && (
-            <div className="text-center p-4">
-              <Avatar className="h-12 w-12 border-2 border-primary mx-auto mb-4">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Bot className="h-7 w-7" />
-                </AvatarFallback>
-              </Avatar>
-              <p className="text-lg font-semibold mb-6">How can I help you?</p>
+            <div className="text-center p-4 relative">
+              {/* Animated Gradient Background */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-56 h-56 rounded-full bg-gradient-to-r from-purple-500/15 via-blue-500/15 to-pink-500/15 blur-3xl animate-pulse-glow" />
+              </div>
+
+              {/* Floating Bot Avatar */}
+              <div className="relative z-10">
+                <Avatar className="h-16 w-16 border-2 border-primary mx-auto mb-4 shadow-lg shadow-primary/20">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    <Bot className="h-9 w-9" />
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* Greeting with fade-in animation */}
+                <h2 className="text-2xl font-bold mb-6 animate-fade-in bg-gradient-to-r from-purple-300 via-pink-300 to-blue-300 bg-clip-text text-transparent">
+                  How can I help you?
+                </h2>
+              </div>
 
               {/* Quick Resume Cards */}
-              {sessions.length > 1 && (
-                <div className="mb-6">
+              {sessions.filter(s => s.topic !== 'General Conversation' && s.messages.length > 0).length > 0 && (
+                <div className="mb-6 animate-fade-in" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium text-left">Jump back in</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {sessions
-                      .filter(s => s.id !== activeSessionId && s.messages.length > 0)
+                      .filter(s => s.id !== activeSessionId && s.messages.length > 0 && s.topic !== 'General Conversation')
                       .slice(0, 2)
                       .map(session => (
                         <button
                           key={session.id}
                           onClick={() => selectSession(session.id)}
-                          className="text-left p-3 rounded-lg bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all group"
+                          className="text-left p-3 rounded-lg bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all group hover:scale-[1.02] hover:-translate-y-0.5"
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <History className="h-3 w-3 text-primary" />
@@ -490,18 +607,35 @@ export function ChatPanel({
                 </div>
               )}
 
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium text-left">Suggestions</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {suggestionPrompts.map((prompt, index) => (
-                  <Button
+              {/* Enhanced Suggestion Cards */}
+              <p className="text-sm text-muted-foreground/80 uppercase tracking-wider mb-4 font-semibold text-left animate-fade-in" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>Try asking...</p>
+              <div className="grid grid-cols-1 gap-4 text-sm">
+                {displayedPrompts.map((prompt, index) => (
+                  <button
                     key={index}
-                    variant="ghost"
-                    className="h-auto justify-start p-3 text-left text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                     onClick={() => handleSend(prompt.text)}
+                    className="group relative overflow-hidden rounded-xl p-4 text-left transition-all duration-300 bg-gradient-to-br from-secondary/30 to-secondary/10 border border-border/50 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/20 hover:scale-[1.03] hover:-translate-y-1 animate-fade-in"
+                    style={{ animationDelay: `${0.3 + index * 0.1}s`, animationFillMode: 'both' }}
                   >
-                    <prompt.icon className="h-4 w-4 mr-2 flex-shrink-0 text-primary/70" />
-                    {prompt.text}
-                  </Button>
+                    {/* Shimmer effect on hover */}
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+
+                    {/* Content */}
+                    <div className="flex items-start gap-3 relative z-10">
+                      <div className={cn(
+                        "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/25 to-primary/10 group-hover:scale-110 transition-transform shadow-lg ring-1 ring-white/5",
+                        prompt.color
+                      )}>
+                        <prompt.icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-grow">
+                        <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-relaxed">
+                          {prompt.text}
+                        </p>
+                      </div>
+                      <Send className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -605,31 +739,6 @@ export function ChatPanel({
         </div>
       </ScrollArea>
       <div className="px-4 pb-4">
-        {/* Context Awareness Pills */}
-        <div className="flex items-center gap-2 mb-2 px-1">
-          <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-full border border-border/50">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              Context: {topic.length > 20 ? topic.substring(0, 20) + '...' : topic}
-            </span>
-          </div>
-
-          {/* Persona Pill */}
-          <div className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/50 bg-secondary/50",
-            personas.find(p => p.id === persona)?.color
-          )}>
-            {(() => {
-              const p = personas.find(p => p.id === persona);
-              const Icon = p?.icon || Sparkles;
-              return <Icon className="w-3 h-3" />;
-            })()}
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-              {personas.find(p => p.id === persona)?.label}
-            </span>
-          </div>
-        </div>
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -671,45 +780,49 @@ export function ChatPanel({
     </>
   );
 
-  const renderHistoryView = () => (
-    <ScrollArea className="flex-grow p-4">
-      <div className="flex flex-col gap-3">
-        {sessions.length > 0 ? (
-          sessions.map(session => (
-            <div
-              key={session.id}
-              onClick={() => selectSession(session.id)}
-              className="relative group p-4 rounded-lg bg-white/5 border border-white/10 backdrop-blur-lg hover:border-purple-400/30 hover:shadow-[0_0_20px_rgba(168,85,247,0.2)] transition-all duration-300 cursor-pointer"
-            >
-              <div className="flex items-start gap-3">
-                <MessageSquare className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-grow overflow-hidden">
-                  <p className="font-semibold text-white truncate">
-                    {session.topic}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(session.timestamp), { addSuffix: true })}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100"
-                onClick={(e) => deleteSession(e, session.id)}
+  const renderHistoryView = () => {
+    const filteredSessions = sessions.filter(s => s.topic !== 'General Conversation');
+
+    return (
+      <ScrollArea className="flex-grow p-4">
+        <div className="flex flex-col gap-3">
+          {filteredSessions.length > 0 ? (
+            filteredSessions.map(session => (
+              <div
+                key={session.id}
+                onClick={() => selectSession(session.id)}
+                className="relative group p-4 rounded-lg bg-white/5 border border-white/10 backdrop-blur-lg hover:border-purple-400/30 hover:shadow-[0_0_20px_rgba(168,85,247,0.2)] transition-all duration-300 cursor-pointer"
               >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-grow overflow-hidden">
+                    <p className="font-semibold text-white truncate">
+                      {session.topic}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(session.timestamp), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100"
+                  onClick={(e) => deleteSession(e, session.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-muted-foreground p-8">
+              <p>No chat history yet.</p>
             </div>
-          ))
-        ) : (
-          <div className="text-center text-muted-foreground p-8">
-            <p>No chat history yet.</p>
-          </div>
-        )}
-      </div>
-    </ScrollArea>
-  );
+          )}
+        </div>
+      </ScrollArea>
+    );
+  };
 
 
   return (
