@@ -35,11 +35,6 @@ import {
   TranslateMindMapOutput,
 } from '@/ai/flows/translate-mind-map';
 import {
-  translateText,
-  TranslateTextInput,
-  TranslateTextOutput,
-} from '@/ai/flows/translate-text';
-import {
   generateComparisonMap,
   GenerateComparisonMapInput,
   GenerateComparisonMapOutput,
@@ -278,29 +273,6 @@ export async function translateMindMapAction(
     return {
       translation: null,
       error: `Failed to translate mind map. ${errorMessage}`,
-    };
-  }
-}
-
-/**
- * Server action to translate a piece of text to a target language.
- * @param {TranslateTextInput} input - The input containing the text and the target language.
- * @returns {Promise<{ translation: TranslateTextOutput | null; error: string | null }>} An object with either the translated text or an error message.
- */
-export async function translateTextAction(
-  input: TranslateTextInput
-): Promise<{ translation: TranslateTextOutput | null; error: string | null }> {
-  try {
-    const result = await translateText(input);
-    return { translation: result, error: null };
-  } catch (error) {
-    console.error('Error in translateTextAction:', error);
-    // Ensure a structured error is always returned.
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred during translation.';
-    return {
-      translation: null,
-      error: errorMessage,
     };
   }
 }

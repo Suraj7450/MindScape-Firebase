@@ -121,13 +121,7 @@ Secure and simple user sign-up and login.
 *   **User Story 1 (Unified Auth):** As a new user, I want to enter my email and password to sign up. If my email already exists, the form should seamlessly allow me to sign in instead.
 *   **User Story 2 (Profile Management):** As a logged-in user, I want to see my avatar and name in the navbar and have a simple way to log out.
 
-### **3.10. Feature: Global Translation Tools**
-App-wide text translation utilities.
-
-*   **User Story 1 (Text Selection Translator):** As I read content anywhere in the app, I want to be able to highlight any piece of text and see a small popover that lets me instantly translate it to any supported language.
-*   **User Story 2 (Translation Dialog):** The translation should appear in a dialog showing both original and translated text, with the ability to switch target languages.
-
-### **3.11. Feature: Breadcrumb Navigation**
+### **3.10. Feature: Breadcrumb Navigation**
 Navigation aid for branching maps.
 
 *   **User Story 1 (History Navigation):** When I've generated multiple branching maps in a session, I want a breadcrumb dropdown to navigate back to any previous map in my exploration path.

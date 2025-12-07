@@ -534,28 +534,6 @@ A **unified authentication form** for both login and sign-up.
 
 ---
 
-### **Text Selection Popover**
-
-*   **What**: Floating translate button on text selection.
-*   **Why**: Quick translation without leaving context.
-*   **How**:
-    *   Implemented in `text-selection-popover.tsx`.
-    *   Detects text selections across the app.
-    *   Opens `TranslationDialog` on click.
-
----
-
-### **Translation Dialog**
-
-*   **What**: Modal showing original and translated text.
-*   **Why**: Clear presentation of translations.
-*   **How**:
-    *   Uses `translateTextAction` server action.
-    *   Language selector for target language.
-    *   Re-translation capability.
-
----
-
 ### **Loading States**
 
 *   **What**: Various loading indicators across the app.

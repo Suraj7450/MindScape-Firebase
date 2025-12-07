@@ -5,9 +5,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { Navbar } from '@/components/navbar';
 import { FirebaseClientProvider } from '@/firebase';
-import { TranslationProvider } from '@/hooks/use-translation';
-import { TextSelectionPopover } from '@/components/text-selection-popover';
-import { TranslationDialog } from '@/components/translation-dialog';
 import { Icons } from '@/components/icons';
 
 /**
@@ -30,7 +27,7 @@ function BackgroundGlow() {
 /**
  * The root layout component for the entire application.
  * It sets up the HTML structure, includes global styles, fonts, and wraps the application
- * with necessary context providers like Firebase and Translation.
+ * with necessary context providers like Firebase.
  * @param {Readonly<{ children: React.ReactNode }>} props - The props for the component.
  * @param {React.ReactNode} props.children - The child components to be rendered within the layout.
  * @returns {JSX.Element} The root layout of the application.
@@ -56,16 +53,12 @@ export default function RootLayout({
         />
       </head>
       <body className={cn('min-h-screen w-full overflow-x-hidden', 'bg-[#0D0D0D] text-[#EAEAEA]')} suppressHydrationWarning>
-        <TranslationProvider>
-          <FirebaseClientProvider>
-            <BackgroundGlow />
-            <Navbar />
-            <main className="h-full pt-16">{children}</main>
-            <Toaster />
-            <TextSelectionPopover />
-            <TranslationDialog />
-          </FirebaseClientProvider>
-        </TranslationProvider>
+        <FirebaseClientProvider>
+          <BackgroundGlow />
+          <Navbar />
+          <main className="h-full pt-16">{children}</main>
+          <Toaster />
+        </FirebaseClientProvider>
       </body>
     </html>
   );
