@@ -69,6 +69,11 @@ import {
   SummarizeMindMapInput,
   SummarizeMindMapOutput,
 } from '@/ai/flows/summarize-mind-map';
+import {
+  expandNode,
+  ExpandNodeInput,
+  ExpandNodeOutput,
+} from '@/ai/flows/expand-node';
 import { addDoc, collection } from 'firebase/firestore';
 
 export interface GenerateMindMapFromImageInput {
@@ -409,6 +414,29 @@ export async function summarizeMindMapAction(
     return {
       summary: null,
       error: `Failed to summarize mind map. ${errorMessage}`,
+    };
+  }
+}
+
+/**
+ * Server action to expand a specific node with nested sub-categories.
+ * This enables inline expansion without creating a new mind map.
+ * @param {ExpandNodeInput} input - The node to expand and its context.
+ * @returns {Promise<{ expansion: ExpandNodeOutput | null; error: string | null }>} The generated expansion or an error.
+ */
+export async function expandNodeAction(
+  input: ExpandNodeInput
+): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
+  try {
+    const result = await expandNode(input);
+    return { expansion: result, error: null };
+  } catch (error) {
+    console.error('Error in expandNodeAction:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'An unknown error occurred.';
+    return {
+      expansion: null,
+      error: `Failed to expand node. ${errorMessage}`,
     };
   }
 }

@@ -228,3 +228,34 @@
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
 }
+
+/* Nested Expansion Animations */
+@keyframes expand-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes depth-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.4);
+  }
+}
+
+.animate-expand-in {
+  animation: expand-in 0.5s ease-out forwards;
+}
+
+.animate-depth-glow {
+  animation: depth-glow 3s ease-in-out infinite;
+}

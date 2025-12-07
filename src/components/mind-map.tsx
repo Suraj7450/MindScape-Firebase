@@ -48,6 +48,7 @@ import {
   Share2,
   Copy,
   ClipboardCheck,
+  Network,
 } from 'lucide-react';
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import {
@@ -55,8 +56,10 @@ import {
   generateQuizAction,
   explainWithExampleAction,
   translateMindMapAction,
-  summarizeMindMapAction
+  summarizeMindMapAction,
+  expandNodeAction,
 } from '@/app/actions';
+import { NestedMapsDialog } from './nested-maps-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { ScrollArea } from './ui/scroll-area';
@@ -86,7 +89,7 @@ import { Icons } from './icons';
 import { ImageGalleryDialog } from './image-gallery-dialog';
 import Image from 'next/image';
 import { Badge } from './ui/badge';
-import { addDoc, collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -107,7 +110,25 @@ export interface GeneratedImage {
   status: 'generating' | 'completed' | 'failed';
 }
 
-type MindMapData = GenerateMindMapOutput & { thumbnailUrl?: string; id?: string };
+/**
+ * Represents a nested expansion within a mindmap
+ */
+export interface NestedExpansionItem {
+  id: string;
+  parentName: string;
+  topic: string;
+  icon: string;
+  subCategories: Array<{ name: string; description: string; icon: string; tags: string[] }>;
+  createdAt: number;
+  depth: number;
+}
+
+type MindMapData = GenerateMindMapOutput & {
+  thumbnailUrl?: string;
+  id?: string;
+  nestedExpansions?: NestedExpansionItem[];
+  savedImages?: GeneratedImage[];
+};
 
 
 /**
@@ -256,8 +277,8 @@ const toPascalCase = (str: string) => {
 
 const SubCategoryCard = memo(function SubCategoryCard({
   subCategory,
-  onGenerateNewMap,
-  generatingNode,
+  onExpandNode,
+  isExpanding,
   onExplainWithExample,
   onExplainInChat,
   onSubCategoryClick,
@@ -266,8 +287,8 @@ const SubCategoryCard = memo(function SubCategoryCard({
   nodeId,
 }: {
   subCategory: any;
-  onGenerateNewMap: (topic: string, nodeId: string) => void;
-  generatingNode: string | null;
+  onExpandNode: (nodeName: string, nodeDescription: string, nodeId: string) => void;
+  isExpanding: boolean;
   onExplainWithExample: (node: ExplainableNode) => void;
   onExplainInChat: (message: string) => void;
   onSubCategoryClick: (subCategory: SubCategoryInfo) => void;
@@ -278,11 +299,9 @@ const SubCategoryCard = memo(function SubCategoryCard({
   const SubCategoryIcon =
     (LucideIcons as any)[toPascalCase(subCategory.icon)] || FileText;
 
-  const isGenerating = generatingNode === nodeId;
-
-  const handleGenerateClick = (e: React.MouseEvent) => {
+  const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onGenerateNewMap(subCategory.name, nodeId);
+    onExpandNode(subCategory.name, subCategory.description, nodeId);
   };
 
   const handleExampleClick = (e: React.MouseEvent) => {
@@ -334,9 +353,7 @@ const SubCategoryCard = memo(function SubCategoryCard({
           </div>
         )}
 
-        <div
-          className="mt-4 flex justify-between items-center"
-        >
+        <div className="mt-4 flex justify-between items-center">
           <div
             className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity"
             onClick={(e) => e.stopPropagation()}
@@ -347,10 +364,10 @@ const SubCategoryCard = memo(function SubCategoryCard({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={handleGenerateClick}
-                  disabled={isGenerating}
+                  onClick={handleExpandClick}
+                  disabled={isExpanding}
                 >
-                  {isGenerating ? (
+                  {isExpanding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <GitBranch className="h-4 w-4" />
@@ -430,6 +447,7 @@ const SubCategoryCard = memo(function SubCategoryCard({
     </Card>
   );
 });
+
 
 // New Component for Side-by-Side Comparison
 const ComparisonView = ({
@@ -664,9 +682,23 @@ export const MindMap = ({
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
+  // Nested expansion state - load from saved data if available
+  const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
+  const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(
+    data.nestedExpansions || []
+  );
+  const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
+
 
   useEffect(() => {
     setMindMap(data);
+    // Also update nestedExpansions and generatedImages from data
+    if (data.nestedExpansions) {
+      setNestedExpansions(data.nestedExpansions);
+    }
+    if (data.savedImages) {
+      setGeneratedImages(data.savedImages);
+    }
   }, [data]);
 
   useEffect(() => {
@@ -690,6 +722,53 @@ export const MindMap = ({
 
     checkIfPublished();
   }, [mindMap, firestore, isPublic, user?.uid]);
+
+  // Auto-save nestedExpansions to Firestore when they change
+  useEffect(() => {
+    const saveNestedExpansions = async () => {
+      if (!firestore || !user || !mindMap.id || isPublic) return;
+
+      try {
+        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+        await updateDoc(mapDocRef, {
+          nestedExpansions: nestedExpansions,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        console.error('Error saving nested expansions:', error);
+      }
+    };
+
+    // Only save if there's an actual map ID (saved map)
+    if (mindMap.id && nestedExpansions.length >= 0) {
+      saveNestedExpansions();
+    }
+  }, [nestedExpansions, firestore, user, mindMap.id, isPublic]);
+
+  // Auto-save generatedImages to Firestore when they change
+  useEffect(() => {
+    const saveGeneratedImages = async () => {
+      if (!firestore || !user || !mindMap.id || isPublic) return;
+
+      // Only save completed images
+      const completedImages = generatedImages.filter(img => img.status === 'completed');
+      if (completedImages.length === 0) return;
+
+      try {
+        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+        await updateDoc(mapDocRef, {
+          savedImages: completedImages,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        console.error('Error saving generated images:', error);
+      }
+    };
+
+    if (mindMap.id) {
+      saveGeneratedImages();
+    }
+  }, [generatedImages, firestore, user, mindMap.id, isPublic]);
 
 
   const handleDownloadImage = (url: string, name: string) => {
@@ -1056,6 +1135,100 @@ export const MindMap = ({
   ) => {
     e.stopPropagation();
     onGenerateNewMap(topic, nodeId);
+  };
+
+  /**
+   * Handle expansion of a node - generates nested sub-categories and adds to expansions list
+   */
+  const handleExpandNode = async (
+    nodeName: string,
+    nodeDescription: string,
+    nodeId: string,
+    depth: number = 1
+  ) => {
+    setExpandingNodeId(nodeId);
+
+    try {
+      const { expansion, error } = await expandNodeAction({
+        nodeName,
+        parentTopic: mindMap.topic,
+        nodeDescription,
+        depth,
+      });
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Expansion Failed',
+          description: error,
+        });
+        setExpandingNodeId(null);
+        return;
+      }
+
+      if (expansion) {
+        // Add to expansions array
+        const expansionData = {
+          id: `expansion-${Date.now()}`,
+          parentName: nodeName,
+          topic: expansion.topic,
+          icon: expansion.icon,
+          subCategories: expansion.subCategories,
+          createdAt: Date.now(),
+          depth,
+        };
+
+        setNestedExpansions(prev => [...prev, expansionData]);
+
+        // Open the dialog to show the new expansion
+        setIsNestedMapsDialogOpen(true);
+
+        toast({
+          title: 'Expanded!',
+          description: `Added ${expansion.subCategories.length} sub-topics to "${nodeName}"`,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Expansion Failed',
+        description: 'An unexpected error occurred.',
+      });
+    } finally {
+      setExpandingNodeId(null);
+    }
+  };
+
+  /**
+   * Delete an expansion from the list
+   */
+  const handleDeleteExpansion = (id: string) => {
+    setNestedExpansions(prev => prev.filter(exp => exp.id !== id));
+  };
+
+  /**
+   * Regenerate an expansion
+   */
+  const handleRegenerateExpansion = async (parentName: string, id: string) => {
+    const expansion = nestedExpansions.find(exp => exp.id === id);
+    if (expansion) {
+      // Remove the old one and generate new
+      setNestedExpansions(prev => prev.filter(exp => exp.id !== id));
+      await handleExpandNode(parentName, '', id, expansion.depth);
+    }
+  };
+
+  /**
+   * Expand further from a nested expansion
+   */
+  const handleNestedExpandFurther = async (
+    nodeName: string,
+    nodeDescription: string,
+    parentId: string
+  ) => {
+    const parentExpansion = nestedExpansions.find(exp => exp.id === parentId);
+    const newDepth = parentExpansion ? parentExpansion.depth + 1 : 2;
+    await handleExpandNode(nodeName, nodeDescription, `${parentId}-${nodeName}`, newDepth);
   };
 
   const handleExplainWithExample = (
@@ -1448,11 +1621,11 @@ export const MindMap = ({
                                     <SubCategoryCard
                                       key={subCatIndex}
                                       subCategory={subCategory}
-                                      onGenerateNewMap={onGenerateNewMap}
-                                      generatingNode={generatingNode}
+                                      onExpandNode={handleExpandNode}
+                                      isExpanding={expandingNodeId === `subcat-${subIndex}-${catIndex}-${subCatIndex}`}
                                       onExplainWithExample={(node) =>
                                         handleExplainWithExample(
-                                          new MouseEvent('click'),
+                                          { stopPropagation: () => { } } as React.MouseEvent,
                                           node
                                         )
                                       }
@@ -1479,31 +1652,59 @@ export const MindMap = ({
       </div>
 
 
-      {generatedImages.length > 0 && (
-        <div className="fixed bottom-24 right-6 z-50">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="icon"
-                className="h-14 w-14 rounded-full shadow-lg"
-                onClick={() => setIsGalleryOpen(true)}
-              >
-                <Images className="h-7 w-7" />
+      {/* Nested Maps FAB - always visible */}
+      <div className="fixed bottom-40 right-6 z-50">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              size="icon"
+              className="h-14 w-14 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700"
+              onClick={() => setIsNestedMapsDialogOpen(true)}
+            >
+              <Network className="h-7 w-7" />
+              {nestedExpansions.length > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-1 -right-1"
+                >
+                  {nestedExpansions.length}
+                </Badge>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Nested Maps ({nestedExpansions.length})</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Image Gallery FAB - always visible */}
+      <div className="fixed bottom-24 right-6 z-50">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              size="icon"
+              className="h-14 w-14 rounded-full shadow-lg"
+              onClick={() => setIsGalleryOpen(true)}
+            >
+              <Images className="h-7 w-7" />
+              {generatedImages.length > 0 && (
                 <Badge
                   variant="destructive"
                   className="absolute -top-1 -right-1"
                 >
                   {generatedImages.length}
                 </Badge>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>View Image Gallery</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      )}
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Image Gallery ({generatedImages.length})</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       <ExplanationDialog
         isOpen={isExplanationDialogOpen}
@@ -1544,6 +1745,17 @@ export const MindMap = ({
         images={generatedImages}
         onDownload={handleDownloadImage}
         onRegenerate={handleGenerateImageClick}
+      />
+      <NestedMapsDialog
+        isOpen={isNestedMapsDialogOpen}
+        onClose={() => setIsNestedMapsDialogOpen(false)}
+        expansions={nestedExpansions}
+        onDelete={handleDeleteExpansion}
+        onRegenerate={handleRegenerateExpansion}
+        onExpandFurther={handleNestedExpandFurther}
+        expandingId={expandingNodeId}
+        onExplainInChat={onExplainInChat}
+        mainTopic={mindMap.topic}
       />
     </TooltipProvider>
   );
