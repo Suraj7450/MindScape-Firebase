@@ -47,6 +47,7 @@ interface NestedExpansionData {
     topic: string;
     icon: string;
     subCategories: NestedSubCategory[];
+    path: string; // Full hierarchical path
     createdAt: number;
     depth: number;
     status?: 'generating' | 'completed' | 'failed';
@@ -175,7 +176,7 @@ export function NestedMapsDialog({
                                                     <p className="text-xs text-muted-foreground">
                                                         {isGenerating
                                                             ? `Generating sub-topics for ${expansion.parentName}...`
-                                                            : `From: ${expansion.parentName} • ${expansion.subCategories.length} sub-topics • Depth ${expansion.depth}`
+                                                            : `From: ${expansion.path || mainTopic} • ${expansion.subCategories.length} sub-topics`
                                                         }
                                                     </p>
                                                 </div>
@@ -250,7 +251,7 @@ export function NestedMapsDialog({
                                                 isCollapsed ? 'max-h-0' : 'max-h-[2000px]'
                                             )}
                                         >
-                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 {isGenerating ? (
                                                     // Skeleton loader
                                                     Array.from({ length: 4 }).map((_, i) => (
@@ -286,18 +287,6 @@ export function NestedMapsDialog({
                                                                     <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
                                                                         {subCat.description}
                                                                     </p>
-
-                                                                    {/* Tags */}
-                                                                    <div className="flex flex-wrap gap-1.5 mb-3">
-                                                                        {subCat.tags.slice(0, 3).map((tag, tagIndex) => (
-                                                                            <span
-                                                                                key={tagIndex}
-                                                                                className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/20"
-                                                                            >
-                                                                                {tag}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
 
                                                                     {/* Action Buttons - Like MindMap Page */}
                                                                     <div className="flex items-center justify-between pt-2 border-t border-border/30">

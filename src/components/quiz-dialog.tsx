@@ -15,6 +15,8 @@ import { Loader2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import type { QuizQuestion } from '@/ai/flows/generate-quiz';
 import { cn } from '@/lib/utils';
 import { Progress } from './ui/progress';
+import { useFirebase } from '@/firebase';
+import { trackQuizQuestion } from '@/lib/activity-tracker';
 
 /**
  * Props for the QuizDialog component.
@@ -49,6 +51,7 @@ export function QuizDialog({
   isLoading,
   onRestart,
 }: QuizDialogProps) {
+  const { user, firestore } = useFirebase(); // Added hook
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -65,8 +68,14 @@ export function QuizDialog({
     if (isAnswered) return;
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
-    if (answerIndex === currentQuestion.correctAnswerIndex) {
+    const isCorrect = answerIndex === currentQuestion.correctAnswerIndex;
+    if (isCorrect) {
       setScore(score + 1);
+    }
+
+    // Track activity
+    if (firestore && user) {
+      trackQuizQuestion(firestore, user.uid, isCorrect);
     }
   };
 
@@ -175,12 +184,12 @@ export function QuizDialog({
                   className={cn(
                     'h-auto py-3 whitespace-normal justify-start text-left',
                     isAnswered &&
-                      isCorrect &&
-                      'bg-green-500/20 border-green-500 hover:bg-green-500/30',
+                    isCorrect &&
+                    'bg-green-500/20 border-green-500 hover:bg-green-500/30',
                     isAnswered &&
-                      isSelected &&
-                      !isCorrect &&
-                      'bg-red-500/20 border-red-500 hover:bg-red-500/30'
+                    isSelected &&
+                    !isCorrect &&
+                    'bg-red-500/20 border-red-500 hover:bg-red-500/30'
                   )}
                   onClick={() => handleAnswerSelect(index)}
                   disabled={isAnswered}

@@ -92,6 +92,8 @@ import { Badge } from './ui/badge';
 import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
+import { useStudyTimeTracker } from '@/hooks/use-study-time-tracker';
 
 
 /**
@@ -643,6 +645,9 @@ export const MindMap = ({
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
 
+  // Track study time
+  useStudyTimeTracker(firestore, user?.uid, true);
+
 
   const [mindMap, setMindMap] = useState(data);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -945,6 +950,11 @@ export const MindMap = ({
 
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? newImage : img));
 
+      // Track activity
+      if (firestore && user) {
+        trackImageGenerated(firestore, user.uid);
+      }
+
       update({
         id: toastId,
         title: 'Image Created!',
@@ -1080,6 +1090,11 @@ export const MindMap = ({
         description: `A copy of "${mindMap.topic}" has been added to your "My Maps".`,
       });
 
+      // Track activity
+      if (firestore && user) {
+        trackMapCreated(firestore, user.uid);
+      }
+
       // Redirect to the newly created map
       router.push(`/mindmap?mapId=${docRef.id}`);
 
@@ -1204,6 +1219,11 @@ export const MindMap = ({
           title: 'Expanded!',
           description: `Added ${expansion.subCategories.length} sub-topics to "${nodeName}"`,
         });
+
+        // Track activity
+        if (firestore && user) {
+          trackNestedExpansion(firestore, user.uid);
+        }
       }
     } catch (err) {
       // Remove placeholder on error

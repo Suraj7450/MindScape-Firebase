@@ -36,6 +36,7 @@ import {
 import { BreadcrumbNavigation } from '@/components/breadcrumb-navigation';
 import Image from 'next/image';
 import { mindscapeMap } from '@/lib/mindscape-data';
+import { trackMapCreated } from '@/lib/activity-tracker';
 
 /**
  * The core content component for the mind map page.
@@ -126,6 +127,9 @@ function MindMapPageContent() {
         title: 'Map Auto-Saved!',
         description: `Mind map "${mapToSave.topic}" has been saved.`,
       });
+
+      // Track activity
+      trackMapCreated(firestore, user.uid);
     } catch (err: any) {
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/mindmaps`,
