@@ -98,7 +98,7 @@ function MindMapPageContent() {
       const { ...cleanMapData } = mapToSave;
 
       const thumbnailPrompt = `A cinematic 3D render of ${mapToSave.topic}, in futuristic purple tones, mind-map theme, highly detailed`;
-      const thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}`;
+      const thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=400&height=225&nologo=true`;
 
       const newMindMapData = {
         ...cleanMapData,

@@ -49,6 +49,7 @@ interface NestedExpansionData {
     subCategories: NestedSubCategory[];
     createdAt: number;
     depth: number;
+    status?: 'generating' | 'completed' | 'failed';
 }
 
 interface NestedMapsDialogProps {
@@ -133,6 +134,7 @@ export function NestedMapsDialog({
                                 const TopicIcon = (LucideIcons as any)[toPascalCase(expansion.icon)] || Network;
                                 const isCollapsed = collapsedIds.has(expansion.id);
                                 const isExpanding = expandingId === expansion.id;
+                                const isGenerating = expansion.status === 'generating';
 
                                 return (
                                     <div
@@ -160,60 +162,71 @@ export function NestedMapsDialog({
                                                     />
                                                 )}
                                                 <div className="p-2 rounded-lg bg-purple-500/20">
-                                                    <TopicIcon className="h-5 w-5 text-purple-400" />
+                                                    {isGenerating ? (
+                                                        <Loader2 className="h-5 w-5 text-purple-400 animate-spin" />
+                                                    ) : (
+                                                        <TopicIcon className="h-5 w-5 text-purple-400" />
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <h4 className="text-base font-semibold text-foreground">
                                                         {expansion.topic}
                                                     </h4>
                                                     <p className="text-xs text-muted-foreground">
-                                                        From: {expansion.parentName} • {expansion.subCategories.length} sub-topics • Depth {expansion.depth}
+                                                        {isGenerating
+                                                            ? `Generating sub-topics for ${expansion.parentName}...`
+                                                            : `From: ${expansion.parentName} • ${expansion.subCategories.length} sub-topics • Depth ${expansion.depth}`
+                                                        }
                                                     </p>
                                                 </div>
                                             </div>
 
                                             {/* Action buttons */}
                                             <div className="flex items-center gap-1">
-                                                <TooltipProvider delayDuration={300}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 hover:bg-purple-500/10"
-                                                                onClick={() => onRegenerate(expansion.parentName, expansion.id)}
-                                                                disabled={isExpanding}
-                                                            >
-                                                                {isExpanding ? (
-                                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                                ) : (
-                                                                    <RefreshCw className="h-4 w-4" />
-                                                                )}
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">
-                                                            <p>Regenerate</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                                {!isGenerating && (
+                                                    <>
+                                                        <TooltipProvider delayDuration={300}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 hover:bg-purple-500/10"
+                                                                        onClick={() => onRegenerate(expansion.parentName, expansion.id)}
+                                                                        disabled={isExpanding}
+                                                                    >
+                                                                        {isExpanding ? (
+                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        ) : (
+                                                                            <RefreshCw className="h-4 w-4" />
+                                                                        )}
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    <p>Regenerate</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
 
-                                                <TooltipProvider delayDuration={300}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 hover:bg-destructive/10"
-                                                                onClick={() => onDelete(expansion.id)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">
-                                                            <p>Delete</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                                        <TooltipProvider delayDuration={300}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 hover:bg-destructive/10"
+                                                                        onClick={() => onDelete(expansion.id)}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    <p>Delete</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </>
+                                                )}
 
                                                 <Button
                                                     variant="ghost"
@@ -238,133 +251,142 @@ export function NestedMapsDialog({
                                             )}
                                         >
                                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {expansion.subCategories.map((subCat, index) => {
-                                                    const SubCatIcon = (LucideIcons as any)[toPascalCase(subCat.icon)] || FileText;
+                                                {isGenerating ? (
+                                                    // Skeleton loader
+                                                    Array.from({ length: 4 }).map((_, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="h-32 rounded-xl bg-zinc-800/50 animate-pulse border border-white/5"
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    expansion.subCategories.map((subCat, index) => {
+                                                        const SubCatIcon = (LucideIcons as any)[toPascalCase(subCat.icon)] || FileText;
 
-                                                    return (
-                                                        <Card
-                                                            key={index}
-                                                            className={cn(
-                                                                'group/item relative overflow-hidden',
-                                                                'bg-zinc-900/50 border-border/50 rounded-xl',
-                                                                'ring-1 ring-purple-400/10',
-                                                                'hover:ring-purple-400/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]',
-                                                                'transition-all duration-300'
-                                                            )}
-                                                        >
-                                                            <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
-                                                                <div className="p-2 rounded-lg bg-accent/20 text-accent flex-shrink-0">
-                                                                    <SubCatIcon className="h-4 w-4" />
-                                                                </div>
-                                                                <CardTitle className="text-sm font-semibold leading-tight flex-1">
-                                                                    {subCat.name}
-                                                                </CardTitle>
-                                                            </CardHeader>
-                                                            <CardContent className="p-4 pt-0">
-                                                                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-                                                                    {subCat.description}
-                                                                </p>
+                                                        return (
+                                                            <Card
+                                                                key={index}
+                                                                className={cn(
+                                                                    'group/item relative overflow-hidden',
+                                                                    'bg-zinc-900/50 border-border/50 rounded-xl',
+                                                                    'ring-1 ring-purple-400/10',
+                                                                    'hover:ring-purple-400/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]',
+                                                                    'transition-all duration-300'
+                                                                )}
+                                                            >
+                                                                <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
+                                                                    <div className="p-2 rounded-lg bg-accent/20 text-accent flex-shrink-0">
+                                                                        <SubCatIcon className="h-4 w-4" />
+                                                                    </div>
+                                                                    <CardTitle className="text-sm font-semibold leading-tight flex-1">
+                                                                        {subCat.name}
+                                                                    </CardTitle>
+                                                                </CardHeader>
+                                                                <CardContent className="p-4 pt-0">
+                                                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+                                                                        {subCat.description}
+                                                                    </p>
 
-                                                                {/* Tags */}
-                                                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                                                    {subCat.tags.slice(0, 3).map((tag, tagIndex) => (
-                                                                        <span
-                                                                            key={tagIndex}
-                                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/20"
-                                                                        >
-                                                                            {tag}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-
-                                                                {/* Action Buttons - Like MindMap Page */}
-                                                                <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                                                                    <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                                        <TooltipProvider delayDuration={300}>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Button
-                                                                                        variant="ghost"
-                                                                                        size="icon"
-                                                                                        className="h-7 w-7"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            onExpandFurther(subCat.name, subCat.description, expansion.id);
-                                                                                        }}
-                                                                                    >
-                                                                                        <GitBranch className="h-3.5 w-3.5" />
-                                                                                    </Button>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent side="top">
-                                                                                    <p>Expand further</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        </TooltipProvider>
-
-                                                                        <TooltipProvider delayDuration={300}>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Button
-                                                                                        variant="ghost"
-                                                                                        size="icon"
-                                                                                        className="h-7 w-7"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            if (onExplainInChat) {
-                                                                                                onExplainInChat(`Give me examples of "${subCat.name}" in the context of ${expansion.topic}.`);
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <Pocket className="h-3.5 w-3.5" />
-                                                                                    </Button>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent side="top">
-                                                                                    <p>Give me examples</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        </TooltipProvider>
-
-                                                                        <TooltipProvider delayDuration={300}>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Button
-                                                                                        variant="ghost"
-                                                                                        size="icon"
-                                                                                        className="h-7 w-7"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            if (onExplainInChat) {
-                                                                                                onExplainInChat(`Explain "${subCat.name}" in the context of ${expansion.topic} and ${mainTopic}.`);
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <MessageCircle className="h-3.5 w-3.5" />
-                                                                                    </Button>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent side="top">
-                                                                                    <p>Explain in Chat</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        </TooltipProvider>
+                                                                    {/* Tags */}
+                                                                    <div className="flex flex-wrap gap-1.5 mb-3">
+                                                                        {subCat.tags.slice(0, 3).map((tag, tagIndex) => (
+                                                                            <span
+                                                                                key={tagIndex}
+                                                                                className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/20"
+                                                                            >
+                                                                                {tag}
+                                                                            </span>
+                                                                        ))}
                                                                     </div>
 
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-auto py-1 px-2 text-xs text-purple-400 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                                                        onClick={() => {
-                                                                            if (onExplainInChat) {
-                                                                                onExplainInChat(`Tell me everything about "${subCat.name}" related to ${expansion.topic}.`);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        Explore <ArrowRight className="h-3 w-3 ml-1" />
-                                                                    </Button>
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    );
-                                                })}
+                                                                    {/* Action Buttons - Like MindMap Page */}
+                                                                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                            <TooltipProvider delayDuration={300}>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-7 w-7"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                onExpandFurther(subCat.name, subCat.description, expansion.id);
+                                                                                            }}
+                                                                                        >
+                                                                                            <GitBranch className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="top">
+                                                                                        <p>Expand further</p>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
+
+                                                                            <TooltipProvider delayDuration={300}>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-7 w-7"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                if (onExplainInChat) {
+                                                                                                    onExplainInChat(`Give me examples of "${subCat.name}" in the context of ${expansion.topic}.`);
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            <Pocket className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="top">
+                                                                                        <p>Give me examples</p>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
+
+                                                                            <TooltipProvider delayDuration={300}>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-7 w-7"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                if (onExplainInChat) {
+                                                                                                    onExplainInChat(`Explain "${subCat.name}" in the context of ${expansion.topic} and ${mainTopic}.`);
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            <MessageCircle className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="top">
+                                                                                        <p>Explain in Chat</p>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
+                                                                        </div>
+
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-auto py-1 px-2 text-xs text-purple-400 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                                                            onClick={() => {
+                                                                                if (onExplainInChat) {
+                                                                                    onExplainInChat(`Tell me everything about "${subCat.name}" related to ${expansion.topic}.`);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Explore <ArrowRight className="h-3 w-3 ml-1" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </CardContent>
+                                                            </Card>
+                                                        );
+                                                    }))}
                                             </div>
                                         </div>
                                     </div>

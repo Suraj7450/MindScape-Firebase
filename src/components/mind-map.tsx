@@ -110,9 +110,6 @@ export interface GeneratedImage {
   status: 'generating' | 'completed' | 'failed';
 }
 
-/**
- * Represents a nested expansion within a mindmap
- */
 export interface NestedExpansionItem {
   id: string;
   parentName: string;
@@ -121,6 +118,7 @@ export interface NestedExpansionItem {
   subCategories: Array<{ name: string; description: string; icon: string; tags: string[] }>;
   createdAt: number;
   depth: number;
+  status?: 'generating' | 'completed' | 'failed';
 }
 
 type MindMapData = GenerateMindMapOutput & {
@@ -1148,6 +1146,25 @@ export const MindMap = ({
   ) => {
     setExpandingNodeId(nodeId);
 
+    // Create placeholder ID
+    const expansionId = `expansion-${Date.now()}`;
+
+    // 1. Create temporary placeholder
+    const placeholderExpansion: NestedExpansionItem = {
+      id: expansionId,
+      parentName: nodeName,
+      topic: 'Generating...',
+      icon: 'Loader2',
+      subCategories: [],
+      createdAt: Date.now(),
+      depth,
+      status: 'generating'
+    };
+
+    // 2. Add placeholder and open dialog immediately
+    setNestedExpansions(prev => [...prev, placeholderExpansion]);
+    setIsNestedMapsDialogOpen(true);
+
     try {
       const { expansion, error } = await expandNodeAction({
         nodeName,
@@ -1157,6 +1174,8 @@ export const MindMap = ({
       });
 
       if (error) {
+        // Remove placeholder on error
+        setNestedExpansions(prev => prev.filter(e => e.id !== expansionId));
         toast({
           variant: 'destructive',
           title: 'Expansion Failed',
@@ -1167,21 +1186,19 @@ export const MindMap = ({
       }
 
       if (expansion) {
-        // Add to expansions array
-        const expansionData = {
-          id: `expansion-${Date.now()}`,
-          parentName: nodeName,
-          topic: expansion.topic,
-          icon: expansion.icon,
-          subCategories: expansion.subCategories,
-          createdAt: Date.now(),
-          depth,
-        };
-
-        setNestedExpansions(prev => [...prev, expansionData]);
-
-        // Open the dialog to show the new expansion
-        setIsNestedMapsDialogOpen(true);
+        // 3. Update placeholder with actual data
+        setNestedExpansions(prev => prev.map(item => {
+          if (item.id === expansionId) {
+            return {
+              ...item,
+              topic: expansion.topic,
+              icon: expansion.icon,
+              subCategories: expansion.subCategories,
+              status: 'completed'
+            };
+          }
+          return item;
+        }));
 
         toast({
           title: 'Expanded!',
@@ -1189,6 +1206,8 @@ export const MindMap = ({
         });
       }
     } catch (err) {
+      // Remove placeholder on error
+      setNestedExpansions(prev => prev.filter(e => e.id !== expansionId));
       toast({
         variant: 'destructive',
         title: 'Expansion Failed',
@@ -1652,59 +1671,59 @@ export const MindMap = ({
       </div>
 
 
-      {/* Nested Maps FAB - always visible */}
-      <div className="fixed bottom-40 right-6 z-50">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="default"
-              size="icon"
-              className="h-14 w-14 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700"
-              onClick={() => setIsNestedMapsDialogOpen(true)}
-            >
-              <Network className="h-7 w-7" />
-              {nestedExpansions.length > 0 && (
+      {/* Nested Maps FAB - only visible when there are expansions */}
+      {nestedExpansions.length > 0 && (
+        <div className="fixed bottom-40 right-6 z-50">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                size="icon"
+                className="h-14 w-14 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700"
+                onClick={() => setIsNestedMapsDialogOpen(true)}
+              >
+                <Network className="h-7 w-7" />
                 <Badge
                   variant="destructive"
                   className="absolute -top-1 -right-1"
                 >
                   {nestedExpansions.length}
                 </Badge>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>Nested Maps ({nestedExpansions.length})</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Nested Maps ({nestedExpansions.length})</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
-      {/* Image Gallery FAB - always visible */}
-      <div className="fixed bottom-24 right-6 z-50">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="default"
-              size="icon"
-              className="h-14 w-14 rounded-full shadow-lg"
-              onClick={() => setIsGalleryOpen(true)}
-            >
-              <Images className="h-7 w-7" />
-              {generatedImages.length > 0 && (
+      {/* Image Gallery FAB - only visible when there are images */}
+      {generatedImages.length > 0 && (
+        <div className="fixed bottom-24 right-6 z-50">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                size="icon"
+                className="h-14 w-14 rounded-full shadow-lg"
+                onClick={() => setIsGalleryOpen(true)}
+              >
+                <Images className="h-7 w-7" />
                 <Badge
                   variant="destructive"
                   className="absolute -top-1 -right-1"
                 >
                   {generatedImages.length}
                 </Badge>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>Image Gallery ({generatedImages.length})</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              <p>Image Gallery ({generatedImages.length})</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       <ExplanationDialog
         isOpen={isExplanationDialogOpen}
