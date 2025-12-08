@@ -64,7 +64,7 @@ export function QuizDialog({
    * Handles the selection of an answer for the current question.
    * @param {number} answerIndex - The index of the selected answer.
    */
-  const handleAnswerSelect = (answerIndex: number) => {
+  const handleAnswerSelect = async (answerIndex: number) => {
     if (isAnswered) return;
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
@@ -75,7 +75,7 @@ export function QuizDialog({
 
     // Track activity
     if (firestore && user) {
-      trackQuizQuestion(firestore, user.uid, isCorrect);
+      await trackQuizQuestion(firestore, user.uid, isCorrect);
     }
   };
 

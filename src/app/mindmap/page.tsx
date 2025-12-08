@@ -129,7 +129,7 @@ function MindMapPageContent() {
       });
 
       // Track activity
-      trackMapCreated(firestore, user.uid);
+      await trackMapCreated(firestore, user.uid);
     } catch (err: any) {
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/mindmaps`,

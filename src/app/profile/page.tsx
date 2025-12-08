@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, User, Settings, Target, FolderHeart, BarChart3, ArrowLeft, Flame, Trophy } from 'lucide-react';
+import {
+    Loader2, User, Settings, target, BarChart3, ArrowLeft, Flame, Trophy,
+    Map, Network, Image, Brain, Clock, Sparkles, Mail, Shield, LayoutDashboard,
+    Zap, Calendar
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { StatisticsCard } from '@/components/profile/statistics-card';
@@ -26,7 +30,6 @@ import { ProgressChart } from '@/components/profile/progress-chart';
 import {
     UserProfile,
     UserPreferences,
-    UserStatistics,
     DailyActivity,
     getDefaultPreferences,
     getDefaultStatistics,
@@ -40,8 +43,17 @@ import {
     getMonthlyProgress,
 } from '@/lib/profile-utils';
 
-import { ACHIEVEMENTS, checkUnlockedAchievements, getAchievementProgress } from '@/lib/achievements';
+import { ACHIEVEMENTS, checkUnlockedAchievements, getAchievementProgress, getNewlyUnlockedAchievements } from '@/lib/achievements';
 import { languages } from '@/lib/languages';
+
+const CATEGORIES: Record<string, { label: string; icon: any; color: string }> = {
+    Creation: { label: 'Map Verification', icon: Map, color: 'text-purple-400' },
+    Consistency: { label: 'Streaks & Consistency', icon: Flame, color: 'text-orange-400' },
+    Exploration: { label: 'Deep Diving', icon: Network, color: 'text-blue-400' },
+    Visualization: { label: 'Visual Learning', icon: Image, color: 'text-pink-400' },
+    Knowledge: { label: 'Quiz Mastery', icon: Brain, color: 'text-green-400' },
+    Dedication: { label: 'Study Time', icon: Clock, color: 'text-amber-400' },
+};
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -60,7 +72,6 @@ export default function ProfilePage() {
             router.push('/login');
             return;
         }
-
         loadProfileData();
     }, [user, firestore]);
 
@@ -68,7 +79,6 @@ export default function ProfilePage() {
         if (!user || !firestore) return;
 
         try {
-            // Load profile
             const profileDoc = await getDoc(doc(firestore, 'users', user.uid));
 
             if (profileDoc.exists()) {
@@ -86,7 +96,6 @@ export default function ProfilePage() {
                 });
                 setActivityData(data.activity || {});
             } else {
-                // Create default profile
                 const defaultProfile: UserProfile = {
                     displayName: user.displayName || '',
                     email: user.email || '',
@@ -101,52 +110,61 @@ export default function ProfilePage() {
                 setProfile(defaultProfile);
             }
 
-            // Load mind maps
-            const mapsQuery = query(
-                collection(firestore, 'users', user.uid, 'mindmaps')
-            );
+            const mapsQuery = query(collection(firestore, 'users', user.uid, 'mindmaps'));
             const mapsSnapshot = await getDocs(mapsQuery);
             const maps = mapsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setMindMaps(maps);
 
         } catch (error) {
             console.error('Error loading profile:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to load profile data',
-            });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load profile data' });
         } finally {
             setLoading(false);
         }
     };
 
+    // Check for new achievements
+    useEffect(() => {
+        if (!profile || !user || !firestore) return;
+
+        const unlockedIds = profile.achievements.map(a => a.id);
+        const newAchievements = getNewlyUnlockedAchievements(profile.statistics, unlockedIds);
+
+        if (newAchievements.length > 0) {
+            const newUnlockData = newAchievements.map(a => ({
+                id: a.id,
+                unlockedAt: Date.now()
+            }));
+
+            const updatedAchievements = [...profile.achievements, ...newUnlockData];
+
+            // Persist
+            setDoc(doc(firestore, 'users', user.uid), {
+                achievements: updatedAchievements
+            }, { merge: true }).then(() => {
+                // Toast for each
+                newAchievements.forEach(achievement => {
+                    toast({
+                        title: "New Achievement Unlocked! 🏆",
+                        description: achievement.name,
+                        className: "bg-gradient-to-r from-yellow-900/80 to-amber-900/80 border-amber-500/50 text-amber-100",
+                    });
+                });
+                // Update local
+                setProfile(prev => prev ? ({ ...prev, achievements: updatedAchievements }) : null);
+            }).catch(err => console.error("Error unlocking achievements:", err));
+        }
+    }, [profile, user, firestore, toast]);
+
     const savePreferences = async (newPreferences: UserPreferences) => {
         if (!user || !firestore || !profile) return;
-
         setSaving(true);
         try {
-            await setDoc(
-                doc(firestore, 'users', user.uid),
-                {
-                    preferences: newPreferences,
-                },
-                { merge: true }
-            );
-
+            await setDoc(doc(firestore, 'users', user.uid), { preferences: newPreferences }, { merge: true });
             setProfile({ ...profile, preferences: newPreferences });
-
-            toast({
-                title: 'Saved!',
-                description: 'Your preferences have been updated',
-            });
+            toast({ title: 'Saved', description: 'Preferences updated' });
         } catch (error) {
-            console.error('Error saving preferences:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to save preferences',
-            });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save preferences' });
         } finally {
             setSaving(false);
         }
@@ -154,48 +172,21 @@ export default function ProfilePage() {
 
     const saveGoals = async (weeklyGoal: number, monthlyGoal: number) => {
         if (!user || !firestore || !profile) return;
-
         setSaving(true);
         try {
-            await setDoc(
-                doc(firestore, 'users', user.uid),
-                {
-                    goals: { weeklyMapGoal: weeklyGoal, monthlyMapGoal: monthlyGoal },
-                },
-                { merge: true }
-            );
-
+            await setDoc(doc(firestore, 'users', user.uid), { goals: { weeklyMapGoal: weeklyGoal, monthlyMapGoal: monthlyGoal } }, { merge: true });
             setProfile({ ...profile, goals: { weeklyMapGoal: weeklyGoal, monthlyMapGoal: monthlyGoal } });
-
-            toast({
-                title: 'Goals Updated!',
-                description: 'Your learning goals have been set',
-            });
+            toast({ title: 'Goals Updated', description: 'Learning targets set' });
         } catch (error) {
-            console.error('Error saving goals:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to save goals',
-            });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save goals' });
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-            </div>
-        );
-    }
+    if (loading) return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-purple-500" /></div>;
+    if (!profile) return null;
 
-    if (!profile) {
-        return null;
-    }
-
-    // Calculate derived data
     const streak = calculateStreak(activityData);
     const heatmapData = getActivityHeatmapData(activityData);
     const topTopics = getMostExploredTopics(mindMaps);
@@ -207,375 +198,243 @@ export default function ProfilePage() {
 
     return (
         <div className="container max-w-7xl mx-auto px-4 py-8">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-8">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => router.push('/dashboard')}
-                >
+            <div className="flex items-center gap-4 mb-6">
+                <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <div>
-                    <h1 className="text-3xl font-bold">Profile</h1>
-                    <p className="text-muted-foreground">Manage your learning journey</p>
+                <h1 className="text-xl font-semibold">Back to Dashboard</h1>
+            </div>
+
+            {/* Premium Profile Header */}
+            <div className="relative mb-8 p-6 md:p-8 rounded-2xl bg-gradient-to-r from-violet-950/40 to-fuchsia-950/40 border border-white/10 overflow-hidden shadow-2xl">
+                <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 md:gap-8">
+                    <div className="h-24 w-24 md:h-32 md:w-32 rounded-full border-4 border-white/5 bg-zinc-900/80 flex items-center justify-center text-4xl font-bold bg-gradient-to-br from-violet-400 to-fuchsia-400 bg-clip-text text-transparent shadow-2xl shrink-0">
+                        {profile.displayName?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 text-center md:text-left space-y-2">
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{profile.displayName}</h1>
+                        <p className="text-zinc-400 flex items-center justify-center md:justify-start gap-2">
+                            <Mail className="h-3.5 w-3.5" /> {profile.email}
+                        </p>
+                        <div className="flex items-center justify-center md:justify-start gap-3 pt-2">
+                            <Badge variant="secondary" className="bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 px-3 py-1">
+                                <Shield className="h-3 w-3 mr-1.5 text-emerald-400" /> Pro Account
+                            </Badge>
+                            <Badge variant="secondary" className="bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 px-3 py-1">
+                                <Trophy className="h-3 w-3 mr-1.5 text-yellow-400" /> {Math.floor(profile.statistics.totalMapsCreated / 10) + 1} Level
+                            </Badge>
+                        </div>
+                    </div>
+                    <div className="flex gap-6 md:gap-8 px-6 py-4 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm">
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-white mb-0.5">{streak.currentStreak}</div>
+                            <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold">Streak</div>
+                        </div>
+                        <div className="w-px bg-white/10" />
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-white mb-0.5">{achievementProgress}%</div>
+                            <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold">Trophies</div>
+                        </div>
+                        <div className="w-px bg-white/10" />
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-white mb-0.5">{profile.statistics.totalMapsCreated}</div>
+                            <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold">Maps</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <Tabs defaultValue="overview" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5 lg:w-auto">
-                    <TabsTrigger value="overview" className="gap-2">
-                        <User className="h-4 w-4" />
-                        <span className="hidden sm:inline">Overview</span>
+            <Tabs defaultValue="overview" className="space-y-8">
+                <TabsList className="w-full justify-start border-b border-white/10 bg-transparent p-0 h-auto rounded-none gap-6">
+                    <TabsTrigger
+                        value="overview"
+                        className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-violet-500 data-[state=active]:bg-transparent data-[state=active]:text-violet-400 hover:text-white transition-colors"
+                    >
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                        Overview
                     </TabsTrigger>
-                    <TabsTrigger value="preferences" className="gap-2">
-                        <Settings className="h-4 w-4" />
-                        <span className="hidden sm:inline">Preferences</span>
+                    <TabsTrigger
+                        value="achievements"
+                        className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-fuchsia-500 data-[state=active]:bg-transparent data-[state=active]:text-fuchsia-400 hover:text-white transition-colors"
+                    >
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Achievements
                     </TabsTrigger>
-                    <TabsTrigger value="goals" className="gap-2">
-                        <Target className="h-4 w-4" />
-                        <span className="hidden sm:inline">Goals</span>
+                    <TabsTrigger
+                        value="analytics"
+                        className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-400 hover:text-white transition-colors"
+                    >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Analytics
                     </TabsTrigger>
-                    <TabsTrigger value="collections" className="gap-2">
-                        <FolderHeart className="h-4 w-4" />
-                        <span className="hidden sm:inline">Collections</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="analytics" className="gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        <span className="hidden sm:inline">Analytics</span>
+                    <TabsTrigger
+                        value="settings"
+                        className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-zinc-500 data-[state=active]:bg-transparent data-[state=active]:text-zinc-400 hover:text-white transition-colors"
+                    >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Settings
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Overview Tab */}
-                <TabsContent value="overview" className="space-y-6">
-                    {/* Profile Info */}
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <div className="flex items-center gap-4">
-                                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl font-bold text-white">
-                                    {profile.displayName?.charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                <div>
-                                    <CardTitle className="text-2xl">{profile.displayName || 'User'}</CardTitle>
-                                    <CardDescription>{profile.email}</CardDescription>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <Badge variant="secondary" className="gap-1">
-                                            <Trophy className="h-3 w-3" />
-                                            {achievementProgress}% Achievements
-                                        </Badge>
-                                        <Badge variant="secondary" className="gap-1">
-                                            <Flame className="h-3 w-3 text-orange-400" />
-                                            {streak.currentStreak} Day Streak
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardHeader>
-                    </Card>
-
-                    {/* Statistics Grid */}
+                {/* OVERVIEW DASHBOARD */}
+                <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatisticsCard
-                            title="Mind Maps Created"
-                            value={profile.statistics.totalMapsCreated}
-                            icon="Map"
-                            subtitle="Total maps"
-                            color="purple"
-                        />
-                        <StatisticsCard
-                            title="Nested Expansions"
-                            value={profile.statistics.totalNestedExpansions}
-                            icon="Network"
-                            subtitle="Deep dives"
-                            color="blue"
-                        />
-                        <StatisticsCard
-                            title="AI Images Generated"
-                            value={profile.statistics.totalImagesGenerated}
-                            icon="Image"
-                            subtitle="Visual aids"
-                            color="pink"
-                        />
-                        <StatisticsCard
-                            title="Quiz Questions"
-                            value={profile.statistics.totalQuizQuestions}
-                            icon="HelpCircle"
-                            subtitle={`${quizAccuracy}% accuracy`}
-                            color="green"
-                        />
+                        <StatisticsCard title="Total Mind Maps" value={profile.statistics.totalMapsCreated} icon="Map" subtitle="Ideas Visualized" color="purple" />
+                        <StatisticsCard title="Study Hours" value={formatStudyTime(profile.statistics.totalStudyTimeMinutes)} icon="Clock" subtitle="Dedicated Time" color="orange" />
+                        <StatisticsCard title="Quiz Avg" value={`${quizAccuracy}%`} icon="Brain" subtitle="Knowledge Retention" color="green" />
+                        <StatisticsCard title="Exploration" value={profile.statistics.totalNestedExpansions} icon="Network" subtitle="Topics Deep Dived" color="blue" />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <StatisticsCard
-                            title="Study Time"
-                            value={formatStudyTime(profile.statistics.totalStudyTimeMinutes)}
-                            icon="Clock"
-                            subtitle="Total learning time"
-                            color="orange"
-                        />
-                        <StatisticsCard
-                            title="Current Streak"
-                            value={`${streak.currentStreak} days`}
-                            icon="Flame"
-                            subtitle={`Longest: ${streak.longestStreak} days`}
-                            color="orange"
-                        />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Main Interaction Column */}
+                        <div className="lg:col-span-2 space-y-8">
+                            <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <CardTitle className="text-lg">Activity Overview</CardTitle>
+                                            <CardDescription>Your learning consistency visualization</CardDescription>
+                                        </div>
+                                        <Badge variant="outline" className="border-green-500/20 text-green-400 bg-green-500/10">Active</Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <CalendarHeatmap data={heatmapData} />
+                                </CardContent>
+                            </Card>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                                            <Zap className="h-4 w-4 text-amber-400" /> Weekly Values
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-zinc-400">Map Creation Goal</span>
+                                                <span className="text-white font-medium">{weeklyProgress.current} / {weeklyProgress.goal}</span>
+                                            </div>
+                                            <Progress value={weeklyProgress.percentage} className="h-1.5" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                                            <Calendar className="h-4 w-4 text-blue-400" /> Monthly Values
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-zinc-400">Map Creation Goal</span>
+                                                <span className="text-white font-medium">{monthlyProgress.current} / {monthlyProgress.goal}</span>
+                                            </div>
+                                            <Progress value={monthlyProgress.percentage} className="h-1.5" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+
+                        {/* Recent & Quick Stats */}
+                        <div className="space-y-8">
+                            <Card className="bg-black/20 border-white/5 backdrop-blur-sm h-full">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Recent Badges</CardTitle>
+                                    <CardDescription>Latest unlocked achievements</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {ACHIEVEMENTS.filter(a => unlockedAchievements.includes(a.id)).slice(0, 4).map(achievement => (
+                                            <div key={achievement.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
+                                                <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-violet-300">
+                                                    {React.createElement(CATEGORIES[achievement.category as string]?.icon || Trophy, { className: "h-4 w-4" })}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{achievement.name}</p>
+                                                    <p className="text-xs text-zinc-400 truncate">{achievement.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {unlockedAchievements.length === 0 && (
+                                            <div className="text-center py-8 text-zinc-500 text-sm">No achievements yet. Start learning!</div>
+                                        )}
+                                    </div>
+                                    <Button variant="ghost" className="w-full mt-4 text-xs text-zinc-400 hover:text-white" onClick={() => {
+                                        const tabs = document.querySelector('[role="tablist"]');
+                                        const trigger = tabs?.querySelector('[value="achievements"]') as HTMLElement;
+                                        trigger?.click();
+                                    }}>
+                                        View All Achievements
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* ACHIEVEMENTS TAB */}
+                <TabsContent value="achievements" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {Object.entries(CATEGORIES).map(([cat, info]) => {
+                            const catAch = ACHIEVEMENTS.filter(a => a.category === cat);
+                            const unlocked = catAch.filter(a => unlockedAchievements.includes(a.id)).length;
+                            const progress = (unlocked / catAch.length) * 100;
+                            return (
+                                <Card key={cat} className="bg-black/20 border-white/5 backdrop-blur-sm">
+                                    <CardContent className="p-4 flex items-center gap-4">
+                                        <div className={`p-3 rounded-xl bg-white/5 ${info.color}`}>
+                                            <info.icon className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between mb-1">
+                                                <span className="text-sm font-medium text-zinc-200">{info.label}</span>
+                                                <span className="text-xs text-zinc-400">{unlocked}/{catAch.length}</span>
+                                            </div>
+                                            <Progress value={progress} className="h-1" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
                     </div>
 
-                    {/* Recent Achievements */}
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>Recent Achievements</CardTitle>
-                            <CardDescription>Your latest unlocked badges</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                {ACHIEVEMENTS.filter(a => unlockedAchievements.includes(a.id))
-                                    .slice(0, 6)
-                                    .map((achievement) => (
+                    {Object.entries(CATEGORIES).map(([category, info]) => {
+                        const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
+                        const Icon = info.icon;
+                        return (
+                            <div key={category} className="space-y-4">
+                                <div className="flex items-center gap-2 px-1">
+                                    <Icon className={`h-5 w-5 ${info.color}`} />
+                                    <h2 className="text-lg font-semibold text-white">{info.label}</h2>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {categoryAchievements.map((achievement) => (
                                         <AchievementBadge
                                             key={achievement.id}
                                             {...achievement}
-                                            unlocked={true}
+                                            // @ts-ignore
+                                            tier={achievement.tier}
+                                            unlocked={unlockedAchievements.includes(achievement.id)}
+                                            // @ts-ignore
+                                            unlockedAt={profile.achievements.find(a => a.id === achievement.id)?.unlockedAt}
+                                            progress={achievement.progress ? achievement.progress(profile.statistics) : undefined}
                                         />
                                     ))}
+                                </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        );
+                    })}
                 </TabsContent>
 
-                {/* Preferences Tab */}
-                <TabsContent value="preferences" className="space-y-6">
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>Learning Preferences</CardTitle>
-                            <CardDescription>Customize your learning experience</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label>Default Explanation Mode</Label>
-                                    <Select
-                                        value={profile.preferences.defaultExplanationMode}
-                                        onValueChange={(value: any) =>
-                                            savePreferences({ ...profile.preferences, defaultExplanationMode: value })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Beginner">Beginner</SelectItem>
-                                            <SelectItem value="Intermediate">Intermediate</SelectItem>
-                                            <SelectItem value="Expert">Expert</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Preferred Language</Label>
-                                    <Select
-                                        value={profile.preferences.preferredLanguage}
-                                        onValueChange={(value) =>
-                                            savePreferences({ ...profile.preferences, preferredLanguage: value })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {languages.map((lang) => (
-                                                <SelectItem key={lang.code} value={lang.code}>
-                                                    {lang.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Default AI Persona</Label>
-                                    <Select
-                                        value={profile.preferences.defaultAIPersona}
-                                        onValueChange={(value: any) =>
-                                            savePreferences({ ...profile.preferences, defaultAIPersona: value })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Standard">Standard</SelectItem>
-                                            <SelectItem value="Teacher">Teacher</SelectItem>
-                                            <SelectItem value="Concise">Concise</SelectItem>
-                                            <SelectItem value="Creative">Creative</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Default Mind Map View</Label>
-                                    <Select
-                                        value={profile.preferences.defaultMapView}
-                                        onValueChange={(value: any) =>
-                                            savePreferences({ ...profile.preferences, defaultMapView: value })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="expanded">Expanded</SelectItem>
-                                            <SelectItem value="collapsed">Collapsed</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <Label>Auto-generate Images</Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        Automatically create images for new mind maps
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={profile.preferences.autoGenerateImages}
-                                    onCheckedChange={(checked) =>
-                                        savePreferences({ ...profile.preferences, autoGenerateImages: checked })
-                                    }
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* Goals Tab */}
-                <TabsContent value="goals" className="space-y-6">
-                    {/* Goal Settings */}
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>Learning Goals</CardTitle>
-                            <CardDescription>Set your weekly and monthly targets</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label>Weekly Mind Map Goal</Label>
-                                <Input
-                                    type="number"
-                                    value={profile.goals.weeklyMapGoal}
-                                    onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0;
-                                        setProfile({ ...profile, goals: { ...profile.goals, weeklyMapGoal: value } });
-                                    }}
-                                    onBlur={() => saveGoals(profile.goals.weeklyMapGoal, profile.goals.monthlyMapGoal)}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Monthly Mind Map Goal</Label>
-                                <Input
-                                    type="number"
-                                    value={profile.goals.monthlyMapGoal}
-                                    onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0;
-                                        setProfile({ ...profile, goals: { ...profile.goals, monthlyMapGoal: value } });
-                                    }}
-                                    onBlur={() => saveGoals(profile.goals.weeklyMapGoal, profile.goals.monthlyMapGoal)}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Progress */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card className="glassmorphism">
-                            <CardHeader>
-                                <CardTitle>Weekly Progress</CardTitle>
-                                <CardDescription>
-                                    {weeklyProgress.current} / {weeklyProgress.goal} maps
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Progress value={weeklyProgress.percentage} className="h-2" />
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    {weeklyProgress.percentage}% complete
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="glassmorphism">
-                            <CardHeader>
-                                <CardTitle>Monthly Progress</CardTitle>
-                                <CardDescription>
-                                    {monthlyProgress.current} / {monthlyProgress.goal} maps
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Progress value={monthlyProgress.percentage} className="h-2" />
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    {monthlyProgress.percentage}% complete
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* All Achievements */}
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>All Achievements</CardTitle>
-                            <CardDescription>
-                                {unlockedAchievements.length} / {ACHIEVEMENTS.length} unlocked
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                {ACHIEVEMENTS.map((achievement) => (
-                                    <AchievementBadge
-                                        key={achievement.id}
-                                        {...achievement}
-                                        unlocked={unlockedAchievements.includes(achievement.id)}
-                                    />
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* Collections Tab */}
-                <TabsContent value="collections" className="space-y-6">
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>Collections</CardTitle>
-                            <CardDescription>Coming soon - organize your mind maps into custom collections</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-center py-12 text-muted-foreground">
-                                <FolderHeart className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                                <p>Collections feature will be available in the next update</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* Analytics Tab */}
-                <TabsContent value="analytics" className="space-y-6">
-                    {/* Calendar Heatmap */}
-                    <Card className="glassmorphism">
-                        <CardHeader>
-                            <CardTitle>Activity Calendar</CardTitle>
-                            <CardDescription>Your learning activity over the past year</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <CalendarHeatmap data={heatmapData} />
-                        </CardContent>
-                    </Card>
-
-                    {/* Charts */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="glassmorphism">
+                {/* ANALYTICS TAB */}
+                <TabsContent value="analytics" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
                             <CardHeader>
                                 <CardTitle>Topic Distribution</CardTitle>
                                 <CardDescription>Your most explored topics</CardDescription>
@@ -585,7 +444,7 @@ export default function ProfilePage() {
                             </CardContent>
                         </Card>
 
-                        <Card className="glassmorphism">
+                        <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
                             <CardHeader>
                                 <CardTitle>Progress Over Time</CardTitle>
                                 <CardDescription>Mind maps created in the last 30 days</CardDescription>
@@ -595,6 +454,89 @@ export default function ProfilePage() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
+
+                {/* SETTINGS TAB */}
+                <TabsContent value="settings" className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
+                        <CardHeader>
+                            <CardTitle>Learning Preferences</CardTitle>
+                            <CardDescription>Customize your AI learning experience</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label>Default Explanation Mode</Label>
+                                    <Select value={profile.preferences.defaultExplanationMode} onValueChange={(v: any) => savePreferences({ ...profile.preferences, defaultExplanationMode: v })}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Beginner">Beginner</SelectItem>
+                                            <SelectItem value="Intermediate">Intermediate</SelectItem>
+                                            <SelectItem value="Expert">Expert</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Preferred Language</Label>
+                                    <Select value={profile.preferences.preferredLanguage} onValueChange={(v) => savePreferences({ ...profile.preferences, preferredLanguage: v })}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {languages.map(l => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>AI Persona</Label>
+                                    <Select value={profile.preferences.defaultAIPersona} onValueChange={(v: any) => savePreferences({ ...profile.preferences, defaultAIPersona: v })}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Standard">Standard</SelectItem>
+                                            <SelectItem value="Teacher">Teacher</SelectItem>
+                                            <SelectItem value="Concise">Concise</SelectItem>
+                                            <SelectItem value="Creative">Creative</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Mind Map View</Label>
+                                    <Select value={profile.preferences.defaultMapView} onValueChange={(v: any) => savePreferences({ ...profile.preferences, defaultMapView: v })}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="expanded">Expanded</SelectItem>
+                                            <SelectItem value="collapsed">Collapsed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <Separator className="bg-white/10" />
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label>Auto-generate Images</Label>
+                                    <p className="text-sm text-muted-foreground">Automatically create images for new maps</p>
+                                </div>
+                                <Switch checked={profile.preferences.autoGenerateImages} onCheckedChange={(c) => savePreferences({ ...profile.preferences, autoGenerateImages: c })} />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-black/20 border-white/5 backdrop-blur-sm">
+                        <CardHeader>
+                            <CardTitle>Learning Goals</CardTitle>
+                            <CardDescription>Set your activity targets</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label>Weekly Mind Maps</Label>
+                                    <Input type="number" value={profile.goals.weeklyMapGoal} onChange={(e) => setProfile({ ...profile, goals: { ...profile.goals, weeklyMapGoal: parseInt(e.target.value) || 0 } })} onBlur={() => saveGoals(profile.goals.weeklyMapGoal, profile.goals.monthlyMapGoal)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Monthly Mind Maps</Label>
+                                    <Input type="number" value={profile.goals.monthlyMapGoal} onChange={(e) => setProfile({ ...profile, goals: { ...profile.goals, monthlyMapGoal: parseInt(e.target.value) || 0 } })} onBlur={() => saveGoals(profile.goals.weeklyMapGoal, profile.goals.monthlyMapGoal)} />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>

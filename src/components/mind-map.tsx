@@ -951,8 +951,9 @@ export const MindMap = ({
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? newImage : img));
 
       // Track activity
+      // Track activity
       if (firestore && user) {
-        trackImageGenerated(firestore, user.uid);
+        await trackImageGenerated(firestore, user.uid);
       }
 
       update({
@@ -1091,8 +1092,9 @@ export const MindMap = ({
       });
 
       // Track activity
+      // Track activity
       if (firestore && user) {
-        trackMapCreated(firestore, user.uid);
+        await trackMapCreated(firestore, user.uid);
       }
 
       // Redirect to the newly created map
@@ -1221,8 +1223,9 @@ export const MindMap = ({
         });
 
         // Track activity
+        // Track activity
         if (firestore && user) {
-          trackNestedExpansion(firestore, user.uid);
+          await trackNestedExpansion(firestore, user.uid);
         }
       }
     } catch (err) {
