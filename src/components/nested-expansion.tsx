@@ -215,18 +215,37 @@ export function NestedExpansion({
                                                     <h5 className="text-sm font-medium text-foreground group-hover:text-purple-300 transition-colors">
                                                         {subCat.name}
                                                     </h5>
-                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                                    <p className="text-sm text-zinc-400 leading-relaxed mt-2">
                                                         {subCat.description}
                                                     </p>
-                                                    <div className="flex flex-wrap gap-1 mt-2">
-                                                        {subCat.tags.map((tag, tagIndex) => (
-                                                            <span
-                                                                key={tagIndex}
-                                                                className="px-1.5 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300"
-                                                            >
-                                                                {tag}
-                                                            </span>
-                                                        ))}
+                                                    <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (onExplainInChat) {
+                                                                    onExplainInChat(
+                                                                        `Explain "${subCat.name}" in the context of ${data.topic} and ${mainTopic}.`
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Sparkles className="h-3 w-3 mr-1" />
+                                                            Explain
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigator.clipboard.writeText(`${subCat.name}\n${subCat.description}`);
+                                                            }}
+                                                        >
+                                                            <LucideIcons.Copy className="h-3 w-3" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </div>

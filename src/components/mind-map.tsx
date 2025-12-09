@@ -339,19 +339,7 @@ const SubCategoryCard = memo(function SubCategoryCard({
           {subCategory.description}
         </p>
 
-        {subCategory.tags && subCategory.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {subCategory.tags.map((tag: string, i: number) => (
-              <span
-                key={i}
-                className="rounded-full px-3 py-1 text-xs font-medium text-purple-200 bg-white/5 ring-1 ring-white/10"
-                style={{ backdropFilter: 'blur(6px)' }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+
 
         <div className="mt-4 flex justify-between items-center">
           <div
@@ -428,6 +416,26 @@ const SubCategoryCard = memo(function SubCategoryCard({
               <TooltipPortal>
                 <TooltipContent>
                   <p>Explain in Chat</p>
+                </TooltipContent>
+              </TooltipPortal>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(`${subCategory.name}\n${subCategory.description}`);
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent>
+                  <p>Copy Text</p>
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>

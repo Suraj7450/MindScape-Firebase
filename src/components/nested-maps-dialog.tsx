@@ -284,7 +284,7 @@ export function NestedMapsDialog({
                                                                     </CardTitle>
                                                                 </CardHeader>
                                                                 <CardContent className="p-4 pt-0">
-                                                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+                                                                    <p className="text-sm text-zinc-400 leading-relaxed mb-3">
                                                                         {subCat.description}
                                                                     </p>
 
