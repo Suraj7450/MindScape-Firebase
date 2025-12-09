@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, getDocs, onSnapshot } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-    Loader2, User, Settings, target, BarChart3, ArrowLeft, Flame, Trophy,
+    Loader2, User, Settings, Target, BarChart3, ArrowLeft, Flame, Trophy,
     Map, Network, Image, Brain, Clock, Sparkles, Mail, Shield, LayoutDashboard,
     Zap, Calendar
 } from 'lucide-react';
@@ -72,89 +72,149 @@ export default function ProfilePage() {
             router.push('/login');
             return;
         }
-        loadProfileData();
+
+        let unsubscribe: (() => void) | undefined;
+        loadProfileData().then((cleanup) => {
+            unsubscribe = cleanup;
+        });
+
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        };
     }, [user, firestore]);
 
     const loadProfileData = async () => {
         if (!user || !firestore) return;
 
         try {
-            const profileDoc = await getDoc(doc(firestore, 'users', user.uid));
+            // Set up real-time listener for profile data
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (profileDoc) => {
+                if (profileDoc.exists()) {
+                    const data = profileDoc.data();
+                    setProfile({
+                        displayName: data.displayName || user.displayName || '',
+                        email: data.email || user.email || '',
+                        photoURL: data.photoURL || user.photoURL,
+                        preferences: data.preferences || getDefaultPreferences(),
+                        statistics: data.statistics || getDefaultStatistics(),
+                        goals: data.goals || getDefaultGoals(),
+                        achievements: data.achievements || [],
+                        collections: data.collections || {},
+                        recentlyViewed: data.recentlyViewed || [],
+                    });
+                    setActivityData(data.activity || {});
+                } else {
+                    const defaultProfile: UserProfile = {
+                        displayName: user.displayName || '',
+                        email: user.email || '',
+                        photoURL: user.photoURL,
+                        preferences: getDefaultPreferences(),
+                        statistics: getDefaultStatistics(),
+                        goals: getDefaultGoals(),
+                        achievements: [],
+                        collections: {},
+                        recentlyViewed: [],
+                    };
+                    setProfile(defaultProfile);
+                }
+                setLoading(false);
+            }, (error) => {
+                console.error('Error loading profile:', error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Failed to load profile data' });
+                setLoading(false);
+            });
 
-            if (profileDoc.exists()) {
-                const data = profileDoc.data();
-                setProfile({
-                    displayName: data.displayName || user.displayName || '',
-                    email: data.email || user.email || '',
-                    photoURL: data.photoURL || user.photoURL,
-                    preferences: data.preferences || getDefaultPreferences(),
-                    statistics: data.statistics || getDefaultStatistics(),
-                    goals: data.goals || getDefaultGoals(),
-                    achievements: data.achievements || [],
-                    collections: data.collections || {},
-                    recentlyViewed: data.recentlyViewed || [],
-                });
-                setActivityData(data.activity || {});
-            } else {
-                const defaultProfile: UserProfile = {
-                    displayName: user.displayName || '',
-                    email: user.email || '',
-                    photoURL: user.photoURL,
-                    preferences: getDefaultPreferences(),
-                    statistics: getDefaultStatistics(),
-                    goals: getDefaultGoals(),
-                    achievements: [],
-                    collections: {},
-                    recentlyViewed: [],
-                };
-                setProfile(defaultProfile);
-            }
-
+            // Load mind maps (one-time fetch)
             const mapsQuery = query(collection(firestore, 'users', user.uid, 'mindmaps'));
             const mapsSnapshot = await getDocs(mapsQuery);
             const maps = mapsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setMindMaps(maps);
 
+            // Reconcile maps count: compare actual count with stored statistics
+            const actualMapsCount = maps.length;
+            const reconcileDocRef = doc(firestore, 'users', user.uid);
+            const userDocSnap = await getDoc(reconcileDocRef);
+
+            if (userDocSnap.exists()) {
+                const storedCount = userDocSnap.data().statistics?.totalMapsCreated || 0;
+
+                if (storedCount !== actualMapsCount) {
+                    console.warn(`Maps count mismatch: stored=${storedCount}, actual=${actualMapsCount}. Reconciling...`);
+
+                    // Update stored count to match actual
+                    await setDoc(reconcileDocRef, {
+                        statistics: {
+                            totalMapsCreated: actualMapsCount
+                        }
+                    }, { merge: true });
+
+                    toast({
+                        title: 'Statistics Updated',
+                        description: `Corrected maps count from ${storedCount} to ${actualMapsCount}`,
+                    });
+                }
+            }
+
+            // Return cleanup function
+            return unsubscribe;
         } catch (error) {
-            console.error('Error loading profile:', error);
+            console.error('Error setting up profile listener:', error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to load profile data' });
-        } finally {
             setLoading(false);
         }
     };
 
-    // Check for new achievements
-    useEffect(() => {
-        if (!profile || !user || !firestore) return;
+    // Check for new achievements (optimized with memoization)
+    const processedAchievementsRef = useRef<Set<string>>(new Set());
 
+    const newAchievements = useMemo(() => {
+        if (!profile) return [];
         const unlockedIds = profile.achievements.map(a => a.id);
-        const newAchievements = getNewlyUnlockedAchievements(profile.statistics, unlockedIds);
+        return getNewlyUnlockedAchievements(profile.statistics, unlockedIds);
+    }, [profile?.statistics.totalMapsCreated, profile?.statistics.totalNestedExpansions, profile?.statistics.totalImagesGenerated, profile?.statistics.totalQuizQuestions, profile?.statistics.currentStreak]);
 
-        if (newAchievements.length > 0) {
-            const newUnlockData = newAchievements.map(a => ({
-                id: a.id,
-                unlockedAt: Date.now()
-            }));
+    useEffect(() => {
+        if (!profile || !user || !firestore || newAchievements.length === 0) return;
 
-            const updatedAchievements = [...profile.achievements, ...newUnlockData];
+        // Filter out already processed achievements
+        const unprocessedAchievements = newAchievements.filter(
+            a => !processedAchievementsRef.current.has(a.id)
+        );
 
-            // Persist
-            setDoc(doc(firestore, 'users', user.uid), {
-                achievements: updatedAchievements
-            }, { merge: true }).then(() => {
-                // Toast for each
-                newAchievements.forEach(achievement => {
+        if (unprocessedAchievements.length === 0) return;
+
+        const newUnlockData = unprocessedAchievements.map(a => ({
+            id: a.id,
+            unlockedAt: Date.now()
+        }));
+
+        const updatedAchievements = [...profile.achievements, ...newUnlockData];
+
+        // Persist
+        setDoc(doc(firestore, 'users', user.uid), {
+            achievements: updatedAchievements
+        }, { merge: true }).then(() => {
+            // Toast for each (debounced to prevent spam)
+            unprocessedAchievements.forEach((achievement, index) => {
+                setTimeout(() => {
                     toast({
                         title: "New Achievement Unlocked! 🏆",
                         description: achievement.name,
                         className: "bg-gradient-to-r from-yellow-900/80 to-amber-900/80 border-amber-500/50 text-amber-100",
                     });
-                });
-                // Update local
-                setProfile(prev => prev ? ({ ...prev, achievements: updatedAchievements }) : null);
-            }).catch(err => console.error("Error unlocking achievements:", err));
-        }
-    }, [profile, user, firestore, toast]);
+                }, index * 500); // 500ms delay between toasts
+            });
+
+            // Mark as processed
+            unprocessedAchievements.forEach(a => processedAchievementsRef.current.add(a.id));
+
+            // Update local
+            setProfile(prev => prev ? ({ ...prev, achievements: updatedAchievements }) : null);
+        }).catch(err => console.error("Error unlocking achievements:", err));
+    }, [newAchievements, user, firestore, toast]);
 
     const savePreferences = async (newPreferences: UserPreferences) => {
         if (!user || !firestore || !profile) return;
@@ -187,7 +247,11 @@ export default function ProfilePage() {
     if (loading) return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-purple-500" /></div>;
     if (!profile) return null;
 
-    const streak = calculateStreak(activityData);
+    // Use stored streak values as single source of truth (updated by activity-tracker)
+    const streak = {
+        currentStreak: profile.statistics.currentStreak,
+        longestStreak: profile.statistics.longestStreak
+    };
     const heatmapData = getActivityHeatmapData(activityData);
     const topTopics = getMostExploredTopics(mindMaps);
     const quizAccuracy = calculateQuizAccuracy(profile.statistics);
@@ -280,10 +344,16 @@ export default function ProfilePage() {
                 {/* OVERVIEW DASHBOARD */}
                 <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatisticsCard title="Total Mind Maps" value={profile.statistics.totalMapsCreated} icon="Map" subtitle="Ideas Visualized" color="purple" />
+                        <StatisticsCard 
+                            title="Total Content" 
+                            value={profile.statistics.totalMapsCreated + profile.statistics.totalNestedExpansions} 
+                            icon="Sparkles" 
+                            subtitle="Maps + Sub-Maps" 
+                            color="purple" 
+                        />
+                        <StatisticsCard title="Mind Maps" value={profile.statistics.totalMapsCreated} icon="Map" subtitle="Main Topics" color="blue" />
                         <StatisticsCard title="Study Hours" value={formatStudyTime(profile.statistics.totalStudyTimeMinutes)} icon="Clock" subtitle="Dedicated Time" color="orange" />
                         <StatisticsCard title="Quiz Avg" value={`${quizAccuracy}%`} icon="Brain" subtitle="Knowledge Retention" color="green" />
-                        <StatisticsCard title="Exploration" value={profile.statistics.totalNestedExpansions} icon="Network" subtitle="Topics Deep Dived" color="blue" />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

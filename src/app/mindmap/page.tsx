@@ -36,7 +36,7 @@ import {
 import { BreadcrumbNavigation } from '@/components/breadcrumb-navigation';
 import Image from 'next/image';
 import { mindscapeMap } from '@/lib/mindscape-data';
-import { trackMapCreated } from '@/lib/activity-tracker';
+import { trackMapCreated, trackStudyTime } from '@/lib/activity-tracker';
 
 /**
  * The core content component for the mind map page.
@@ -318,6 +318,25 @@ function MindMapPageContent() {
 
     fetchMindMapData();
   }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex]);
+
+  // Track study time every 5 minutes
+  useEffect(() => {
+    if (!user || !firestore) return;
+
+    const TRACK_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const MINUTES_PER_INTERVAL = 5;
+
+    const intervalId = setInterval(async () => {
+      try {
+        await trackStudyTime(firestore, user.uid, MINUTES_PER_INTERVAL);
+      } catch (error) {
+        console.error('Error tracking study time:', error);
+      }
+    }, TRACK_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [user, firestore]);
+
 
 
   const handleManualSaveMap = () => {

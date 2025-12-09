@@ -36,15 +36,31 @@ export async function updateUserStatistics(
 
         await setDoc(userRef, statisticsUpdates, { merge: true });
 
-        // Update daily activity
+        // Update daily activity - ensure fields exist before incrementing
+        const activityPath = `activity.${today}`;
         const activityUpdates: any = {};
-        if (updates.mapsCreated) activityUpdates[`activity.${today}.mapsCreated`] = increment(updates.mapsCreated);
-        if (updates.nestedExpansions) activityUpdates[`activity.${today}.expansionsMade`] = increment(updates.nestedExpansions);
-        if (updates.imagesGenerated) activityUpdates[`activity.${today}.imagesGenerated`] = increment(updates.imagesGenerated);
-        if (updates.quizQuestions) activityUpdates[`activity.${today}.quizQuestions`] = increment(updates.quizQuestions);
-        if (updates.studyTimeMinutes) activityUpdates[`activity.${today}.studyTimeMinutes`] = increment(updates.studyTimeMinutes);
 
+        // Initialize activity object for today if it doesn't exist
+        activityUpdates[activityPath] = {
+            mapsCreated: 0,
+            expansionsMade: 0,
+            imagesGenerated: 0,
+            quizQuestions: 0,
+            studyTimeMinutes: 0
+        };
+
+        // First ensure the day exists with default values
         await setDoc(userRef, activityUpdates, { merge: true });
+
+        // Now increment the specific fields
+        const incrementUpdates: any = {};
+        if (updates.mapsCreated) incrementUpdates[`activity.${today}.mapsCreated`] = increment(updates.mapsCreated);
+        if (updates.nestedExpansions) incrementUpdates[`activity.${today}.expansionsMade`] = increment(updates.nestedExpansions);
+        if (updates.imagesGenerated) incrementUpdates[`activity.${today}.imagesGenerated`] = increment(updates.imagesGenerated);
+        if (updates.quizQuestions) incrementUpdates[`activity.${today}.quizQuestions`] = increment(updates.quizQuestions);
+        if (updates.studyTimeMinutes) incrementUpdates[`activity.${today}.studyTimeMinutes`] = increment(updates.studyTimeMinutes);
+
+        await setDoc(userRef, incrementUpdates, { merge: true });
 
         // Update streak
         await updateStreak(firestore, userId, today);
