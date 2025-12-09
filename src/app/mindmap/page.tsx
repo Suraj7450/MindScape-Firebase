@@ -4,7 +4,7 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { MindMap } from '@/components/mind-map';
+import { MindMap, NestedExpansionItem } from '@/components/mind-map';
 import { ChatPanel } from '@/components/chat-panel';
 import { GenerationLoading } from '@/components/generation-loading';
 import { Badge } from '@/components/ui/badge';
@@ -147,14 +147,10 @@ function MindMapPageContent() {
     }
   }, [user, firestore, toast]);
 
+  const lastFetchedParamsRef = useRef<string>('');
+
   useEffect(() => {
     const fetchMindMapData = async () => {
-      if (hasFetchedRef.current) return;
-      hasFetchedRef.current = true;
-
-      setIsLoading(true);
-      setError(null);
-
       const singleTopic = searchParams.get('topic');
       const topic1 = searchParams.get('topic1');
       const topic2 = searchParams.get('topic2');
@@ -164,6 +160,32 @@ function MindMapPageContent() {
       const parentTopic = searchParams.get('parent');
       const isPublic = searchParams.get('public') === 'true';
       const isSelfReference = searchParams.get('selfReference') === 'true';
+
+      // Create a unique key for the current params to prevent duplicate fetches
+      const currentParamsKey = JSON.stringify({ singleTopic, topic1, topic2, sessionId, mapId, lang, parentTopic, isPublic, isSelfReference });
+
+      // If we already have this map in our state, just switch to it
+      const existingMapIndex = mindMaps.findIndex(m => {
+        if (mapId && m.id === mapId) return true;
+        if (singleTopic && m.topic === singleTopic) return true;
+        if (isSelfReference && m.topic === 'MindScape') return true;
+        return false;
+      });
+
+      if (existingMapIndex !== -1) {
+        if (activeMindMapIndex !== existingMapIndex) {
+          setActiveMindMapIndex(existingMapIndex);
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Prevent duplicate fetches for the same params if we're technically already loading or have loaded it
+      if (lastFetchedParamsRef.current === currentParamsKey && isLoading) return;
+      lastFetchedParamsRef.current = currentParamsKey;
+
+      setIsLoading(true);
+      setError(null);
 
       let result: { data: GenerateMindMapOutput | null; error: string | null } = { data: null, error: null };
       let currentMode = 'standard';
@@ -175,7 +197,6 @@ function MindMapPageContent() {
         } else if (mapId) {
           currentMode = isPublic ? 'public-saved' : 'saved';
           if (isPublic) {
-            // Public maps are fetched with a direct getDoc call because they are read-only
             const publicDocRef = doc(firestore, 'publicMindmaps', mapId);
             const docSnap = await getDoc(publicDocRef);
             if (docSnap.exists()) {
@@ -185,7 +206,7 @@ function MindMapPageContent() {
             }
           } else {
             if (isFetchingSavedMap) {
-              hasFetchedRef.current = false;
+              // Wait for saved map hook to finish
               return;
             }
             if (savedMindMap) {
@@ -250,7 +271,9 @@ function MindMapPageContent() {
             result.error = 'Could not retrieve session data. Please try again.';
           }
         } else {
-          result.error = 'Invalid parameters for mind map generation.';
+          // No valid params, waits
+          setIsLoading(false);
+          return;
         }
 
         setMode(currentMode);
@@ -260,14 +283,19 @@ function MindMapPageContent() {
         }
 
         if (result.data) {
-          const isBranching = !!parentTopic;
-          if (isBranching) {
-            setMindMaps(prevMaps => [...prevMaps, result.data!]);
-            setActiveMindMapIndex(prevIndex => prevIndex + 1);
-          } else {
-            setMindMaps([result.data]);
-            setActiveMindMapIndex(0);
-          }
+          setMindMaps(prevMaps => {
+            // Check duplication again before adding
+            const exists = prevMaps.some(m => m.topic === result.data!.topic);
+            if (exists) return prevMaps;
+            return [...prevMaps, result.data!];
+          });
+
+          // Set active index to the new last element
+          setMindMaps(prev => {
+            const newIndex = prev.findIndex(m => m.topic === result.data!.topic);
+            if (newIndex !== -1) setActiveMindMapIndex(newIndex);
+            return prev;
+          });
 
           const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user) {
@@ -289,7 +317,7 @@ function MindMapPageContent() {
     };
 
     fetchMindMapData();
-  }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore]);
+  }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex]);
 
 
   const handleManualSaveMap = () => {
@@ -303,15 +331,92 @@ function MindMapPageContent() {
     setIsChatOpen(true);
   };
 
-  const handleGenerateNewMap = (topic: string, nodeId: string) => {
+  const handleGenerateAndOpenSubMap = async (subTopic: string, nodeId: string, contextPath: string) => {
+    if (!mindMap) return;
+
     setGeneratingNodeId(nodeId);
-    const lang = searchParams.get('lang');
-    const query = new URLSearchParams({
-      topic: topic,
-      parent: mindMap?.topic || '',
-      lang: lang || 'en',
-    }).toString();
-    router.push(`/mindmap?${query}`);
+    toast({
+      title: "Generating Sub-Map...",
+      description: `Creating a detailed map for "${subTopic}".`,
+    });
+
+    try {
+      const lang = searchParams.get('lang') || 'en';
+
+      const result = await generateMindMapAction({
+        topic: subTopic,
+        parentTopic: mindMap.topic,
+        targetLang: lang,
+      });
+
+      if (result.error) throw new Error(result.error);
+      if (!result.data) throw new Error("No data returned");
+
+      const newSubMap = result.data;
+
+      // Use the contextPath passed from the UI (e.g., "Main Topic > SubTopic > Category")
+      const newNestedItem: NestedExpansionItem & { fullData: any } = {
+        id: crypto.randomUUID(),
+        parentName: subTopic, // The topic we're generating for
+        topic: subTopic,
+        icon: 'Network',
+        subCategories: newSubMap.subTopics.flatMap(st => st.categories.flatMap(c => c.subCategories)).slice(0, 4),
+        path: contextPath, // Use the context path from where button was clicked
+        createdAt: Date.now(),
+        depth: mindMaps.length, // Depth based on breadcrumb position
+        status: 'completed',
+        fullData: newSubMap
+      };
+
+      // 1. Open the new map immediately (Update Local View State)
+      setMindMaps(prev => {
+        // Append full map data to breadcrumb list
+        const updatedMaps = [...prev, { ...newSubMap, id: newNestedItem.id }];
+        return updatedMaps;
+      });
+      setActiveMindMapIndex(prev => prev + 1);
+
+      // 2. Save to Ecosystem (Update Root Map's Nested List)
+      // We always update the ROOT object (mindMaps[0]) in Firestore because that's where the ecosystem lives.
+      const rootMap = mindMaps[0];
+      const rootMapId = (rootMap as any).id;
+
+      if (rootMapId && user) {
+        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', rootMapId);
+
+        const currentRootNestedExpansions = (rootMap as any).nestedExpansions || [];
+        const updatedRootNestedExpansions = [...currentRootNestedExpansions, newNestedItem];
+
+        await updateDoc(mapRef, {
+          nestedExpansions: updatedRootNestedExpansions
+        });
+
+        // Also update local state of root map to reflect this new nested item in the FAB list
+        setMindMaps(prev => {
+          const newMaps = [...prev];
+          // Update the root map in the stack with the new nested expansion list
+          newMaps[0] = {
+            ...newMaps[0],
+            nestedExpansions: updatedRootNestedExpansions
+          } as any;
+          return newMaps;
+        });
+      }
+
+      toast({
+        title: "Map Opened",
+        description: "Sub-map generated and saved to the ecosystem.",
+      });
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: error.message
+      });
+    } finally {
+      setGeneratingNodeId(null);
+    }
   };
 
   const handleLanguageChange = (langCode: string) => {
@@ -345,6 +450,34 @@ function MindMapPageContent() {
     router.replace(`/mindmap?${newParams.toString()}`);
   };
 
+  // Handler for opening a nested map from the ecosystem dialog
+  const handleOpenNestedMap = (mapData: any, expansionId: string) => {
+    if (!mapData) {
+      toast({
+        variant: "destructive",
+        title: "Cannot Open Map",
+        description: "This map data is not available.",
+      });
+      return;
+    }
+
+    // Check if map already exists in the stack
+    const existingIndex = mindMaps.findIndex(m => m.topic === mapData.topic);
+    if (existingIndex !== -1) {
+      setActiveMindMapIndex(existingIndex);
+    } else {
+      // Add to stack and switch to it
+      setMindMaps(prev => [...prev, mapData]);
+      setActiveMindMapIndex(mindMaps.length); // Will be the new last index
+    }
+
+    const lang = searchParams.get('lang');
+    const newParams = new URLSearchParams();
+    newParams.set('topic', mapData.topic);
+    if (lang) newParams.set('lang', lang);
+    newParams.set('parent', mindMap?.topic || '');
+    router.replace(`/mindmap?${newParams.toString()}`);
+  };
 
   const ModeBadge = () => {
     let badgeContent;
@@ -443,7 +576,8 @@ function MindMapPageContent() {
             isPublic={isPublic}
             onSaveMap={handleManualSaveMap}
             onExplainInChat={handleExplainInChat}
-            onGenerateNewMap={handleGenerateNewMap}
+            onGenerateNewMap={handleGenerateAndOpenSubMap}
+            onOpenNestedMap={handleOpenNestedMap}
             generatingNode={generatingNodeId}
             selectedLanguage={searchParams.get('lang') || 'en'}
             onLanguageChange={handleLanguageChange}

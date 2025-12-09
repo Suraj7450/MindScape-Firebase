@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     Tooltip,
@@ -64,7 +64,7 @@ export function ExpandFAB({
                         {isLoading ? (
                             <Loader2 className="h-4 w-4 text-purple-300 animate-spin" />
                         ) : (
-                            <Sparkles className="h-4 w-4 text-purple-300" />
+                            <Network className="h-4 w-4 text-purple-300" />
                         )}
                     </button>
                 </TooltipTrigger>

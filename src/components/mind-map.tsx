@@ -120,7 +120,9 @@ export interface NestedExpansionItem {
   subCategories: Array<{ name: string; description: string; icon: string; tags: string[] }>;
   createdAt: number;
   depth: number;
+  path?: string;
   status?: 'generating' | 'completed' | 'failed';
+  fullData?: any; // The full mind map data for opening this nested map
 }
 
 type MindMapData = GenerateMindMapOutput & {
@@ -140,7 +142,8 @@ interface MindMapProps {
   isPublic: boolean;
   onSaveMap: () => void;
   onExplainInChat: (message: string) => void;
-  onGenerateNewMap: (topic: string, nodeId: string) => void;
+  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
+  onOpenNestedMap?: (mapData: any, expansionId: string) => void;
   generatingNode: string | null;
   selectedLanguage: string;
   onLanguageChange: (langCode: string) => void;
@@ -279,12 +282,15 @@ const SubCategoryCard = memo(function SubCategoryCard({
   subCategory,
   onExpandNode,
   isExpanding,
+  onGenerateNewMap,
+  isGeneratingMap,
   onExplainWithExample,
   onExplainInChat,
   onSubCategoryClick,
   onGenerateImage,
   mainTopic,
   nodeId,
+  contextPath,
 }: {
   subCategory: any;
   onExpandNode: (nodeName: string, nodeDescription: string, nodeId: string) => void;
@@ -293,26 +299,24 @@ const SubCategoryCard = memo(function SubCategoryCard({
   onExplainInChat: (message: string) => void;
   onSubCategoryClick: (subCategory: SubCategoryInfo) => void;
   onGenerateImage: (subCategory: SubCategoryInfo) => void;
+  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
+  isGeneratingMap: boolean;
   mainTopic: string;
   nodeId: string;
+  contextPath: string; // e.g., "Main Topic > SubTopic > Category"
 }) {
   const SubCategoryIcon =
     (LucideIcons as any)[toPascalCase(subCategory.icon)] || FileText;
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onExpandNode(subCategory.name, subCategory.description, nodeId);
-  };
-
-  const handleExampleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onExplainWithExample({ name: subCategory.name, type: 'category' });
+    onGenerateNewMap(subCategory.name, nodeId, contextPath);
   };
 
   const handleChatClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onExplainInChat(
-      `Explain what ${subCategory.name} is in the context of ${mainTopic}.`
+      `Explain "${subCategory.name}" in the context of ${mainTopic}.`
     );
   };
 
@@ -341,90 +345,74 @@ const SubCategoryCard = memo(function SubCategoryCard({
 
 
 
-        <div className="mt-4 flex justify-between items-center">
+        <div className="mt-auto pt-4 flex justify-between items-center border-t border-white/5">
           <div
-            className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity"
+            className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <Tooltip>
+            <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                   onClick={handleExpandClick}
-                  disabled={isExpanding}
+                  disabled={isGeneratingMap || isExpanding}
                 >
-                  {isExpanding ? (
+                  {isGeneratingMap || isExpanding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <GitBranch className="h-4 w-4" />
+                    <Network className="h-4 w-4" />
                   )}
                 </Button>
               </TooltipTrigger>
               <TooltipPortal>
-                <TooltipContent>
-                  <p>Expand further</p>
+                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
+                  <p>Generate Sub-Map</p>
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>
-            <Tooltip>
+
+            <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
-                  onClick={handleExampleClick}
-                >
-                  <Pocket className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent>
-                  <p>Give me examples</p>
-                </TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
+                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                   onClick={handleImageClick}
                 >
                   <ImageIcon className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipPortal>
-                <TooltipContent>
+                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
                   <p>Generate Image</p>
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>
-            <Tooltip>
+            <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                   onClick={handleChatClick}
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipPortal>
-                <TooltipContent>
+                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
                   <p>Explain in Chat</p>
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>
-            <Tooltip>
+            <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigator.clipboard.writeText(`${subCategory.name}\n${subCategory.description}`);
@@ -434,7 +422,7 @@ const SubCategoryCard = memo(function SubCategoryCard({
                 </Button>
               </TooltipTrigger>
               <TooltipPortal>
-                <TooltipContent>
+                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
                   <p>Copy Text</p>
                 </TooltipContent>
               </TooltipPortal>
@@ -446,9 +434,9 @@ const SubCategoryCard = memo(function SubCategoryCard({
               onSubCategoryClick(subCategory);
             }}
             variant="ghost"
-            className="h-auto p-1 text-sm text-purple-400 flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity"
+            className="h-auto py-1 px-3 text-sm font-medium text-purple-400 hover:bg-purple-600 hover:text-white rounded-full flex items-center gap-1.5 transition-all duration-300 transform"
           >
-            Explore <ArrowRight className="w-4 h-4" />
+            Read More <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </div>
       </CardContent>
@@ -466,14 +454,16 @@ const ComparisonView = ({
   onExplainWithExample,
   onExplainInChat,
   mainTopic,
+  contextPath,
 }: {
   categories: any[];
   onSubCategoryClick: (subCategory: SubCategoryInfo) => void;
-  onGenerateNewMap: (topic: string, nodeId: string) => void;
+  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
   generatingNode: string | null;
   onExplainWithExample: (node: ExplainableNode) => void;
   onExplainInChat: (message: string) => void;
   mainTopic: string;
+  contextPath: string;
 }) => {
   if (!categories || categories.length !== 2) {
     return null; // or some fallback UI
@@ -509,7 +499,7 @@ const ComparisonView = ({
 
         const handleGenerateClick = (e: React.MouseEvent) => {
           e.stopPropagation();
-          onGenerateNewMap(row.name, row.nodeId);
+          onGenerateNewMap(row.name, row.nodeId, contextPath);
         };
 
         const handleExampleClick = (e: React.MouseEvent) => {
@@ -641,6 +631,7 @@ export const MindMap = ({
   onSaveMap,
   onExplainInChat,
   onGenerateNewMap,
+  onOpenNestedMap,
   generatingNode,
   selectedLanguage,
   onLanguageChange,
@@ -1154,10 +1145,11 @@ export const MindMap = ({
   const handleGenerateClick = (
     e: React.MouseEvent,
     topic: string,
-    nodeId: string
+    nodeId: string,
+    contextPath: string
   ) => {
     e.stopPropagation();
-    onGenerateNewMap(topic, nodeId);
+    onGenerateNewMap(topic, nodeId, contextPath);
   };
 
   /**
@@ -1481,22 +1473,22 @@ export const MindMap = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                           onClick={(e) =>
-                            handleGenerateClick(e, subTopic.name, subTopicNodeId)
+                            handleGenerateClick(e, subTopic.name, subTopicNodeId, mindMap.topic)
                           }
                           disabled={isGeneratingSubTopic}
                         >
                           {isGeneratingSubTopic ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <GitBranch className="h-4 w-4" />
+                            <Network className="h-4 w-4" />
                           )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipPortal>
-                        <TooltipContent>
-                          <p>Expand further</p>
+                        <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
+                          <p>Generate Sub-Map</p>
                         </TooltipContent>
                       </TooltipPortal>
                     </Tooltip>
@@ -1555,6 +1547,7 @@ export const MindMap = ({
                       onExplainWithExample={(node) => handleExplainWithExample(new MouseEvent('click'), node)}
                       onExplainInChat={onExplainInChat}
                       mainTopic={mindMap.topic}
+                      contextPath={`${mindMap.topic} > ${subTopic.name}`}
                     />
                   ) : (
                     <Accordion
@@ -1596,12 +1589,13 @@ export const MindMap = ({
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      className="h-8 w-8 text-muted-foreground hover:text-purple-400"
                                       onClick={(e) =>
                                         handleGenerateClick(
                                           e,
                                           category.name,
-                                          categoryNodeId
+                                          categoryNodeId,
+                                          `${mindMap.topic} > ${subTopic.name}`
                                         )
                                       }
                                       disabled={isGeneratingCategory}
@@ -1609,13 +1603,13 @@ export const MindMap = ({
                                       {isGeneratingCategory ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                       ) : (
-                                        <GitBranch className="h-4 w-4" />
+                                        <Network className="h-4 w-4" />
                                       )}
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipPortal>
-                                    <TooltipContent>
-                                      <p>Expand further</p>
+                                    <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
+                                      <p>Generate Sub-Map</p>
                                     </TooltipContent>
                                   </TooltipPortal>
                                 </Tooltip>
@@ -1665,7 +1659,7 @@ export const MindMap = ({
                               </div>
                             </div>
                             <AccordionContent className="px-4 pb-4 pt-0">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                                 {category.subCategories.map(
                                   (subCategory, subCatIndex) => (
                                     <SubCategoryCard
@@ -1673,6 +1667,8 @@ export const MindMap = ({
                                       subCategory={subCategory}
                                       onExpandNode={handleExpandNode}
                                       isExpanding={expandingNodeId === `subcat-${subIndex}-${catIndex}-${subCatIndex}`}
+                                      onGenerateNewMap={onGenerateNewMap}
+                                      isGeneratingMap={generatingNode === `subcat-${subIndex}-${catIndex}-${subCatIndex}`}
                                       onExplainWithExample={(node) =>
                                         handleExplainWithExample(
                                           { stopPropagation: () => { } } as React.MouseEvent,
@@ -1684,6 +1680,7 @@ export const MindMap = ({
                                       onGenerateImage={handleGenerateImageClick}
                                       mainTopic={mindMap.topic}
                                       nodeId={`subcat-${subIndex}-${catIndex}-${subCatIndex}`}
+                                      contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name}`}
                                     />
                                   )
                                 )}
@@ -1806,6 +1803,11 @@ export const MindMap = ({
         expandingId={expandingNodeId}
         onExplainInChat={onExplainInChat}
         mainTopic={mindMap.topic}
+        onOpenMap={(mapData, id) => {
+          if (onOpenNestedMap) {
+            onOpenNestedMap(mapData, id);
+          }
+        }}
       />
     </TooltipProvider>
   );

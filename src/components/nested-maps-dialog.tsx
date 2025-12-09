@@ -1,19 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import * as LucideIcons from 'lucide-react';
 import {
-    ChevronDown,
-    ChevronUp,
+    ChevronRight,
     RefreshCw,
     Trash2,
     Loader2,
-    FileText,
     Network,
-    GitBranch,
-    MessageCircle,
-    Pocket,
-    Image as ImageIcon,
     ArrowRight
 } from 'lucide-react';
 import {
@@ -24,7 +18,6 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
     Tooltip,
@@ -51,6 +44,7 @@ interface NestedExpansionData {
     createdAt: number;
     depth: number;
     status?: 'generating' | 'completed' | 'failed';
+    fullData?: any; // The full mind map data for this sub-map
 }
 
 interface NestedMapsDialogProps {
@@ -63,6 +57,7 @@ interface NestedMapsDialogProps {
     expandingId: string | null;
     onExplainInChat?: (message: string) => void;
     mainTopic: string;
+    onOpenMap: (mapData: any, id: string) => void;
 }
 
 const toPascalCase = (str: string) => {
@@ -72,7 +67,7 @@ const toPascalCase = (str: string) => {
 
 /**
  * Dialog for viewing and managing nested mindmap expansions.
- * Similar to Image Gallery but for expanded mindmap content.
+ * Displays a simplified list of sub-maps that can be opened.
  */
 export function NestedMapsDialog({
     isOpen,
@@ -84,24 +79,19 @@ export function NestedMapsDialog({
     expandingId,
     onExplainInChat,
     mainTopic,
+    onOpenMap,
 }: NestedMapsDialogProps) {
-    const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
-    const toggleCollapse = (id: string) => {
-        setCollapsedIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(id)) {
-                newSet.delete(id);
-            } else {
-                newSet.add(id);
-            }
-            return newSet;
-        });
+    const handleOpenMap = (expansion: NestedExpansionData) => {
+        if (expansion.fullData) {
+            onOpenMap(expansion.fullData, expansion.id);
+            onClose();
+        }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-5xl max-h-[90vh] glassmorphism p-0">
+            <DialogContent className="sm:max-w-2xl max-h-[80vh] glassmorphism p-0">
                 <DialogHeader className="p-6 pb-0">
                     <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
                         <div className="p-2 rounded-lg bg-purple-500/20">
@@ -116,24 +106,23 @@ export function NestedMapsDialog({
                     </DialogTitle>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[75vh] p-6 pt-4">
+                <ScrollArea className="max-h-[60vh] p-6 pt-4">
                     {expansions.length === 0 ? (
-                        <div className="text-center py-16">
-                            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
-                                <Network className="h-10 w-10 text-purple-400/50" />
+                        <div className="text-center py-12">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
+                                <Network className="h-8 w-8 text-purple-400/50" />
                             </div>
                             <h3 className="text-lg font-semibold text-muted-foreground mb-2">
                                 No Nested Maps Yet
                             </h3>
                             <p className="text-sm text-muted-foreground/70 max-w-sm mx-auto">
-                                Click the <GitBranch className="inline h-4 w-4 mx-1" /> "Expand Further" button on any sub-category card to generate deeper insights.
+                                Click the <Network className="inline h-4 w-4 mx-1" /> "Generate Sub-Map" button on any sub-category card to generate deeper insights.
                             </p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-3">
                             {expansions.map((expansion) => {
                                 const TopicIcon = (LucideIcons as any)[toPascalCase(expansion.icon)] || Network;
-                                const isCollapsed = collapsedIds.has(expansion.id);
                                 const isExpanding = expandingId === expansion.id;
                                 const isGenerating = expansion.status === 'generating';
 
@@ -141,28 +130,19 @@ export function NestedMapsDialog({
                                     <div
                                         key={expansion.id}
                                         className={cn(
-                                            'rounded-2xl border overflow-hidden',
+                                            'group relative overflow-hidden rounded-xl border border-white/5',
                                             'bg-zinc-900/50 backdrop-blur-xl',
                                             'ring-1 ring-purple-400/20',
                                             'transition-all duration-300',
-                                            'animate-fade-in'
+                                            'hover:bg-zinc-800/80 hover:ring-purple-400/40',
+                                            expansion.fullData ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
                                         )}
-                                        style={{
-                                            marginLeft: `${(expansion.depth - 1) * 20}px`,
-                                        }}
+                                        onClick={() => handleOpenMap(expansion)}
                                     >
                                         {/* Expansion Header */}
-                                        <div className="flex items-center justify-between p-4 border-b border-purple-500/10 bg-secondary/20">
+                                        <div className="flex items-center justify-between p-4">
                                             <div className="flex items-center gap-3">
-                                                {expansion.depth > 1 && (
-                                                    <div
-                                                        className="w-1 h-10 bg-gradient-to-b from-purple-500 to-purple-500/20 rounded-full"
-                                                        style={{
-                                                            boxShadow: '0 0 12px rgba(168, 85, 247, 0.4)',
-                                                        }}
-                                                    />
-                                                )}
-                                                <div className="p-2 rounded-lg bg-purple-500/20">
+                                                <div className="p-2 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
                                                     {isGenerating ? (
                                                         <Loader2 className="h-5 w-5 text-purple-400 animate-spin" />
                                                     ) : (
@@ -170,13 +150,13 @@ export function NestedMapsDialog({
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-base font-semibold text-foreground">
+                                                    <h4 className="text-base font-semibold text-foreground group-hover:text-purple-300 transition-colors">
                                                         {expansion.topic}
                                                     </h4>
-                                                    <p className="text-xs text-muted-foreground">
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
                                                         {isGenerating
                                                             ? `Generating sub-topics for ${expansion.parentName}...`
-                                                            : `From: ${expansion.path || mainTopic} • ${expansion.subCategories.length} sub-topics`
+                                                            : `(${expansion.path ? `${expansion.path} > ` : ''}${expansion.parentName})`
                                                         }
                                                     </p>
                                                 </div>
@@ -185,7 +165,7 @@ export function NestedMapsDialog({
                                             {/* Action buttons */}
                                             <div className="flex items-center gap-1">
                                                 {!isGenerating && (
-                                                    <>
+                                                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                                         <TooltipProvider delayDuration={300}>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
@@ -193,7 +173,10 @@ export function NestedMapsDialog({
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-8 w-8 hover:bg-purple-500/10"
-                                                                        onClick={() => onRegenerate(expansion.parentName, expansion.id)}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onRegenerate(expansion.parentName, expansion.id);
+                                                                        }}
                                                                         disabled={isExpanding}
                                                                     >
                                                                         {isExpanding ? (
@@ -203,7 +186,7 @@ export function NestedMapsDialog({
                                                                         )}
                                                                     </Button>
                                                                 </TooltipTrigger>
-                                                                <TooltipContent side="top">
+                                                                <TooltipContent side="top" className="bg-zinc-950 border-zinc-800 text-zinc-100">
                                                                     <p>Regenerate</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
@@ -216,166 +199,29 @@ export function NestedMapsDialog({
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-8 w-8 hover:bg-destructive/10"
-                                                                        onClick={() => onDelete(expansion.id)}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onDelete(expansion.id);
+                                                                        }}
                                                                     >
                                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                                     </Button>
                                                                 </TooltipTrigger>
-                                                                <TooltipContent side="top">
+                                                                <TooltipContent side="top" className="bg-zinc-950 border-zinc-800 text-zinc-100">
                                                                     <p>Delete</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </TooltipProvider>
-                                                    </>
+                                                    </div>
                                                 )}
 
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => toggleCollapse(expansion.id)}
+                                                    className="h-8 w-8 opacity-50 group-hover:opacity-100 transition-opacity hover:bg-purple-500/10 text-purple-400"
                                                 >
-                                                    {isCollapsed ? (
-                                                        <ChevronDown className="h-4 w-4" />
-                                                    ) : (
-                                                        <ChevronUp className="h-4 w-4" />
-                                                    )}
+                                                    <ChevronRight className="h-5 w-5" />
                                                 </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Expansion Content */}
-                                        <div
-                                            className={cn(
-                                                'overflow-hidden transition-all duration-500 ease-out',
-                                                isCollapsed ? 'max-h-0' : 'max-h-[2000px]'
-                                            )}
-                                        >
-                                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                {isGenerating ? (
-                                                    // Skeleton loader
-                                                    Array.from({ length: 4 }).map((_, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className="h-32 rounded-xl bg-zinc-800/50 animate-pulse border border-white/5"
-                                                        />
-                                                    ))
-                                                ) : (
-                                                    expansion.subCategories.map((subCat, index) => {
-                                                        const SubCatIcon = (LucideIcons as any)[toPascalCase(subCat.icon)] || FileText;
-
-                                                        return (
-                                                            <Card
-                                                                key={index}
-                                                                className={cn(
-                                                                    'group/item relative overflow-hidden',
-                                                                    'bg-zinc-900/50 border-border/50 rounded-xl',
-                                                                    'ring-1 ring-purple-400/10',
-                                                                    'hover:ring-purple-400/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]',
-                                                                    'transition-all duration-300'
-                                                                )}
-                                                            >
-                                                                <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
-                                                                    <div className="p-2 rounded-lg bg-accent/20 text-accent flex-shrink-0">
-                                                                        <SubCatIcon className="h-4 w-4" />
-                                                                    </div>
-                                                                    <CardTitle className="text-sm font-semibold leading-tight flex-1">
-                                                                        {subCat.name}
-                                                                    </CardTitle>
-                                                                </CardHeader>
-                                                                <CardContent className="p-4 pt-0">
-                                                                    <p className="text-sm text-zinc-400 leading-relaxed mb-3">
-                                                                        {subCat.description}
-                                                                    </p>
-
-                                                                    {/* Action Buttons - Like MindMap Page */}
-                                                                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                                            <TooltipProvider delayDuration={300}>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-7 w-7"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                onExpandFurther(subCat.name, subCat.description, expansion.id);
-                                                                                            }}
-                                                                                        >
-                                                                                            <GitBranch className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent side="top">
-                                                                                        <p>Expand further</p>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                            </TooltipProvider>
-
-                                                                            <TooltipProvider delayDuration={300}>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-7 w-7"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                if (onExplainInChat) {
-                                                                                                    onExplainInChat(`Give me examples of "${subCat.name}" in the context of ${expansion.topic}.`);
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            <Pocket className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent side="top">
-                                                                                        <p>Give me examples</p>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                            </TooltipProvider>
-
-                                                                            <TooltipProvider delayDuration={300}>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-7 w-7"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                if (onExplainInChat) {
-                                                                                                    onExplainInChat(`Explain "${subCat.name}" in the context of ${expansion.topic} and ${mainTopic}.`);
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            <MessageCircle className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent side="top">
-                                                                                        <p>Explain in Chat</p>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                            </TooltipProvider>
-                                                                        </div>
-
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-auto py-1 px-2 text-xs text-purple-400 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                                                            onClick={() => {
-                                                                                if (onExplainInChat) {
-                                                                                    onExplainInChat(`Tell me everything about "${subCat.name}" related to ${expansion.topic}.`);
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            Explore <ArrowRight className="h-3 w-3 ml-1" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </CardContent>
-                                                            </Card>
-                                                        );
-                                                    }))}
                                             </div>
                                         </div>
                                     </div>
@@ -384,6 +230,11 @@ export function NestedMapsDialog({
                         </div>
                     )}
                 </ScrollArea>
+                <div className="p-4 border-t border-white/5 bg-zinc-900/50">
+                    <Button variant="outline" className="w-full" onClick={onClose}>
+                        Close
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );

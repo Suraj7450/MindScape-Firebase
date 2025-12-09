@@ -206,8 +206,8 @@ export function NestedExpansion({
                                             }
                                         }}
                                     >
-                                        <CardContent className="p-3">
-                                            <div className="flex items-start gap-3">
+                                        <CardContent className="p-3 flex flex-col h-full">
+                                            <div className="flex items-start gap-3 flex-grow">
                                                 <div className="p-2 rounded-lg bg-purple-500/10 flex-shrink-0">
                                                     <SubCatIcon className="h-4 w-4 text-purple-400" />
                                                 </div>
@@ -218,34 +218,35 @@ export function NestedExpansion({
                                                     <p className="text-sm text-zinc-400 leading-relaxed mt-2">
                                                         {subCat.description}
                                                     </p>
-                                                    <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 px-2 text-xs"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (onExplainInChat) {
-                                                                    onExplainInChat(
-                                                                        `Explain "${subCat.name}" in the context of ${data.topic} and ${mainTopic}.`
-                                                                    );
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Sparkles className="h-3 w-3 mr-1" />
-                                                            Explain
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                navigator.clipboard.writeText(`${subCat.name}\n${subCat.description}`);
-                                                            }}
-                                                        >
-                                                            <LucideIcons.Copy className="h-3 w-3" />
-                                                        </Button>
+                                                    <div className="mt-auto pt-3 flex items-center justify-between border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-muted-foreground hover:text-purple-400"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (onExplainInChat) {
+                                                                        onExplainInChat(
+                                                                            `Explain "${subCat.name}" in the context of ${data.topic} and ${mainTopic}.`
+                                                                        );
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <LucideIcons.MessageCircle className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-muted-foreground hover:text-purple-400"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigator.clipboard.writeText(`${subCat.name}\n${subCat.description}`);
+                                                                }}
+                                                            >
+                                                                <LucideIcons.Copy className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
