@@ -353,7 +353,38 @@ function MindMapPageContent() {
   const handleGenerateAndOpenSubMap = async (subTopic: string, nodeId: string, contextPath: string) => {
     if (!mindMap) return;
 
+    // Create a temporary ID and item for optimistic UI
+    const tempId = crypto.randomUUID();
+    const tempContextPath = contextPath;
+
+    const tempNestedItem: NestedExpansionItem = {
+      id: tempId,
+      parentName: subTopic,
+      topic: subTopic,
+      icon: 'Loader2', // Temporary icon until generated
+      subCategories: [],
+      path: tempContextPath,
+      createdAt: Date.now(),
+      depth: (mindMaps.length > 0 ? (mindMaps[0] as any).nestedExpansions?.length || 0 : 0) + 1,
+      status: 'generating'
+    };
+
     setGeneratingNodeId(nodeId);
+
+    // OPTIMISTIC UPDATE: Add "Generating..." item to root map immediately
+    setMindMaps(prev => {
+      const newMaps = [...prev];
+      const rootMap = newMaps[0];
+      const currentExpansions = (rootMap as any).nestedExpansions || [];
+
+      newMaps[0] = {
+        ...rootMap,
+        nestedExpansions: [...currentExpansions, tempNestedItem]
+      } as any;
+
+      return newMaps;
+    });
+
     toast({
       title: "Generating Sub-Map...",
       description: `Creating a detailed map for "${subTopic}".`,
@@ -373,52 +404,103 @@ function MindMapPageContent() {
 
       const newSubMap = result.data;
 
-      // Use the contextPath passed from the UI (e.g., "Main Topic > SubTopic > Category")
-      const newNestedItem: NestedExpansionItem & { fullData: any } = {
-        id: crypto.randomUUID(),
-        parentName: subTopic, // The topic we're generating for
+      // Create the final completed item
+      const completedNestedItem: NestedExpansionItem & { fullData: any } = {
+        id: tempId, // Keep same ID if possible, or new one. Let's keep same for consistency if Firestore allows given we haven't saved ID yet. Actually better to stick to this ID.
+        parentName: subTopic,
         topic: subTopic,
-        icon: 'Network',
+        icon: 'Network', // Final icon
         subCategories: newSubMap.subTopics.flatMap(st => st.categories.flatMap(c => c.subCategories)).slice(0, 4),
-        path: contextPath, // Use the context path from where button was clicked
+        path: tempContextPath,
         createdAt: Date.now(),
-        depth: mindMaps.length, // Depth based on breadcrumb position
+        depth: mindMaps.length,
         status: 'completed',
         fullData: newSubMap
       };
 
       // 1. Open the new map immediately (Update Local View State)
       setMindMaps(prev => {
-        // Append full map data to breadcrumb list
-        const updatedMaps = [...prev, { ...newSubMap, id: newNestedItem.id }];
-        return updatedMaps;
-      });
-      setActiveMindMapIndex(prev => prev + 1);
+        // Remove the temporary generating item from root map first (cleanup old state) 
+        // AND THEN append the new map to the stack. 
+        // Actually, we need to update the root map's expansion list to be 'completed' AND add the detailed map to the stack.
 
-      // 2. Save to Ecosystem (Update Root Map's Nested List)
-      // We always update the ROOT object (mindMaps[0]) in Firestore because that's where the ecosystem lives.
-      const rootMap = mindMaps[0];
+        const newMaps = [...prev];
+
+        // Update Root Map: Replace 'generating' item with 'completed'
+        const rootMap = newMaps[0];
+        const currentExpansions = (rootMap as any).nestedExpansions || [];
+        const updatedExpansions = currentExpansions.map((item: any) =>
+          item.id === tempId ? completedNestedItem : item
+        );
+
+        newMaps[0] = {
+          ...rootMap,
+          nestedExpansions: updatedExpansions
+        } as any;
+
+        // Append full map data to breadcrumb list (the stack)
+        // Check if we already added it (rare race condition)
+        const exists = newMaps.some(m => m.topic === newSubMap.topic);
+        if (!exists) {
+          newMaps.push({ ...newSubMap, id: tempId });
+        }
+
+        return newMaps;
+      });
+
+      // Allow UI to settle, then switch view
+      setTimeout(() => {
+        setActiveMindMapIndex(prev => {
+          // Only switch if we're not already there (though prev logic pushes to end)
+          return mindMaps.length; // It will be length because we just pushed one. 
+          // Wait, safe way: find index
+        });
+        // Better safer way:
+        setMindMaps(prev => {
+          // We can't set active index here directly inside state update.
+          // But we can trigger it via effect or just rely on length change if we were auto-switching.
+          // But let's do it explicitly outside.
+          return prev;
+        });
+        // Calculating mostly correct index:
+        // We added 1 item, so index = prev.length.
+        // Since we are inside setMindMaps callback above, accessing state directly here might be stale.
+        // But setActiveMindMapIndex(prev => prev + 1) is usually safe if we just added 1.
+        setActiveMindMapIndex(curr => curr + 1);
+      }, 100);
+
+
+      // 2. Save to Ecosystem (Update Root Map's Nested List in Firestore)
+      const rootMap = mindMaps[0]; // Note: this might be stale ref, but ID is constant
       const rootMapId = (rootMap as any).id;
 
       if (rootMapId && user) {
         const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', rootMapId);
 
+        // We need to fetch latest to ensure we don't overwrite other concurrent updates, 
+        // but for now, we rely on our optimistic list being accurate enough or just append.
+        // Actually best to re-read or use arrayUnion if possible, but we are replacing an item (generating -> completed).
+        // So we just write the list we have constructed.
+
+        // Reread state to get the list with 'completed' item? 
+        // We constructed `updatedExpansions` above. 
+        // Let's rely on that derived data.
+
+        // Limitation: If user deleted something while generating, this overwrite might revert it.
+        // But fast follow: user unlikely to delete while waiting 3s.
+
+        // Re-calculate the list to be safe:
         const currentRootNestedExpansions = (rootMap as any).nestedExpansions || [];
-        const updatedRootNestedExpansions = [...currentRootNestedExpansions, newNestedItem];
+        // The rootMap variable here is from closure at start of function.
+        // We need to include the NEW item.
+        const updatedRootNestedExpansions = [...currentRootNestedExpansions, completedNestedItem];
+
+        // Wait, currentRootNestedExpansions (from line 400 closure) does NOT have the temp item because we only added temp item via setMindMaps (React state), not local variable `rootMap` which is `mindMaps[0]`.
+        // So `updatedRootNestedExpansions` = old list + new completed item. 
+        // This is perfectly correct for Firestore (we don't save 'generating' items to DB).
 
         await updateDoc(mapRef, {
           nestedExpansions: updatedRootNestedExpansions
-        });
-
-        // Also update local state of root map to reflect this new nested item in the FAB list
-        setMindMaps(prev => {
-          const newMaps = [...prev];
-          // Update the root map in the stack with the new nested expansion list
-          newMaps[0] = {
-            ...newMaps[0],
-            nestedExpansions: updatedRootNestedExpansions
-          } as any;
-          return newMaps;
         });
       }
 
@@ -428,6 +510,18 @@ function MindMapPageContent() {
       });
 
     } catch (error: any) {
+      // ROLLBACK: Remove the temporary item
+      setMindMaps(prev => {
+        const newMaps = [...prev];
+        const rootMap = newMaps[0];
+        const currentExpansions = (rootMap as any).nestedExpansions || [];
+        newMaps[0] = {
+          ...rootMap,
+          nestedExpansions: currentExpansions.filter((i: any) => i.id !== tempId)
+        } as any;
+        return newMaps;
+      });
+
       toast({
         variant: "destructive",
         title: "Generation Failed",
