@@ -155,7 +155,7 @@ export function NestedMapsDialog({
                                                     </h4>
                                                     <p className="text-xs text-muted-foreground mt-0.5">
                                                         {isGenerating
-                                                            ? `Generating sub-topics for ${expansion.parentName}...`
+                                                            ? `Generating sub-map for ${expansion.parentName}...`
                                                             : `(${expansion.path ? `${expansion.path} > ` : ''}${expansion.parentName})`
                                                         }
                                                     </p>
