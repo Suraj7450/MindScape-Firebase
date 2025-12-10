@@ -45,17 +45,7 @@ export type ChatWithAssistantOutput = z.infer<
   typeof ChatWithAssistantOutputSchema
 >;
 
-export async function chatWithAssistant(
-  input: ChatWithAssistantInput
-): Promise<ChatWithAssistantOutput> {
-  return chatWithAssistantFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'chatWithAssistantPrompt',
-  input: { schema: ChatWithAssistantInputSchema },
-  output: { schema: ChatWithAssistantOutputSchema },
-  prompt: `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+const CHAT_PROMPT = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
 
 🧠 **Current Topic**: {{{topic}}}
 🎭 **Current Persona**: {{{persona}}}
@@ -148,7 +138,13 @@ Example:
 ---
 
 Remember: Make it **scannable**, **visual**, and **engaging**!
-`,
+`;
+
+const prompt = ai.definePrompt({
+  name: 'chatWithAssistantPrompt',
+  input: { schema: ChatWithAssistantInputSchema },
+  output: { schema: ChatWithAssistantOutputSchema },
+  prompt: CHAT_PROMPT,
 });
 
 const chatWithAssistantFlow = ai.defineFlow(
@@ -162,5 +158,56 @@ const chatWithAssistantFlow = ai.defineFlow(
     return output!;
   }
 );
+
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
+export async function chatWithAssistant(
+  input: ChatWithAssistantInput & { apiKey?: string }
+): Promise<ChatWithAssistantOutput> {
+  if (input.apiKey) {
+    // Construct prompt manually for custom client
+    const historyText = input.history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
+
+    // Simple manual template construction to avoid complexity with handlebars/regex
+    const manualPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+
+🧠 **Current Topic**: ${input.topic}
+🎭 **Current Persona**: ${input.persona}
+
+${historyText ? `**Chat History**:\n${historyText}` : ''}
+
+**User Question**:
+"${input.question}"
+
+---
+
+## 🎯 Your Mission
+Provide clear, engaging, and visually structured responses.
+
+## 🎭 Persona Instructions
+
+**Current Persona Mode**: ${input.persona}
+
+Adjust your response style based on the persona:
+- **teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
+- **concise**: Be brief and direct. Use bullet points. Avoid fluff. Focus on the "what" and "how".
+- **creative**: Be imaginative and brainstorm ideas. Use colorful language and metaphors. Suggest out-of-the-box connections.
+- **standard**: Balanced, helpful, and professional with clear structure and moderate detail.
+
+## 📋 Formatting Guidelines (Use Markdown)
+- Start with a brief intro.
+- Use bullet points and bold text for readability.
+- Use tables for comparisons.
+- Be encouraging and positive.
+
+Return a JSON object with:
+{ "answer": "Your formatted markdown response here" }
+`;
+
+    return generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+  }
+
+  return chatWithAssistantFlow(input);
+}
 
 

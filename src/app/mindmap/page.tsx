@@ -149,6 +149,22 @@ function MindMapPageContent() {
 
   const lastFetchedParamsRef = useRef<string>('');
 
+  const getCustomApiKey = async () => {
+    if (!user || !firestore) return undefined;
+    try {
+      const docSnap = await getDoc(doc(firestore, 'users', user.uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.apiSettings?.useCustomApiKey && data.apiSettings?.customApiKey) {
+          return data.apiSettings.customApiKey;
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching API key", e);
+    }
+    return undefined;
+  };
+
   useEffect(() => {
     const fetchMindMapData = async () => {
       const singleTopic = searchParams.get('topic');
@@ -217,11 +233,12 @@ function MindMapPageContent() {
           }
         } else if (singleTopic) {
           currentMode = 'standard';
+          const apiKey = await getCustomApiKey();
           result = await generateMindMapAction({
             topic: singleTopic,
             parentTopic: parentTopic || undefined,
             targetLang: lang || undefined,
-          });
+          }, apiKey);
         } else if (topic1 && topic2) {
           currentMode = 'compare';
           result = await generateComparisonMapAction({
@@ -392,12 +409,13 @@ function MindMapPageContent() {
 
     try {
       const lang = searchParams.get('lang') || 'en';
+      const apiKey = await getCustomApiKey();
 
       const result = await generateMindMapAction({
         topic: subTopic,
         parentTopic: mindMap.topic,
         targetLang: lang,
-      });
+      }, apiKey);
 
       if (result.error) throw new Error(result.error);
       if (!result.data) throw new Error("No data returned");

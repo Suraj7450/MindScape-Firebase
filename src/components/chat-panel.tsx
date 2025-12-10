@@ -111,6 +111,7 @@ export function ChatPanel({
   const [persona, setPersona] = useState<Persona>('standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
+  const [customApiKey, setCustomApiKey] = useState<string | undefined>(undefined);
 
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
@@ -131,6 +132,11 @@ export function ChatPanel({
           const savedPersona = prefs?.defaultAIPersona?.toLowerCase() as Persona;
           if (savedPersona && ['standard', 'teacher', 'concise', 'creative'].includes(savedPersona)) {
             setPersona(savedPersona);
+          }
+
+          // Load API Settings
+          if (docSnap.data().apiSettings?.useCustomApiKey) {
+            setCustomApiKey(docSnap.data().apiSettings?.customApiKey);
           }
         }
       } catch (error) {
@@ -415,7 +421,7 @@ export function ChatPanel({
       topic,
       history,
       persona
-    });
+    }, customApiKey);
     setIsLoading(false);
 
     const assistantMessage: Message = {
@@ -476,7 +482,7 @@ export function ChatPanel({
       question: userMessage,
       topic,
       persona
-    });
+    }, customApiKey);
     setIsLoading(false);
 
     const newAssistantMessage: Message = {

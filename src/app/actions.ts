@@ -82,7 +82,8 @@ export interface GenerateMindMapFromImageInput {
  * @returns {Promise<{ data: GenerateMindMapOutput | null; error: string | null }>} An object with either the generated mind map data or an error message.
  */
 export async function generateMindMapAction(
-  input: GenerateMindMapInput
+  input: GenerateMindMapInput,
+  customApiKey?: string
 ): Promise<{ data: GenerateMindMapOutput | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);
@@ -92,7 +93,7 @@ export async function generateMindMapAction(
   }
 
   try {
-    const result = await generateMindMap({ ...input, topic });
+    const result = await generateMindMap({ ...input, topic, apiKey: customApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapAction:', error);
@@ -239,10 +240,11 @@ export async function generateQuizAction(
  * @returns {Promise<{ response: ChatWithAssistantOutput | null; error: string | null }>} An object with either the chat response or an error message.
  */
 export async function chatAction(
-  input: ChatWithAssistantInput
+  input: ChatWithAssistantInput,
+  customApiKey?: string
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
-    const result = await chatWithAssistant(input);
+    const result = await chatWithAssistant({ ...input, apiKey: customApiKey });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -397,10 +399,11 @@ export async function summarizeMindMapAction(
  * @returns {Promise<{ expansion: ExpandNodeOutput | null; error: string | null }>} The generated expansion or an error.
  */
 export async function expandNodeAction(
-  input: ExpandNodeInput
+  input: ExpandNodeInput,
+  customApiKey?: string
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
-    const result = await expandNode(input);
+    const result = await expandNode({ ...input, apiKey: customApiKey });
     return { expansion: result, error: null };
   } catch (error) {
     console.error('Error in expandNodeAction:', error);

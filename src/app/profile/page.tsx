@@ -13,8 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
     Loader2, ArrowLeft, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
-    Pencil, Check, X, Trophy, Target, Lock, ChevronRight
+    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Eye, EyeOff, Key
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { languages } from '@/lib/languages';
 import { format } from 'date-fns';
@@ -31,6 +32,10 @@ interface UserProfile {
     statistics: {
         currentStreak: number;
         totalQuizQuestions: number;
+    };
+    apiSettings?: {
+        useCustomApiKey: boolean;
+        customApiKey?: string;
     };
 }
 
@@ -91,6 +96,11 @@ export default function ProfilePage() {
     const [editName, setEditName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
+    // API Key State
+    const [apiKeyInput, setApiKeyInput] = useState('');
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [useCustomKey, setUseCustomKey] = useState(false);
+
     // Load profile data
     useEffect(() => {
         if (!user || !firestore) {
@@ -119,9 +129,15 @@ export default function ProfilePage() {
                                 currentStreak: data.statistics?.currentStreak || 0,
                                 totalQuizQuestions: data.statistics?.totalQuizQuestions || 0,
                             },
+                            apiSettings: {
+                                useCustomApiKey: data.apiSettings?.useCustomApiKey || false,
+                                customApiKey: data.apiSettings?.customApiKey || '',
+                            }
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
+                        setUseCustomKey(profileData.apiSettings?.useCustomApiKey || false);
+                        setApiKeyInput(profileData.apiSettings?.customApiKey || '');
                     } else {
                         const defaultData: UserProfile = {
                             displayName: user.displayName || 'User',
@@ -132,6 +148,8 @@ export default function ProfilePage() {
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
+                        setUseCustomKey(false);
+                        setApiKeyInput('');
                     }
                     setLoading(false);
                 }, (error) => {
@@ -188,6 +206,27 @@ export default function ProfilePage() {
             toast({ title: 'Saved', description: 'Preference updated.' });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
+        }
+    };
+
+    const saveApiSettings = async (useCustom: boolean, key: string) => {
+        if (!user || !firestore) return;
+        try {
+            await setDoc(doc(firestore, 'users', user.uid), {
+                apiSettings: {
+                    useCustomApiKey: useCustom,
+                    customApiKey: key
+                }
+            }, { merge: true });
+
+            // Update local state immediately to reflect changes
+            setUseCustomKey(useCustom);
+            setApiKeyInput(key);
+
+            toast({ title: 'Saved', description: 'API settings updated.' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save API settings' });
         }
     };
 
@@ -414,6 +453,47 @@ export default function ProfilePage() {
                                     <SelectItem value="Creative">Creative</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <Separator className="bg-zinc-800" />
+
+                        {/* API Configuration */}
+                        <div className="pt-2">
+                            <div className="flex items-center justify-between py-2.5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 rounded-md bg-emerald-500/10">
+                                        <Key className="h-3.5 w-3.5 text-emerald-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-zinc-300">Custom API Key</span>
+                                        <span className="text-[10px] text-zinc-500">Use your own Gemini API key</span>
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={useCustomKey}
+                                    onCheckedChange={(checked) => saveApiSettings(checked, apiKeyInput)}
+                                />
+                            </div>
+
+                            {useCustomKey && (
+                                <div className="mt-2 mb-2 relative">
+                                    <Input
+                                        type={showApiKey ? "text" : "password"}
+                                        value={apiKeyInput}
+                                        onChange={(e) => setApiKeyInput(e.target.value)}
+                                        onBlur={() => saveApiSettings(useCustomKey, apiKeyInput)}
+                                        placeholder="Enter Gemini API Key"
+                                        className="bg-zinc-800 border-zinc-700 text-xs pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowApiKey(!showApiKey)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                                    >
+                                        {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
