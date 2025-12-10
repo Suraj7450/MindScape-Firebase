@@ -20,6 +20,8 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,8 +113,35 @@ export function ChatPanel({
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
 
   const { toast } = useToast();
+  const { user, firestore } = useFirebase();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
+
+  // Load persona preference from user profile
+  useEffect(() => {
+    const loadPersonaPreference = async () => {
+      if (!user || !firestore) return;
+
+      try {
+        const userRef = doc(firestore, 'users', user.uid);
+        const docSnap = await getDoc(userRef);
+
+        if (docSnap.exists()) {
+          const prefs = docSnap.data().preferences;
+          const savedPersona = prefs?.defaultAIPersona?.toLowerCase() as Persona;
+          if (savedPersona && ['standard', 'teacher', 'concise', 'creative'].includes(savedPersona)) {
+            setPersona(savedPersona);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading persona preference:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadPersonaPreference();
+    }
+  }, [isOpen, user, firestore]);
 
   const activeSession = useMemo(() => {
     return sessions.find(s => s.id === activeSessionId) || null;

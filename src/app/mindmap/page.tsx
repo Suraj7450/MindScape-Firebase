@@ -603,6 +603,7 @@ function MindMapPageContent() {
             onRegenerate={handleRegenerate}
             isRegenerating={isLoading}
             canRegenerate={!isPublic && mode !== 'self-reference'}
+            nestedExpansions={mindMaps.length > 0 ? (mindMaps[0] as any).nestedExpansions : []}
           />
         </div>
       </div>

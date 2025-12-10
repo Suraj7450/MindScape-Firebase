@@ -65,6 +65,7 @@ export function ImageGalleryDialog({
           src={image.url}
           alt={image.name}
           fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className={cn(
             "object-cover transition-transform duration-300",
             image.status === 'completed' && "group-hover:scale-105",
@@ -152,7 +153,7 @@ export function ImageGalleryDialog({
         onOpenChange={(open) => !open && setPreviewImage(null)}
       >
         <DialogContent className="max-w-5xl w-[90vw] h-[90vh] p-0 border-0 glassmorphism">
-           {previewImage && (
+          {previewImage && (
             <>
               <DialogTitle className="sr-only">{`Image Preview: ${previewImage.name}`}</DialogTitle>
               <DialogDescription className="sr-only">
@@ -162,6 +163,7 @@ export function ImageGalleryDialog({
                 src={previewImage.url}
                 alt={previewImage.name}
                 fill
+                sizes="90vw"
                 className="object-contain"
               />
             </>

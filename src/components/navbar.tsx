@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
 import { Button } from './ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { usePathname, useRouter } from 'next/navigation';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +23,32 @@ import { Icons } from './icons';
 
 export function Navbar() {
   const { user, isUserLoading } = useUser();
+  const { firestore } = useFirebase();
   const router = useRouter();
   const pathname = usePathname();
+  const [profileName, setProfileName] = useState<string | null>(null);
+
+  // Listen to Firestore for real-time displayName updates
+  useEffect(() => {
+    if (!user || !firestore) return;
+
+    const userRef = doc(firestore, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfileName(data.displayName || null);
+      }
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error("Navbar profile snapshot error:", error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, firestore]);
+
+  // Use Firestore name first, then Auth name, then fallback
+  const displayName = profileName || user?.displayName || 'User';
 
   const navItems = [
     { href: '/', label: 'Home' },
@@ -53,7 +79,7 @@ export function Navbar() {
               <Avatar className="h-10 w-10 border-2 border-primary/50">
                 <AvatarImage
                   src={user.photoURL ?? ''}
-                  alt={user.displayName ?? ''}
+                  alt={displayName}
                 />
                 <AvatarFallback className="bg-secondary">
                   <User className="h-5 w-5" />
@@ -65,7 +91,7 @@ export function Navbar() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {user.displayName || 'User'}
+                  {displayName}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {user.email}

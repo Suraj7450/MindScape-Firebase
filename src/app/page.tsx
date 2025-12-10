@@ -265,6 +265,8 @@ function Hero({
                 src="/MindScape-Logo.png"
                 alt="MindScape Logo"
                 fill={true}
+                priority={true}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 className="drop-shadow-[0_0_70px_hsl(var(--primary)/0.5)]"
               />
             </div>

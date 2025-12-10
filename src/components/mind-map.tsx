@@ -150,6 +150,7 @@ interface MindMapProps {
   onRegenerate: () => void;
   isRegenerating: boolean;
   canRegenerate: boolean;
+  nestedExpansions?: NestedExpansionItem[];
 }
 
 /**
@@ -638,6 +639,7 @@ export const MindMap = ({
   onRegenerate,
   isRegenerating,
   canRegenerate,
+  nestedExpansions: propNestedExpansions,
 }: MindMapProps) => {
   const mindMapRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -646,6 +648,10 @@ export const MindMap = ({
 
   // Track study time
   useStudyTimeTracker(firestore, user?.uid, true);
+
+
+
+
 
 
   const [mindMap, setMindMap] = useState(data);
@@ -687,7 +693,7 @@ export const MindMap = ({
   // Nested expansion state - load from saved data if available
   const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
   const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(
-    data.nestedExpansions || []
+    propNestedExpansions || data.nestedExpansions || []
   );
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
 
@@ -695,13 +701,15 @@ export const MindMap = ({
   useEffect(() => {
     setMindMap(data);
     // Also update nestedExpansions and generatedImages from data
-    if (data.nestedExpansions) {
+    if (propNestedExpansions) {
+      setNestedExpansions(propNestedExpansions);
+    } else if (data.nestedExpansions) {
       setNestedExpansions(data.nestedExpansions);
     }
     if (data.savedImages) {
       setGeneratedImages(data.savedImages);
     }
-  }, [data]);
+  }, [data, propNestedExpansions]);
 
   useEffect(() => {
     const checkIfPublished = async () => {
@@ -993,8 +1001,11 @@ export const MindMap = ({
     setIsQuizDialogOpen(true);
     setIsQuizLoading(true);
 
+    // Create a plain object for the server action to avoid serialization errors with Firestore timestamps
+    const { createdAt, updatedAt, ...plainMindMapData } = mindMap as any;
+
     const { quiz, error } = await generateQuizAction({
-      mindMapData: mindMap,
+      mindMapData: plainMindMapData,
     });
 
     if (error) {
