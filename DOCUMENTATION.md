@@ -2,7 +2,7 @@
 
 This document provides a comprehensive, page-by-page breakdown of every feature, button, and component in the MindScape application. It details the **what** (functionality), **why** (purpose), and **how** (implementation) of each element.
 
-**Last Updated:** December 7, 2025
+**Last Updated:** December 10, 2025
 
 ---
 
@@ -221,7 +221,7 @@ This page is the **core visualization area**, where the generated mind map is di
     *   Triggered by "Expand Further" button on sub-category cards.
     *   Uses `expandNodeAction` server action.
     *   Flow:
-        1. Creates placeholder expansion with "generating" status
+        1. Creates placeholder expansion with "generating" status **instantly** (Optimistic UI)
         2. Opens Nested Maps Dialog immediately
         3. Replaces placeholder with actual content when ready
         4. Shows error if generation fails
@@ -511,7 +511,54 @@ A **unified authentication form** for both login and sign-up.
 
 ---
 
-## **8. Shared Components & Features**
+## **8. Profile Page (`/profile`)**
+ 
+ A comprehensive user account management hub.
+ 
+ ### **Features & Components**
+ 
+ #### **1. User Info Card**
+ 
+ *   **What**: Hero section displaying avatar, customizable display name, and email.
+ *   **Why**: Personal identity and account management.
+ *   **How**:
+     *   **Inline Editing**: Click pencil icon to edit name. Saves to Firestore `users/{uid}` AND Firebase Auth `updateProfile`.
+     *   Real-time sync to Navbar via onSnapshot.
+ 
+ #### **2. Statistics Dashboard**
+ 
+ *   **What**: Cards showing "Maps Created", "Quiz Questions Answered", and "Current Streak".
+ *   **Why**: Gamifies the learning experience.
+ *   **How**:
+     *   Reads from `users/{uid}/statistics` + counts documents in `mindmaps` subcollection.
+ 
+ #### **3. Achievements**
+ 
+ *   **What**: Badges unlocked by milestones (e.g., "First Steps", "Week Warrior").
+ *   **Why**: Rewards user engagement.
+ *   **How**:
+     *   Calculated dynamically based on stats (e.g., Streak >= 7 unlocks "Week Warrior").
+     *   Displays locked (grayscale) vs unlocked (colored) states.
+ 
+ #### **4. Preferences**
+ 
+ *   **What**: Settings for "Default AI Persona" and "Preferred Language".
+ *   **Why**: Customizes the app experience.
+ *   **How**:
+     *   Saves to `users/{uid}/preferences`.
+     *   **AI Persona Sync**: Selected persona is auto-loaded when opening the Chat Panel.
+ 
+ #### **5. Logout**
+ 
+ *   **What**: Secure sign-out button.
+ *   **Why**: Security.
+ *   **How**:
+     *   Calls `signOut(auth)` ensuring clean session interactions.
+     *   Redirects to home.
+ 
+ ---
+ 
+ ## **9. Shared Components & Features**
 
 ### **Navbar**
 
@@ -545,7 +592,7 @@ A **unified authentication form** for both login and sign-up.
 
 ---
 
-## **9. AI Flows (Server Actions)**
+## **10. AI Flows (Server Actions)**
 
 All AI operations are implemented as server actions in `src/app/actions.ts`, calling flows defined in `src/ai/flows/`.
 
@@ -569,7 +616,7 @@ All AI operations are implemented as server actions in `src/app/actions.ts`, cal
 
 ---
 
-## **10. Data Persistence**
+## **11. Data Persistence**
 
 ### **Firestore Collections**
 
@@ -595,7 +642,7 @@ All AI operations are implemented as server actions in `src/app/actions.ts`, cal
 
 ---
 
-## **11. API Endpoints**
+## **12. API Endpoints**
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|

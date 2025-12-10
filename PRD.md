@@ -1,8 +1,8 @@
 
 # **MindScape: Product Requirements Document (PRD)**
 
-**Version:** 2.0  
-**Date:** December 7, 2025  
+**Version:** 2.1  
+**Date:** December 10, 2025  
 **Status:** Production
 
 ---
@@ -76,8 +76,14 @@ Infinite depth exploration within the current map.
 *   **User Story 2 (Nested Maps Dialog):** I want all my inline expansions collected in a "Nested Maps" dialog accessible via a floating button showing the expansion count.
 *   **User Story 3 (Multi-Level Depth):** Within the Nested Maps dialog, I want to continue expanding any sub-topic further, creating unlimited depth of exploration.
 *   **User Story 4 (Expansion Management):** In the dialog, I want to delete, regenerate, or explain any expansion in chat.
-*   **User Story 5 (Loading States):** When expanding, I want to see a placeholder immediately in the dialog showing the expansion is generating, which gets replaced with actual content when ready.
+*   **User Story 5 (Instant Feedback):** When I click "Generate Sub-Map", I want to see the "Nested Maps" FAB appear **instantly** with a "Generating..." placeholder in the dialog, providing immediate confirmation that the process has started (Optimistic UI).
 *   **User Story 6 (Auto-Persistence):** My nested expansions should automatically save to my mind map document and restore when I reopen the map.
+
+### **3.11. Feature: Profile & Achievements**
+*   **User Story 1 (Inline Editing):** As a user, I want to edit my display name directly on the profile page and have it sync instantly across the entire application (Navbar, Chat, etc.).
+*   **User Story 2 (Achievements):** I want to earn badges ("First Steps", "Explorer", "Quiz Master", "Week Warrior") based on my usage statistics to feel motivated.
+*   **User Story 3 (AI Persona Sync):** I want my selected "AI Persona" in the profile settings to automatically become the default persona when I open the AI Chat Panel.
+*   **User Story 4 (Statistics):** I want to see my stats (Mind Maps created, Quiz Question answered, Current Streak) visualized in a premium dashboard layout.
 
 ### **3.5. Feature: MindGPT (Conversational Map Builder)**
 A unique, chat-based interface for guided mind map creation.
@@ -145,7 +151,7 @@ Navigation aid for branching maps.
 ### **4.2. Performance**
 *   **Initial Page Load:** The homepage should be interactive in under 2 seconds on a standard connection.
 *   **Mind Map Generation:** AI generation for a standard mind map should complete within 10-15 seconds. A loading indicator must be present during this time.
-*   **Nested Expansion:** Inline expansions should show placeholder immediately and complete within 5-8 seconds.
+*   **Nested Expansion:** Inline expansions must show a "Generating" placeholder **instantly (<100ms)** upon click, with final content loading within 5-8 seconds.
 *   **Responsiveness:** The application must be fully responsive and usable on all modern devices, including desktops, tablets, and mobile phones.
 
 ### **4.3. Security**
