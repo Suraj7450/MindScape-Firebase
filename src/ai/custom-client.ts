@@ -13,7 +13,7 @@ export async function generateContentWithCustomKey(
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp', // Using the experimental version which is free-to-use currently
+            model: 'gemini-2.5-flash',
             generationConfig: {
                 responseMimeType: 'application/json'
             }
