@@ -177,6 +177,11 @@ exports.getUserApiKey = onCall({ cors: true }, async (request) => {
             return { hasCustomKey: false, apiKey: null };
         }
 
+        // Check for explicit provider selection
+        if (userData?.apiSettings?.provider === 'pollinations') {
+            return { hasCustomKey: true, apiKey: 'provider:pollinations' };
+        }
+
         // Get encrypted key
         const secretDoc = await db.doc(`users/${uid}/secrets/apiKey`).get();
         if (!secretDoc.exists) {

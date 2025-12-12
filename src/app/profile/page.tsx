@@ -37,6 +37,7 @@ interface UserProfile {
     apiSettings?: {
         useCustomApiKey: boolean;
         customApiKey?: string;
+        provider?: 'gemini' | 'pollinations';
     };
 }
 
@@ -181,6 +182,48 @@ export default function ProfilePage() {
             }
         };
     }, [user, firestore, toast]);
+
+    // Derived state for provider mode
+    const getActiveMode = () => {
+        if (profile?.apiSettings?.provider === 'pollinations') return 'pollinations';
+        if (profile?.apiSettings?.useCustomApiKey) return 'custom';
+        return 'default';
+    };
+    const activeMode = getActiveMode();
+
+    const setAIConfig = async (mode: 'default' | 'custom' | 'pollinations') => {
+        if (!user || !firestore) return;
+        try {
+            const updates: any = {};
+
+            if (mode === 'default') {
+                updates['apiSettings.useCustomApiKey'] = false;
+                updates['apiSettings.provider'] = 'gemini';
+                // Call cloud function to sync if needed, but direct write is usually fine for these flags
+                // However, toggleCustomApiKey CF exists. Let's use it for consistency if it's just toggling boolean.
+                // But we actully need to set provider too. Direct write to user doc is safest/fastest for settings.
+                await setDoc(doc(firestore, 'users', user.uid), {
+                    apiSettings: { useCustomApiKey: false, provider: 'gemini' }
+                }, { merge: true });
+                setUseCustomKey(false);
+            } else if (mode === 'custom') {
+                await setDoc(doc(firestore, 'users', user.uid), {
+                    apiSettings: { useCustomApiKey: true, provider: 'gemini' }
+                }, { merge: true });
+                setUseCustomKey(true);
+            } else if (mode === 'pollinations') {
+                await setDoc(doc(firestore, 'users', user.uid), {
+                    apiSettings: { useCustomApiKey: true, provider: 'pollinations' }
+                }, { merge: true });
+                setUseCustomKey(true);
+            }
+
+            toast({ title: 'Updated', description: `AI Provider set to ${mode === 'default' ? 'Default' : mode === 'custom' ? 'Custom Key' : 'Pollinations'}` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update settings' });
+        }
+    };
 
     const saveDisplayName = async () => {
         if (!user || !firestore || !editName.trim()) return;
@@ -503,68 +546,91 @@ export default function ProfilePage() {
 
                         {/* API Configuration */}
                         <div className="pt-2">
-                            <div className="flex items-center justify-between py-2.5">
+                            <div className="flex flex-col gap-3 py-2.5">
                                 <div className="flex items-center gap-3">
                                     <div className="p-1.5 rounded-md bg-emerald-500/10">
                                         <Key className="h-3.5 w-3.5 text-emerald-400" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-sm text-zinc-300">Custom API Key</span>
+                                        <span className="text-sm text-zinc-300">AI Provider</span>
                                         <span className="text-[10px] text-zinc-500">
-                                            {hasStoredKey ? '🔐 Key stored securely' : 'Use your own Gemini API key'}
+                                            Choose your generation engine
                                         </span>
                                     </div>
                                 </div>
-                                <Switch
-                                    checked={useCustomKey}
-                                    onCheckedChange={toggleApiKeyUsage}
-                                    disabled={!hasStoredKey}
-                                />
+
+                                <Select value={activeMode} onValueChange={(v: any) => setAIConfig(v)}>
+                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="default">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">MindScape Default</span>
+                                                <span className="text-[10px] text-zinc-400">Standard Quality • Limits Apply</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="custom">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Direct Gemini API</span>
+                                                <span className="text-[10px] text-zinc-400">Use your own Key • Higher Limits</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="pollinations">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Pollinations.ai</span>
+                                                <span className="text-[10px] text-zinc-400">Free Open Source Models • No Key</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
-                            {/* API Key Input - always shown when custom key toggle is on OR no key stored yet */}
-                            <div className="mt-2 mb-2 space-y-2">
-                                <div className="relative">
-                                    <Input
-                                        type={showApiKey ? "text" : "password"}
-                                        value={apiKeyInput}
-                                        onChange={(e) => setApiKeyInput(e.target.value)}
-                                        placeholder={hasStoredKey ? "Enter new key to replace..." : "Enter Gemini API Key"}
-                                        className="bg-zinc-800 border-zinc-700 text-xs pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowApiKey(!showApiKey)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                                    >
-                                        {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                    </button>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        onClick={saveApiKey}
-                                        disabled={!apiKeyInput.trim() || isSavingApiKey}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-xs"
-                                    >
-                                        {isSavingApiKey ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Key className="h-3 w-3 mr-1" />}
-                                        {hasStoredKey ? 'Update Key' : 'Save & Encrypt'}
-                                    </Button>
-                                    {hasStoredKey && (
+                            {/* API Key Input - Only shown for Custom Mode */}
+                            {activeMode === 'custom' && (
+                                <div className="mt-2 mb-2 space-y-2 pl-2 border-l-2 border-zinc-800 ml-1">
+                                    <div className="relative">
+                                        <Input
+                                            type={showApiKey ? "text" : "password"}
+                                            value={apiKeyInput}
+                                            onChange={(e) => setApiKeyInput(e.target.value)}
+                                            placeholder={hasStoredKey ? "Enter new key to replace..." : "Enter Gemini API Key"}
+                                            className="bg-zinc-800 border-zinc-700 text-xs pr-10"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowApiKey(!showApiKey)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                                        >
+                                            {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-2">
                                         <Button
                                             size="sm"
-                                            variant="outline"
-                                            onClick={deleteApiKey}
-                                            className="text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                            onClick={saveApiKey}
+                                            disabled={!apiKeyInput.trim() || isSavingApiKey}
+                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-xs"
                                         >
-                                            Delete
+                                            {isSavingApiKey ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Key className="h-3 w-3 mr-1" />}
+                                            {hasStoredKey ? 'Update Key' : 'Save & Encrypt'}
                                         </Button>
-                                    )}
+                                        {hasStoredKey && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={deleteApiKey}
+                                                className="text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                            >
+                                                Delete
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-zinc-600">
+                                        Your key is encrypted with AES-256 and stored on our secure servers. We never store keys in plain text.
+                                    </p>
                                 </div>
-                                <p className="text-[9px] text-zinc-600">
-                                    Your key is encrypted with AES-256 and stored on our secure servers. We never store keys in plain text.
-                                </p>
-                            </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

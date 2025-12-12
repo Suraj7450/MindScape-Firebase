@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContentWithBackup } from './backup-client';
 
 /**
  * Generates content using a custom API key via the Google Generative AI SDK.
@@ -10,6 +11,11 @@ export async function generateContentWithCustomKey(
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[]
 ): Promise<any> {
+    // Check for explicit provider override
+    if (apiKey === 'provider:pollinations') {
+        return await generateContentWithBackup(systemPrompt, userPrompt);
+    }
+
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
@@ -34,6 +40,14 @@ export async function generateContentWithCustomKey(
         return JSON.parse(text);
     } catch (error: any) {
         console.error("Custom Client AI Error:", error);
-        throw new Error(`Custom API Key Generation Failed: ${error.message}`);
+
+        // Check if we should try the backup
+        // We try backup for almost any error to be safe (quota, internal, offline, etc.)
+        try {
+            return await generateContentWithBackup(systemPrompt, userPrompt);
+        } catch (backupError: any) {
+            console.error("Backup Client AI Error:", backupError);
+            throw new Error(`Generation Failed: Primary API error (${error.message}) AND Backup API error (${backupError.message})`);
+        }
     }
 }
