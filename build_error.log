@@ -1,0 +1,15 @@
+
+> mindscape@0.1.0 build
+> next build
+
+   Γû▓ Next.js 15.3.3
+   - Environments: .env.local, .env
+
+
+> Build error occurred
+[Error: EINVAL: invalid argument, readlink 'C:\Users\Suraj\OneDrive\Desktop\MindScape\.next\diagnostics\build-diagnostics.json'] {
+  errno: -4071,
+  code: 'EINVAL',
+  syscall: 'readlink',
+  path: 'C:\\Users\\Suraj\\OneDrive\\Desktop\\MindScape\\.next\\diagnostics\\build-diagnostics.json'
+}

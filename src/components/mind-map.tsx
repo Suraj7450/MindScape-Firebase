@@ -292,6 +292,8 @@ const SubCategoryCard = memo(function SubCategoryCard({
   mainTopic,
   nodeId,
   contextPath,
+  existingExpansion,
+  onOpenMap,
 }: {
   subCategory: any;
   onExpandNode: (nodeName: string, nodeDescription: string, nodeId: string) => void;
@@ -305,6 +307,8 @@ const SubCategoryCard = memo(function SubCategoryCard({
   mainTopic: string;
   nodeId: string;
   contextPath: string; // e.g., "Main Topic > SubTopic > Category"
+  existingExpansion?: any;
+  onOpenMap?: (mapData: any, id: string) => void;
 }) {
   const SubCategoryIcon =
     (LucideIcons as any)[toPascalCase(subCategory.icon)] || FileText;
@@ -373,6 +377,29 @@ const SubCategoryCard = memo(function SubCategoryCard({
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>
+
+            {existingExpansion && existingExpansion.status === 'completed' && existingExpansion.fullData && (
+              <Tooltip delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenMap) onOpenMap(existingExpansion.fullData, existingExpansion.id);
+                    }}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipPortal>
+                  <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
+                    <p>Open Nested Map</p>
+                  </TooltipContent>
+                </TooltipPortal>
+              </Tooltip>
+            )}
 
             <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
@@ -493,7 +520,7 @@ const ComparisonView = ({
 
   return (
     <div className="space-y-4">
-      {comparisonRows?.map((row, index) => {
+      {comparisonRows?.map((row: any, index: number) => {
         const RowIcon =
           (LucideIcons as any)[toPascalCase(row.icon)] || FolderOpen;
         const isGenerating = generatingNode === row.nodeId;
@@ -704,7 +731,15 @@ export const MindMap = ({
     if (propNestedExpansions) {
       setNestedExpansions(propNestedExpansions);
     } else if (data.nestedExpansions) {
-      setNestedExpansions(data.nestedExpansions);
+      setNestedExpansions(prev => {
+        // Preserve local generating items that aren't yet in the server data
+        const localGenerating = prev.filter(item => item.status === 'generating');
+        // Ensure data.nestedExpansions is treated as an array
+        const serverExpansions = data.nestedExpansions || [];
+        const serverIds = new Set(serverExpansions.map((e: any) => e.id));
+        const uniqueGenerating = localGenerating.filter(item => !serverIds.has(item.id));
+        return [...serverExpansions, ...uniqueGenerating];
+      });
     }
     if (data.savedImages) {
       setGeneratedImages(data.savedImages);
@@ -740,8 +775,12 @@ export const MindMap = ({
 
       try {
         const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+
+        // Filter out generating items - they are ephemeral and shouldn't be persisted until complete
+        const expansionsToSave = nestedExpansions.filter(e => e.status !== 'generating');
+
         await updateDoc(mapDocRef, {
-          nestedExpansions: nestedExpansions,
+          nestedExpansions: expansionsToSave,
           updatedAt: serverTimestamp(),
         });
       } catch (error) {
@@ -1555,7 +1594,14 @@ export const MindMap = ({
                       onSubCategoryClick={handleSubCategoryClick}
                       onGenerateNewMap={onGenerateNewMap}
                       generatingNode={generatingNode}
-                      onExplainWithExample={(node) => handleExplainWithExample(new MouseEvent('click'), node)}
+                      onExplainWithExample={(node) => {
+                        // Create a mock React MouseEvent
+                        const mockEvent = {
+                          stopPropagation: () => { },
+                          preventDefault: () => { },
+                        } as unknown as React.MouseEvent<Element, MouseEvent>;
+                        handleExplainWithExample(mockEvent, node);
+                      }}
                       onExplainInChat={onExplainInChat}
                       mainTopic={mindMap.topic}
                       contextPath={`${mindMap.topic} > ${subTopic.name}`}
@@ -1692,6 +1738,10 @@ export const MindMap = ({
                                       mainTopic={mindMap.topic}
                                       nodeId={`subcat-${subIndex}-${catIndex}-${subCatIndex}`}
                                       contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name}`}
+                                      existingExpansion={nestedExpansions.find(e => e.parentName === subCategory.name)}
+                                      onOpenMap={(mapData, id) => {
+                                        if (onOpenNestedMap) onOpenNestedMap(mapData, id);
+                                      }}
                                     />
                                   )
                                 )}
@@ -1807,7 +1857,10 @@ export const MindMap = ({
       <NestedMapsDialog
         isOpen={isNestedMapsDialogOpen}
         onClose={() => setIsNestedMapsDialogOpen(false)}
-        expansions={nestedExpansions}
+        expansions={nestedExpansions.map(e => ({
+          ...e,
+          path: e.path || '' // Ensure path is always a string
+        }))}
         onDelete={handleDeleteExpansion}
         onRegenerate={handleRegenerateExpansion}
         onExpandFurther={handleNestedExpandFurther}
