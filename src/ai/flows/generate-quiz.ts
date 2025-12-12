@@ -39,9 +39,26 @@ const GenerateQuizOutputSchema = z.object({
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function generateQuiz(
-  input: GenerateQuizInput
+  input: GenerateQuizInput & { apiKey?: string }
 ): Promise<GenerateQuizOutput> {
+  if (input.apiKey) {
+    const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
+    const systemPrompt = `You are an expert in creating educational quizzes.
+  
+    Based on the provided mind map data, generate a challenging and informative multiple-choice quiz with 5 to 10 questions.
+    Each question should have exactly 4 options.
+    For each question, provide the correct answer's index and a brief explanation for why it's correct.
+  
+    Mind Map Data:
+    ${mindMapDataString}`;
+
+    const userPrompt = "Generate the quiz JSON.";
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return generateQuizFlow(input);
 }
 

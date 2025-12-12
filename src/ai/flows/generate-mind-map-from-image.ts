@@ -23,6 +23,7 @@ const GenerateMindMapFromImageInputSchema = z.object({
     .string()
     .optional()
     .describe('The target language for the mind map content (e.g., "es").'),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 type GenerateMindMapFromImageInput = z.infer<
   typeof GenerateMindMapFromImageInputSchema
@@ -34,9 +35,49 @@ export type GenerateMindMapFromImageOutput = z.infer<
   typeof GenerateMindMapFromImageOutputSchema
 >;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function generateMindMapFromImage(
   input: GenerateMindMapFromImageInput
 ): Promise<GenerateMindMapFromImageOutput> {
+  if (input.apiKey) {
+    const targetLangInstruction = input.targetLang
+      ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
+      : `The entire mind map MUST be in English.`;
+
+    const systemPrompt = `You are an expert in analyzing images and creating structured, comprehensive mind maps from them.
+    Analyze the provided image and generate a detailed, multi-layered mind map based on its content.
+    
+    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories.
+    
+    ${targetLangInstruction}
+    
+    The mind map must have the following structure:
+      - Topic: The main topic identified from the image.
+      - Icon: A relevant icon name from the lucide-react library, in kebab-case.
+      - Sub-Topics: A list of at least 4-5 main sub-topics.
+        - Icon: A relevant lucide-react icon.
+      - Categories: For each sub-topic, a list of 3-4 categories.
+        - Icon: A relevant lucide-react icon.
+      - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
+        - Description: A brief but thorough description, using data from the image.
+        - Icon: A relevant lucide-react icon.
+        - Tags: A list of 2-3 relevant keywords.
+    
+    The output must be a valid JSON object that adheres to the schema: { topic: string, icon: string, subTopics: [...] }`;
+
+    const userPrompt = "Analyze this image and generate the mind map JSON.";
+
+    // Parse Data URI
+    const matches = input.imageDataUri.match(/^data:(.+);base64,(.+)$/);
+    let images: { inlineData: { mimeType: string, data: string } }[] | undefined;
+
+    if (matches) {
+      images = [{ inlineData: { mimeType: matches[1], data: matches[2] } }];
+    }
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt, images);
+  }
   return generateMindMapFromImageFlow(input);
 }
 

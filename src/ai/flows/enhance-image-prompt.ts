@@ -29,9 +29,33 @@ export type EnhanceImagePromptOutput = z.infer<
   typeof EnhanceImagePromptOutputSchema
 >;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function enhanceImagePrompt(
-  input: EnhanceImagePromptInput
+  input: EnhanceImagePromptInput & { apiKey?: string }
 ): Promise<EnhanceImagePromptOutput> {
+  if (input.apiKey) {
+    const styleInstruction = input.style
+      ? `**Requested Style:**
+      "${input.style}"
+      
+      **Incorporate the Style:** The requested style is "${input.style}". It MUST be the primary focus. If abstract, blend with realistic elements.`
+      : `**Incorporate the Style:** No specific style requested. Default to a photorealistic or cinematic style.`;
+
+    const systemPrompt = `You are an expert prompt engineer for a text-to-image AI model, specializing in creating photorealistic images. Your task is to take a user's simple prompt and enhance it into a rich, detailed, and artistic prompt that will generate a high-quality, visually appealing, and realistic image.
+    
+    **Your Enhancement Rules:**
+    1.  **Prioritize Photorealism:** The primary goal is a realistic, real-life image. Use keywords that emphasize this, such as "photorealistic," "sharp focus," "8k," "cinematic lighting," "shot on DSLR," "high detail."
+    2.  **Add Rich Detail:** Include specific details about the subject, setting, lighting, and mood. Be descriptive.
+    3.  **Avoid Abstract Terms:** Avoid vague, abstract, or cartoonish terms unless the style explicitly calls for them.
+    4.  **Keep it Concise:** The final prompt should be a comma-separated list of powerful keywords and descriptive phrases. Do not add any extra explanations.
+    
+    ${styleInstruction}`;
+
+    const userPrompt = `Enhance this prompt: "${input.prompt}"`;
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return enhanceImagePromptFlow(input);
 }
 

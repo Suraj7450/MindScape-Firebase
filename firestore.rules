@@ -4,13 +4,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // SECRETS - Deny ALL client access FIRST (more specific rules take precedence)
-    match /users/{userId}/secrets/{document=**} {
-      allow read, write: if false;
+    // User Profile Document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // User profile and ALL other subcollections - owner can read/write
-    match /users/{userId}/{document=**} {
+    // Mind Maps Subcollection
+    match /users/{userId}/mindmaps/{mindmapId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Explicitly deny secrets (redundant but safe)
+    match /users/{userId}/secrets/{document=**} {
+      allow read, write: if false;
     }
 
     // Public mind maps can be read by anyone, created by authenticated users,

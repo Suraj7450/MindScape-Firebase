@@ -112,14 +112,15 @@ export async function generateMindMapAction(
  * @returns {Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }>} An object with the generated map or an error.
  */
 export async function generateMindMapFromImageAction(
-  input: GenerateMindMapFromImageInput
+  input: GenerateMindMapFromImageInput,
+  customApiKey?: string
 ): Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
   }
 
   try {
-    const result = await generateMindMapFromImage(input);
+    const result = await generateMindMapFromImage({ ...input, apiKey: customApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromImageAction:', error);
@@ -138,14 +139,15 @@ export async function generateMindMapFromImageAction(
  * @returns {Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }>} An object with the generated map or an error.
  */
 export async function generateMindMapFromTextAction(
-  input: GenerateMindMapFromTextInput
+  input: GenerateMindMapFromTextInput,
+  customApiKey?: string
 ): Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
   }
 
   try {
-    const result = await generateMindMapFromText(input);
+    const result = await generateMindMapFromText({ ...input, apiKey: customApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromTextAction:', error);
@@ -164,14 +166,15 @@ export async function generateMindMapFromTextAction(
  * @returns {Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }>} An object with the generated map or an error.
  */
 export async function generateComparisonMapAction(
-  input: GenerateComparisonMapInput
+  input: GenerateComparisonMapInput,
+  customApiKey?: string
 ): Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }> {
   if (!input.topic1 || input.topic1.length < 1 || !input.topic2 || input.topic2.length < 1) {
     return { data: null, error: 'Both topics must be at least 1 character long.' };
   }
 
   try {
-    const result = await generateComparisonMap(input);
+    const result = await generateComparisonMap({ ...input, apiKey: customApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error(error);
@@ -191,10 +194,11 @@ export async function generateComparisonMapAction(
  * @returns {Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }>} An object with either the explanation content or an error message.
  */
 export async function explainNodeAction(
-  input: ExplainMindMapNodeInput
+  input: ExplainMindMapNodeInput,
+  customApiKey?: string
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
-    const result = await explainMindMapNode(input);
+    const result = await explainMindMapNode({ ...input, apiKey: customApiKey });
     return { explanation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -213,10 +217,11 @@ export async function explainNodeAction(
  * @returns {Promise<{ quiz: GenerateQuizOutput | null; error: string | null }>} An object with either the generated quiz or an error message.
  */
 export async function generateQuizAction(
-  input: GenerateQuizInput
+  input: GenerateQuizInput,
+  customApiKey?: string
 ): Promise<{ quiz: GenerateQuizOutput | null; error: string | null }> {
   try {
-    const result = await generateQuiz(input);
+    const result = await generateQuiz({ ...input, apiKey: customApiKey });
     return { quiz: result, error: null };
   } catch (error) {
     console.error(error);
@@ -263,10 +268,11 @@ export async function chatAction(
  * @returns {Promise<{ translation: TranslateMindMapOutput | null; error: string | null }>} An object with either the translated mind map or an error message.
  */
 export async function translateMindMapAction(
-  input: TranslateMindMapInput
+  input: TranslateMindMapInput,
+  customApiKey?: string
 ): Promise<{ translation: TranslateMindMapOutput | null; error: string | null }> {
   try {
-    const result = await translateMindMap(input);
+    const result = await translateMindMap({ ...input, apiKey: customApiKey });
     return { translation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -285,10 +291,11 @@ export async function translateMindMapAction(
  * @returns {Promise<{ example: ExplainWithExampleOutput | null; error: string | null }>} An object with the example or an error.
  */
 export async function explainWithExampleAction(
-  input: ExplainWithExampleInput
+  input: ExplainWithExampleInput,
+  customApiKey?: string
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
-    const result = await explainWithExample(input);
+    const result = await explainWithExample({ ...input, apiKey: customApiKey });
     return { example: result, error: null };
   } catch (error) {
     console.error('Error in explainWithExampleAction:', error);
@@ -307,10 +314,11 @@ export async function explainWithExampleAction(
  * @returns {Promise<{ summary: SummarizeChatOutput | null; error: string | null }>} The generated topic or an error.
  */
 export async function summarizeChatAction(
-  input: SummarizeChatInput
+  input: SummarizeChatInput,
+  customApiKey?: string
 ): Promise<{ summary: SummarizeChatOutput | null; error: string | null }> {
   try {
-    const result = await summarizeChat(input);
+    const result = await summarizeChat({ ...input, apiKey: customApiKey });
     return { summary: result, error: null };
   } catch (error) {
     console.error(error);
@@ -329,10 +337,11 @@ export async function summarizeChatAction(
  * @returns {Promise<{ response: ConversationalMindMapOutput | null; error: string | null }>} The AI's next turn or an error.
  */
 export async function conversationalMindMapAction(
-  input: ConversationalMindMapInput
+  input: ConversationalMindMapInput,
+  customApiKey?: string
 ): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
   try {
-    const result = await conversationalMindMap(input);
+    const result = await conversationalMindMap({ ...input, apiKey: customApiKey });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -351,13 +360,14 @@ export async function conversationalMindMapAction(
  * @returns {Promise<{ enhancedPrompt: EnhanceImagePromptOutput | null; error: string | null }>} The enhanced prompt or an error.
  */
 export async function enhanceImagePromptAction(
-  input: EnhanceImagePromptInput
+  input: EnhanceImagePromptInput,
+  customApiKey?: string
 ): Promise<{
   enhancedPrompt: EnhanceImagePromptOutput | null;
   error: string | null;
 }> {
   try {
-    const result = await enhanceImagePrompt(input);
+    const result = await enhanceImagePrompt({ ...input, apiKey: customApiKey });
     return { enhancedPrompt: result, error: null };
   } catch (error) {
     console.error('Error in enhanceImagePromptAction:', error);
@@ -376,10 +386,11 @@ export async function enhanceImagePromptAction(
  * @returns {Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }>} The generated summary or an error.
  */
 export async function summarizeMindMapAction(
-  input: SummarizeMindMapInput
+  input: SummarizeMindMapInput,
+  customApiKey?: string
 ): Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }> {
   try {
-    const result = await summarizeMindMap(input);
+    const result = await summarizeMindMap({ ...input, apiKey: customApiKey });
     return { summary: result, error: null };
   } catch (error) {
     console.error('Error in summarizeMindMapAction:', error);

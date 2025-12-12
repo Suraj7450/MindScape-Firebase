@@ -20,6 +20,7 @@ const GenerateComparisonMapInputSchema = z.object({
     .string()
     .optional()
     .describe('The target language for the mind map content (e.g., "es").'),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 export type GenerateComparisonMapInput = z.infer<
   typeof GenerateComparisonMapInputSchema
@@ -30,9 +31,45 @@ export type GenerateComparisonMapOutput = z.infer<
   typeof GenerateComparisonMapOutputSchema
 >;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function generateComparisonMap(
-  input: GenerateComparisonMapInput
+  input: GenerateComparisonMapInput & { apiKey?: string }
 ): Promise<GenerateComparisonMapOutput> {
+  if (input.apiKey) {
+    const targetLangInstruction = input.targetLang
+      ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
+      : `The entire mind map MUST be in English.`;
+
+    const systemPrompt = `You are an expert in creating detailed and comprehensive comparative mind maps.
+    
+    ${targetLangInstruction}
+    
+    The mind map must have the following structure:
+      - Topic: A main topic like "${input.topic1} vs. ${input.topic2}".
+      - Icon: A relevant lucide-react icon for comparison, such as "git-compare-arrows" or "scale".
+      - Sub-Topics: The map must include at least two sub-topics:
+        1.  **"Similarities"**:
+            - Categories should represent 4-5 shared concepts, features, or principles.
+            - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be detailed, explanatory, and consist of at least two sentences to provide sufficient context.
+        2.  **"Differences"**:
+            - This sub-topic should contain exactly two categories: one for "${input.topic1}" and one for "${input.topic2}".
+            - The sub-categories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "${input.topic1}" and a corresponding sub-category under "${input.topic2}". 
+            - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
+            - Create 4-5 of these parallel comparison points.
+            - Each description MUST be thorough and clearly explain the distinction in two or more sentences.
+        3.  **"Contextual Links / Overlap"**:
+            - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
+            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be explanatory and detailed, spanning at least two sentences.
+    
+      Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
+      Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.
+      The output must be a valid JSON object that strictly adheres to the provided output schema. Do not include any extra text or explanations outside the JSON structure.`;
+
+    const userPrompt = `Generate a structured mind map comparing and contrasting "${input.topic1}" and "${input.topic2}".`;
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return generateComparisonMapFlow(input);
 }
 

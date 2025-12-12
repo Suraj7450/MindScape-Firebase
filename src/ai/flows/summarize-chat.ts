@@ -14,9 +14,28 @@ import {
   SummarizeChatOutputSchema,
 } from '@/ai/schemas/summarize-chat-schema';
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function summarizeChat(
   input: SummarizeChatInput
 ): Promise<SummarizeChatOutput> {
+  if (input.apiKey) {
+    const historyText = input.history.map(h => `${h.role}: ${h.content}`).join('\n');
+    const systemPrompt = `Based on the following conversation history, create a short, descriptive topic title (3-5 words).
+  
+    Example:
+    - History: "User: Tell me about photosynthesis. Model: Photosynthesis is the process..." -> Topic: "The Process of Photosynthesis"
+    - History: "User: I need ideas for a fantasy story. Model: How about a dragon..." -> Topic: "Fantasy Story Brainstorming"
+  
+    Conversation:
+    ${historyText}
+  
+    Generate a concise topic title for this conversation. Return valid JSON { "topic": "Title" }`;
+
+    const userPrompt = "Summarize the chat.";
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return summarizeChatFlow(input);
 }
 

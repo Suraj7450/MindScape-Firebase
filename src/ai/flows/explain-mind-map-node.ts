@@ -9,8 +9,8 @@
  * - ExplainMindMapNodeOutput - The return type for the explainMindMapNode function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const ExplainMindMapNodeInputSchema = z.object({
   mainTopic: z.string().describe('The main topic of the mind map.'),
@@ -21,6 +21,7 @@ const ExplainMindMapNodeInputSchema = z.object({
   explanationMode: z
     .enum(['Beginner', 'Intermediate', 'Expert'])
     .describe('The desired level of detail for the explanation.'),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 export type ExplainMindMapNodeInput = z.infer<
   typeof ExplainMindMapNodeInputSchema
@@ -37,16 +38,39 @@ export type ExplainMindMapNodeOutput = z.infer<
   typeof ExplainMindMapNodeOutputSchema
 >;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function explainMindMapNode(
-  input: ExplainMindMapNodeInput
+  input: ExplainMindMapNodeInput & { apiKey?: string }
 ): Promise<ExplainMindMapNodeOutput> {
+  if (input.apiKey) {
+    const systemPrompt = `You are an expert AI assistant providing detailed information for a mind map.
+
+    The main topic of the mind map is: ${input.mainTopic}.
+    
+    The user has clicked on the sub-category: "${input.subCategoryName}", which has a brief description: "${input.subCategoryDescription}".
+    
+    The user has requested the explanation at the "${input.explanationMode}" level.
+    - If the mode is "Beginner", use very simple terms, short sentences, and analogies. Avoid jargon.
+    - If the mode is "Intermediate", assume the user has some basic knowledge. Be clear and comprehensive.
+    - If the mode is "Expert", provide a technical, in-depth explanation suitable for someone knowledgeable in the field.
+    
+    Provide a detailed explanation of "${input.subCategoryName}" with a focus on its relationship to "${input.mainTopic}", tailored to the requested explanation mode.
+    Expand on the provided description and offer any additional context, required knowledge, or interesting facts.
+    
+    Present the information as a list of small and focused bullet points.`;
+
+    const userPrompt = "Generate the explanation.";
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return explainMindMapNodeFlow(input);
 }
 
 const prompt = ai.definePrompt({
   name: 'explainMindMapNodePrompt',
-  input: {schema: ExplainMindMapNodeInputSchema},
-  output: {schema: ExplainMindMapNodeOutputSchema},
+  input: { schema: ExplainMindMapNodeInputSchema },
+  output: { schema: ExplainMindMapNodeOutputSchema },
   prompt: `You are an expert AI assistant providing detailed information for a mind map.
 
 The main topic of the mind map is: {{{mainTopic}}}.
@@ -72,7 +96,7 @@ const explainMindMapNodeFlow = ai.defineFlow(
     outputSchema: ExplainMindMapNodeOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const { output } = await prompt(input);
     return output!;
   }
 );

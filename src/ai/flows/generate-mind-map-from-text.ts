@@ -15,9 +15,48 @@ import {
   GenerateMindMapFromTextOutputSchema,
 } from '@/ai/schemas/generate-mind-map-from-text-schema';
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function generateMindMapFromText(
   input: GenerateMindMapFromTextInput
 ): Promise<GenerateMindMapFromTextOutput> {
+  if (input.apiKey) {
+    const contextInstruction = input.context
+      ? `The user has provided the following additional context or instructions, which you should prioritize: "${input.context}"`
+      : '';
+
+    const targetLangInstruction = input.targetLang
+      ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
+      : `The entire mind map MUST be in English.`;
+
+    const systemPrompt = `You are an expert in analyzing text and creating structured, comprehensive mind maps from it.
+  
+    Analyze the provided text and generate a detailed, multi-layered mind map based on its content. 
+    
+    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the text. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories. Do not just summarize the themes; fill the structure with the actual data found in the text.
+  
+    ${contextInstruction}
+  
+    ${targetLangInstruction}
+  
+    The mind map must have the following structure:
+    - Topic: The main topic identified from the text. If the user provided context, use it to refine the topic.
+    - Icon: A relevant icon name from the lucide-react library, in kebab-case (e.g., "file-text").
+    - Sub-Topics: A list of at least 4-5 main sub-topics.
+      - Icon: A relevant lucide-react icon for each sub-topic.
+    - Categories: For each sub-topic, a list of 3-4 categories.
+      - Icon: A relevant lucide-react icon for each category.
+    - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
+      - Description: A brief but thorough description of each sub-category, using data from the text.
+      - Icon: A relevant lucide-react icon for each sub-category.
+      - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
+  
+    The output must be a valid JSON object that strictly adheres to the provided output schema. Do not include any extra text or explanations outside the JSON structure.`;
+
+    const userPrompt = `Text to analyze:\n---\n${input.text}\n---`;
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return generateMindMapFromTextFlow(input);
 }
 

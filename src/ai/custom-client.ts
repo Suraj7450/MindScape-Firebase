@@ -8,20 +8,24 @@ export async function generateContentWithCustomKey(
     apiKey: string,
     systemPrompt: string,
     userPrompt: string,
-    responseSchema?: any // We'll assume JSON output if schema is provided or just raw text
+    images?: { inlineData: { mimeType: string, data: string } }[]
 ): Promise<any> {
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash', // Upgraded to 2.0-flash which is generally better/faster
             generationConfig: {
                 responseMimeType: 'application/json'
             }
         });
 
-        const finalPrompt = `${systemPrompt}\n\nUser Input: ${userPrompt}`;
+        const parts: any[] = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
 
-        const result = await model.generateContent(finalPrompt);
+        if (images && images.length > 0) {
+            parts.push(...images);
+        }
+
+        const result = await model.generateContent(parts);
         const response = await result.response;
         const text = response.text();
 

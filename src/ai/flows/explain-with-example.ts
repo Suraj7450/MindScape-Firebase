@@ -32,9 +32,34 @@ export type ExplainWithExampleOutput = z.infer<
   typeof ExplainWithExampleOutputSchema
 >;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function explainWithExample(
-  input: ExplainWithExampleInput
+  input: ExplainWithExampleInput & { apiKey?: string }
 ): Promise<ExplainWithExampleOutput> {
+  if (input.apiKey) {
+    const systemPrompt = `You are an expert at explaining complex topics with simple, relatable, real-life examples.
+
+    The main topic is "${input.mainTopic}". The user wants an example for the concept: "${input.topicName}".
+    
+    The user has requested the example at the "${input.explanationMode}" level.
+    - For "Beginner", use a very simple, everyday analogy.
+    - For "Intermediate", use a more detailed but still accessible example.
+    - For "Expert", use a specific, technical, or industry-related example.
+    
+    Your goal is to provide a single, concise, and easy-to-understand analogy or example tailored to the requested mode.
+    
+    **Example Format:**
+    - For "API" (Beginner): "It's like a restaurant menu. You can order without knowing how the kitchen works."
+    - For "API" (Intermediate): "It's like a contract between two software applications, defining how they'll communicate and exchange data to perform a specific function."
+    - For "API" (Expert): "It's like a GraphQL endpoint that allows a client to request specific data fields from a server, reducing over-fetching compared to a traditional RESTful approach."
+    
+    Provide a similar real-life example for "${input.topicName}".`;
+
+    const userPrompt = "Generate the example.";
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return explainWithExampleFlow(input);
 }
 

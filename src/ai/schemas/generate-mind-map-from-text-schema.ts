@@ -18,6 +18,7 @@ export const GenerateMindMapFromTextInputSchema = z.object({
     .string()
     .optional()
     .describe('The target language for the mind map content (e.g., "es").'),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 export type GenerateMindMapFromTextInput = z.infer<
   typeof GenerateMindMapFromTextInputSchema

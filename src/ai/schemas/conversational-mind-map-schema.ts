@@ -16,6 +16,7 @@ export const ConversationalMindMapInputSchema = z.object({
     .array(ChatMessageSchema)
     .describe('The history of the conversation so far.'),
   message: z.string().describe("The user's latest message."),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 export type ConversationalMindMapInput = z.infer<
   typeof ConversationalMindMapInputSchema

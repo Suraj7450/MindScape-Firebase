@@ -26,6 +26,7 @@ import {
   FirestorePermissionError,
 } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   generateComparisonMapAction,
   generateMindMapAction,
@@ -150,17 +151,21 @@ function MindMapPageContent() {
   const lastFetchedParamsRef = useRef<string>('');
 
   const getCustomApiKey = async () => {
-    if (!user || !firestore) return undefined;
+    if (!user) return undefined;
     try {
-      const docSnap = await getDoc(doc(firestore, 'users', user.uid));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.apiSettings?.useCustomApiKey && data.apiSettings?.customApiKey) {
-          return data.apiSettings.customApiKey;
-        }
+      // First check if user has custom key enabled in profile
+      // We can rely on a lighter check if needed, but calling the CF is the source of truth for the key itself
+      // To save latency, we could check the profile doc first, but let's just go straight to CF for security
+      const functions = getFunctions();
+      const getUserApiKey = httpsCallable(functions, 'getUserApiKey');
+      const result = await getUserApiKey();
+      const data = result.data as { hasCustomKey: boolean, apiKey: string | null };
+
+      if (data.hasCustomKey && data.apiKey) {
+        return data.apiKey;
       }
     } catch (e) {
-      console.error("Error fetching API key", e);
+      console.error("Error fetching secure API key", e);
     }
     return undefined;
   };
@@ -241,11 +246,12 @@ function MindMapPageContent() {
           }, apiKey);
         } else if (topic1 && topic2) {
           currentMode = 'compare';
+          const apiKey = await getCustomApiKey();
           result = await generateComparisonMapAction({
             topic1,
             topic2,
             targetLang: lang || undefined,
-          });
+          }, apiKey);
         } else if (sessionId) {
           const sessionType = sessionStorage.getItem(`session-type-${sessionId}`);
           const sessionContent = sessionStorage.getItem(`session-content-${sessionId}`);
@@ -263,17 +269,20 @@ function MindMapPageContent() {
 
             if (sessionType === 'image') {
               currentMode = 'vision-image';
+              const apiKey = await getCustomApiKey();
+              // fileContent is the data URI for the image
               result = await generateMindMapFromImageAction({
-                imageDataUri: fileContent,
+                imageBase64: fileContent, // Action expects imageBase64 or imageDataUri
                 targetLang: lang || undefined,
-              });
+              }, apiKey);
             } else if (sessionType === 'text') {
               currentMode = 'vision-text';
+              const apiKey = await getCustomApiKey();
               result = await generateMindMapFromTextAction({
                 text: fileContent,
                 context: additionalText,
                 targetLang: lang || undefined,
-              });
+              }, apiKey);
             } else if (sessionType === 'mindgpt') {
               currentMode = 'mindgpt';
               try {

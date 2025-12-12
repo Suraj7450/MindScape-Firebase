@@ -22,9 +22,26 @@ const SummarizeMindMapOutputSchema = z.object({
 });
 export type SummarizeMindMapOutput = z.infer<typeof SummarizeMindMapOutputSchema>;
 
+import { generateContentWithCustomKey } from '@/ai/custom-client';
+
 export async function summarizeMindMap(
-  input: SummarizeMindMapInput
+  input: SummarizeMindMapInput & { apiKey?: string }
 ): Promise<SummarizeMindMapOutput> {
+  if (input.apiKey) {
+    const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
+    const systemPrompt = `You are an expert in synthesizing information.
+    Based on the provided mind map data, generate a concise and compelling 1-2 sentence summary.
+    The summary should capture the main topic and key sub-topics to give a potential viewer a clear idea of what the map contains.
+  
+    Mind Map Data:
+    ${mindMapDataString}
+  
+    Return only the summary.`;
+
+    const userPrompt = "Summarize the mind map.";
+
+    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+  }
   return summarizeMindMapFlow(input);
 }
 

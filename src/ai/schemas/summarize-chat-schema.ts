@@ -13,6 +13,7 @@ export const SummarizeChatInputSchema = z.object({
   history: z
     .array(MessageSchema)
     .describe('The conversation history to be summarized.'),
+  apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 export type SummarizeChatInput = z.infer<typeof SummarizeChatInputSchema>;
 

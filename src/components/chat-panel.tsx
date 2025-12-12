@@ -21,7 +21,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,9 +136,21 @@ export function ChatPanel({
             setPersona(savedPersona);
           }
 
-          // Load API Settings
+          // Load Secure API Key
           if (docSnap.data().apiSettings?.useCustomApiKey) {
-            setCustomApiKey(docSnap.data().apiSettings?.customApiKey);
+            // Fetch the secure key from Cloud Function
+            try {
+              const functions = getFunctions();
+              const getUserApiKey = httpsCallable(functions, 'getUserApiKey');
+              const result = await getUserApiKey();
+              const data = result.data as { hasCustomKey: boolean, apiKey: string | null };
+
+              if (data.hasCustomKey && data.apiKey) {
+                setCustomApiKey(data.apiKey);
+              }
+            } catch (e) {
+              console.error("Error fetching secure API key for chat", e);
+            }
           }
         }
       } catch (error) {
@@ -183,7 +197,8 @@ export function ChatPanel({
       !isLoading
     ) {
       const sessionIdToUpdate = activeSession.id;
-      summarizeChatAction({ history: activeSession.messages.slice(0, 4) })
+      // Pass customApiKey if available
+      summarizeChatAction({ history: activeSession.messages.slice(0, 4) }, customApiKey)
         .then(({ summary, error }) => {
           if (summary && !error) {
             setSessions(prev => prev.map(s =>
