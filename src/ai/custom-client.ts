@@ -40,14 +40,6 @@ export async function generateContentWithCustomKey(
         return JSON.parse(text);
     } catch (error: any) {
         console.error("Custom Client AI Error:", error);
-
-        // Check if we should try the backup
-        // We try backup for almost any error to be safe (quota, internal, offline, etc.)
-        try {
-            return await generateContentWithBackup(systemPrompt, userPrompt);
-        } catch (backupError: any) {
-            console.error("Backup Client AI Error:", backupError);
-            throw new Error(`Generation Failed: Primary API error (${error.message}) AND Backup API error (${backupError.message})`);
-        }
+        throw error; // Propagate error directly, do not fall back
     }
 }

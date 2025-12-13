@@ -2,34 +2,29 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // User Profile Document
+
+    // USER PROFILE
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // USER MIND MAPS (FIX)
+      match /mindmaps/{mindmapId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // OPTIONAL: user settings, api keys, etc
+      match /settings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
-    // User Settings (for API key toggles)
-    match /users/{userId}/settings {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Mind Maps Subcollection (Explicit Match)
-    match /users/{userId}/mindmaps/{mindmapId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Secrets - Explicitly deny (redundant but safe)
-    match /users/{userId}/secrets/{document=**} {
-      allow read, write: if false;
-    }
-
-    // Public mind maps can be read by anyone, created by authenticated users,
-    // and deleted only by the original author.
+    // PUBLIC MAPS
     match /publicMindmaps/{mindmapId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.originalAuthorId;
-      allow update: if false; // Prohibit updates for now
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.originalAuthorId;
+      allow update: if false;
     }
   }
 }

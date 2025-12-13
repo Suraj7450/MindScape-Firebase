@@ -135,6 +135,7 @@ export default function ProfilePage() {
                             },
                             apiSettings: {
                                 useCustomApiKey: data.apiSettings?.useCustomApiKey || false,
+                                provider: data.apiSettings?.provider || 'gemini',
                             }
                         };
                         setProfile(profileData);
@@ -147,6 +148,10 @@ export default function ProfilePage() {
                             email: user.email || '',
                             photoURL: user.photoURL || undefined,
                             preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
+                            apiSettings: {
+                                useCustomApiKey: false,
+                                provider: 'gemini'
+                            },
                             statistics: { currentStreak: 0, totalQuizQuestions: 0 },
                         };
                         setProfile(defaultData);

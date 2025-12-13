@@ -45,17 +45,38 @@ const MIND_MAP_PROMPT = `You are an expert in creating mind maps for students.
   The entire mind map MUST be in English.
   {{/if}}
 
-  The mind map must have the following structure and constraints:
-  - Topic: The main topic for this specific map.
-  - Icon: A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").
-  - Sub-Topics: A list of at least 4-5 main sub-topics.
-    - Icon: A relevant lucide-react icon for each sub-topic.
-  - Categories: For each sub-topic, a list of 3-4 categories.
-    - Icon: A relevant lucide-react icon for each category.
-  - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-    - Description: A brief but thorough description of each sub-category.
-    - Icon: A relevant lucide-react icon for each sub-category.
-    - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
+  The mind map must have the following JSON structure:
+  {
+    "topic": "Your Topic Here",  // Field name in camelCase, value in proper English
+    "icon": "brain-circuit",
+    "subTopics": [
+      {
+        "name": "Subtopic name here",  // Proper English with spaces and normal capitalization
+        "icon": "flag",
+        "categories": [
+          {
+            "name": "Category name here",
+            "icon": "folder",
+            "subCategories": [
+              {
+                "name": "Subcategory name",
+                "description": "A clear description in proper English.",
+                "icon": "book-open",
+                "tags": ["tag1", "tag2", "tag3"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+
+  IMPORTANT RULES:
+  - JSON field names MUST be camelCase: topic, subTopics, categories, subCategories, name, description, icon, tags
+  - Content values (topic names, descriptions) MUST use proper English with normal capitalization and spaces
+  - Example: {"name": "Persian and Greek invasions"} NOT {"name": "persianAndGreekInvasions"}
+  - Icons must be valid lucide-react names in kebab-case (e.g., "shield", "sword", "globe")
+  - Generate at least 4-5 subTopics, 3-4 categories per subtopic, and 4-5 subCategories per category
 
   Create an informative and well-structured mind map for the topic: "{{{topic}}}".
   
@@ -107,17 +128,38 @@ export async function generateMindMap(
 
   ${input.targetLang ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.` : 'The entire mind map MUST be in English.'}
 
-  The mind map must have the following structure and constraints:
-  - Topic: The main topic for this specific map.
-  - Icon: A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").
-  - Sub-Topics: A list of at least 4-5 main sub-topics.
-    - Icon: A relevant lucide-react icon for each sub-topic.
-  - Categories: For each sub-topic, a list of 3-4 categories.
-    - Icon: A relevant lucide-react icon for each category.
-  - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-    - Description: A brief but thorough description of each sub-category.
-    - Icon: A relevant lucide-react icon for each sub-category.
-    - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
+  The mind map must have the following JSON structure:
+  {
+    "topic": "Your Topic Here",  // Field name in camelCase, value in proper English
+    "icon": "brain-circuit",
+    "subTopics": [
+      {
+        "name": "Subtopic name here",  // Proper English with spaces and normal capitalization
+        "icon": "flag",
+        "categories": [
+          {
+            "name": "Category name here",
+            "icon": "folder",
+            "subCategories": [
+              {
+                "name": "Subcategory name",
+                "description": "A clear description in proper English.",
+                "icon": "book-open",
+                "tags": ["tag1", "tag2", "tag3"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+
+  IMPORTANT RULES:
+  - JSON field names MUST be camelCase: topic, subTopics, categories, subCategories, name, description, icon, tags
+  - Content values (topic names, descriptions) MUST use proper English with normal capitalization and spaces
+  - Example: {"name": "Persian and Greek invasions"} NOT {"name": "persianAndGreekInvasions"}
+  - Icons must be valid lucide-react names in kebab-case (e.g., "shield", "sword", "globe")
+  - Generate at least 4-5 subTopics, 3-4 categories per subtopic, and 4-5 subCategories per category
 
   Create an informative and well-structured mind map for the topic: "${input.topic}".
   

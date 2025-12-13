@@ -25,7 +25,7 @@ import {
   errorEmitter,
   FirestorePermissionError,
 } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   generateComparisonMapAction,
@@ -39,6 +39,8 @@ import Image from 'next/image';
 import { mindscapeMap } from '@/lib/mindscape-data';
 import { trackMapCreated, trackStudyTime } from '@/lib/activity-tracker';
 
+type MindMapWithId = GenerateMindMapOutput & { id?: string; thumbnailUrl?: string; thumbnailPrompt?: string, summary?: string };
+
 /**
  * The core content component for the mind map page.
  * It handles fetching and displaying mind map data for all modes.
@@ -50,7 +52,7 @@ function MindMapPageContent() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const [mindMaps, setMindMaps] = useState<GenerateMindMapOutput[]>([]);
+  const [mindMaps, setMindMaps] = useState<MindMapWithId[]>([]);
   const [activeMindMapIndex, setActiveMindMapIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ function MindMapPageContent() {
 
   const hasFetchedRef = useRef(false);
 
-  const mindMap = mindMaps[activeMindMapIndex] as (GenerateMindMapOutput & { id?: string; thumbnailUrl?: string; thumbnailPrompt?: string, summary?: string });
+  const mindMap = mindMaps[activeMindMapIndex];
   const isSaved = !!(mindMap && (mindMap as any).id);
 
   const mapId = searchParams.get('mapId');
@@ -82,10 +84,10 @@ function MindMapPageContent() {
     return null;
   }, [firestore, user, mapId, isPublic]);
 
-  const { data: savedMindMap, isLoading: isFetchingSavedMap } = useDoc<GenerateMindMapOutput>(docPath);
+  const { data: savedMindMap, isLoading: isFetchingSavedMap } = useDoc<MindMapWithId>(docPath);
 
-  const handleSaveMap = useCallback(async (mapToSave: GenerateMindMapOutput) => {
-    if (!mapToSave || !user || (mapToSave as any).id) {
+  const handleSaveMap = useCallback(async (mapToSave: MindMapWithId) => {
+    if (!mapToSave || !user || mapToSave.id) {
       return;
     }
     setIsSaving(true);
@@ -153,9 +155,19 @@ function MindMapPageContent() {
   const getCustomApiKey = async () => {
     if (!user) return undefined;
     try {
-      // First check if user has custom key enabled in profile
-      // We can rely on a lighter check if needed, but calling the CF is the source of truth for the key itself
-      // To save latency, we could check the profile doc first, but let's just go straight to CF for security
+      // 1. Check local Firestore profile first (Fast path for Pollinations)
+      const userRef = doc(firestore, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        if (userData.apiSettings?.provider === 'pollinations') {
+          console.log("Using Pollinations provider (Client-side detected)");
+          return 'provider:pollinations';
+        }
+      }
+
+      // 2. If not Pollinations, or if we need the real key, call Cloud Function (Secure path)
       const functions = getFunctions();
       const getUserApiKey = httpsCallable(functions, 'getUserApiKey');
       const result = await getUserApiKey();
@@ -208,7 +220,7 @@ function MindMapPageContent() {
       setIsLoading(true);
       setError(null);
 
-      let result: { data: GenerateMindMapOutput | null; error: string | null } = { data: null, error: null };
+      let result: { data: MindMapWithId | null; error: string | null } = { data: null, error: null };
       let currentMode = 'standard';
 
       try {
@@ -272,7 +284,7 @@ function MindMapPageContent() {
               const apiKey = await getCustomApiKey();
               // fileContent is the data URI for the image
               result = await generateMindMapFromImageAction({
-                imageBase64: fileContent, // Action expects imageBase64 or imageDataUri
+                imageDataUri: fileContent,
                 targetLang: lang || undefined,
               }, apiKey);
             } else if (sessionType === 'text') {
@@ -532,8 +544,8 @@ function MindMapPageContent() {
       }
 
       toast({
-        title: "Map Opened",
-        description: "Sub-map generated and saved to the ecosystem.",
+        title: "Sub-Map Generated",
+        description: "Sub-map generated and saved to the nested map panel.",
       });
 
     } catch (error: any) {

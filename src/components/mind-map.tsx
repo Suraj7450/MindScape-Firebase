@@ -360,46 +360,45 @@ const SubCategoryCard = memo(function SubCategoryCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                  onClick={handleExpandClick}
+                  className={`h-8 w-8 ${existingExpansion && existingExpansion.status === 'completed'
+                    ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
+                    : 'text-muted-foreground hover:text-purple-400'
+                    }`}
+                  onClick={(e) => {
+                    if (existingExpansion && existingExpansion.status === 'completed' && existingExpansion.fullData) {
+                      e.stopPropagation();
+                      // Open existing map
+                      if (onOpenMap) onOpenMap(existingExpansion.fullData, existingExpansion.id);
+                    } else {
+                      // Generate new map
+                      handleExpandClick(e);
+                    }
+                  }}
                   disabled={isGeneratingMap || isExpanding}
                 >
                   {isGeneratingMap || isExpanding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Network className="h-4 w-4" />
+                    <div className="relative">
+                      <Network className="h-4 w-4" />
+                      {existingExpansion && existingExpansion.status === 'completed' && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      )}
+                    </div>
                   )}
                 </Button>
               </TooltipTrigger>
               <TooltipPortal>
                 <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                  <p>Generate Sub-Map</p>
+                  <p>{existingExpansion && existingExpansion.status === 'completed' ? "Open Nested Map" : "Generate Sub-Map"}</p>
                 </TooltipContent>
               </TooltipPortal>
             </Tooltip>
 
-            {existingExpansion && existingExpansion.status === 'completed' && existingExpansion.fullData && (
-              <Tooltip delayDuration={300}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onOpenMap) onOpenMap(existingExpansion.fullData, existingExpansion.id);
-                    }}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipPortal>
-                  <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                    <p>Open Nested Map</p>
-                  </TooltipContent>
-                </TooltipPortal>
-              </Tooltip>
-            )}
+
 
             <Tooltip delayDuration={300}>
               <TooltipTrigger asChild>
@@ -1294,8 +1293,24 @@ export const MindMap = ({
   /**
    * Delete an expansion from the list
    */
-  const handleDeleteExpansion = (id: string) => {
+  const handleDeleteExpansion = async (id: string) => {
+    // Update local state immediately for instant UI feedback
     setNestedExpansions(prev => prev.filter(exp => exp.id !== id));
+
+    // Persist deletion to Firestore
+    if (user && firestore && mindMap.id) {
+      try {
+        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+        const updatedExpansions = nestedExpansions.filter(exp => exp.id !== id);
+
+        await updateDoc(mapRef, {
+          nestedExpansions: updatedExpansions
+        });
+      } catch (error) {
+        console.error('Error deleting nested expansion:', error);
+        // Optionally show a toast notification
+      }
+    }
   };
 
   /**
@@ -1523,22 +1538,39 @@ export const MindMap = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                          onClick={(e) =>
-                            handleGenerateClick(e, subTopic.name, subTopicNodeId, mindMap.topic)
-                          }
+                          className={`h-8 w-8 ${nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed'
+                            ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
+                            : 'text-muted-foreground hover:text-purple-400'
+                            }`}
+                          onClick={(e) => {
+                            const existing = nestedExpansions.find(e => e.parentName === subTopic.name);
+                            if (existing && existing.status === 'completed' && existing.fullData) {
+                              e.stopPropagation();
+                              if (onOpenNestedMap) onOpenNestedMap(existing.fullData, existing.id);
+                            } else {
+                              handleGenerateClick(e, subTopic.name, subTopicNodeId, mindMap.topic);
+                            }
+                          }}
                           disabled={isGeneratingSubTopic}
                         >
                           {isGeneratingSubTopic ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Network className="h-4 w-4" />
+                            <div className="relative">
+                              <Network className="h-4 w-4" />
+                              {nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed' && (
+                                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                              )}
+                            </div>
                           )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipPortal>
                         <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                          <p>Generate Sub-Map</p>
+                          <p>{nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed' ? "Open Sub-Map" : "Generate Sub-Map"}</p>
                         </TooltipContent>
                       </TooltipPortal>
                     </Tooltip>
@@ -1646,27 +1678,44 @@ export const MindMap = ({
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                                      onClick={(e) =>
-                                        handleGenerateClick(
-                                          e,
-                                          category.name,
-                                          categoryNodeId,
-                                          `${mindMap.topic} > ${subTopic.name}`
-                                        )
-                                      }
+                                      className={`h-8 w-8 ${nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed'
+                                        ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
+                                        : 'text-muted-foreground hover:text-purple-400'
+                                        }`}
+                                      onClick={(e) => {
+                                        const existing = nestedExpansions.find(e => e.parentName === category.name);
+                                        if (existing && existing.status === 'completed' && existing.fullData) {
+                                          e.stopPropagation();
+                                          if (onOpenNestedMap) onOpenNestedMap(existing.fullData, existing.id);
+                                        } else {
+                                          handleGenerateClick(
+                                            e,
+                                            category.name,
+                                            categoryNodeId,
+                                            `${mindMap.topic} > ${subTopic.name}`
+                                          );
+                                        }
+                                      }}
                                       disabled={isGeneratingCategory}
                                     >
                                       {isGeneratingCategory ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                       ) : (
-                                        <Network className="h-4 w-4" />
+                                        <div className="relative">
+                                          <Network className="h-4 w-4" />
+                                          {nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed' && (
+                                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                            </span>
+                                          )}
+                                        </div>
                                       )}
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipPortal>
                                     <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                                      <p>Generate Sub-Map</p>
+                                      <p>{nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed' ? "Open Sub-Map" : "Generate Sub-Map"}</p>
                                     </TooltipContent>
                                   </TooltipPortal>
                                 </Tooltip>
