@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, collection, query, getDocs, onSnapshot } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { updateProfile, signOut } from 'firebase/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
     Loader2, ArrowLeft, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
-    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Eye, EyeOff, Key
+    Pencil, Check, X, Trophy, Target, Lock, ChevronRight
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -98,12 +97,7 @@ export default function ProfilePage() {
     const [editName, setEditName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // API Key State
-    const [apiKeyInput, setApiKeyInput] = useState('');
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [useCustomKey, setUseCustomKey] = useState(false);
-    const [hasStoredKey, setHasStoredKey] = useState(false);
-    const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+
 
     // Load profile data
     useEffect(() => {
@@ -189,41 +183,29 @@ export default function ProfilePage() {
     }, [user, firestore, toast]);
 
     // Derived state for provider mode
-    const getActiveMode = () => {
+    const getActiveMode = (): 'default' | 'pollinations' => {
         if (profile?.apiSettings?.provider === 'pollinations') return 'pollinations';
-        if (profile?.apiSettings?.useCustomApiKey) return 'custom';
         return 'default';
     };
     const activeMode = getActiveMode();
 
-    const setAIConfig = async (mode: 'default' | 'custom' | 'pollinations') => {
+    const setAIConfig = async (mode: 'default' | 'pollinations') => {
         if (!user || !firestore) return;
         try {
-            const updates: any = {};
-
             if (mode === 'default') {
-                updates['apiSettings.useCustomApiKey'] = false;
-                updates['apiSettings.provider'] = 'gemini';
-                // Call cloud function to sync if needed, but direct write is usually fine for these flags
-                // However, toggleCustomApiKey CF exists. Let's use it for consistency if it's just toggling boolean.
-                // But we actully need to set provider too. Direct write to user doc is safest/fastest for settings.
                 await setDoc(doc(firestore, 'users', user.uid), {
                     apiSettings: { useCustomApiKey: false, provider: 'gemini' }
                 }, { merge: true });
-                setUseCustomKey(false);
-            } else if (mode === 'custom') {
-                await setDoc(doc(firestore, 'users', user.uid), {
-                    apiSettings: { useCustomApiKey: true, provider: 'gemini' }
-                }, { merge: true });
-                setUseCustomKey(true);
             } else if (mode === 'pollinations') {
                 await setDoc(doc(firestore, 'users', user.uid), {
-                    apiSettings: { useCustomApiKey: true, provider: 'pollinations' }
+                    apiSettings: { useCustomApiKey: false, provider: 'pollinations' }
                 }, { merge: true });
-                setUseCustomKey(true);
             }
 
-            toast({ title: 'Updated', description: `AI Provider set to ${mode === 'default' ? 'Default' : mode === 'custom' ? 'Custom Key' : 'Pollinations'}` });
+            toast({
+                title: 'Updated',
+                description: `AI Provider set to ${mode === 'default' ? 'MindScape Default' : 'Pollinations'}`
+            });
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update settings' });
@@ -259,68 +241,7 @@ export default function ProfilePage() {
         }
     };
 
-    // Save API key securely via Cloud Function
-    const saveApiKey = async () => {
-        if (!user || !apiKeyInput.trim()) return;
-        setIsSavingApiKey(true);
-        try {
-            const functions = getFunctions();
-            const storeUserApiKey = httpsCallable(functions, 'storeUserApiKey');
-            await storeUserApiKey({ apiKey: apiKeyInput.trim() });
 
-            setUseCustomKey(true);
-            setHasStoredKey(true);
-            setApiKeyInput(''); // Clear input after secure storage
-            toast({ title: 'Secure', description: 'API key encrypted and stored securely.' });
-        } catch (error: any) {
-            console.error('Error storing API key:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error.message || 'Failed to save API key'
-            });
-        } finally {
-            setIsSavingApiKey(false);
-        }
-    };
-
-    // Toggle custom API key usage via Cloud Function
-    const toggleApiKeyUsage = async (useCustom: boolean) => {
-        if (!user) return;
-        try {
-            const functions = getFunctions();
-            const toggleCustomApiKey = httpsCallable(functions, 'toggleCustomApiKey');
-            await toggleCustomApiKey({ useCustomKey: useCustom });
-
-            setUseCustomKey(useCustom);
-            toast({ title: 'Updated', description: useCustom ? 'Using your custom API key.' : 'Using default API key.' });
-        } catch (error: any) {
-            console.error('Error toggling API key:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error.message || 'Failed to update settings'
-            });
-        }
-    };
-
-    // Delete stored API key via Cloud Function
-    const deleteApiKey = async () => {
-        if (!user) return;
-        try {
-            const functions = getFunctions();
-            const deleteUserApiKey = httpsCallable(functions, 'deleteUserApiKey');
-            await deleteUserApiKey({});
-
-            setUseCustomKey(false);
-            setHasStoredKey(false);
-            setApiKeyInput('');
-            toast({ title: 'Deleted', description: 'API key removed.' });
-        } catch (error: any) {
-            console.error('Error deleting API key:', error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete API key' });
-        }
-    };
 
     const handleLogout = async () => {
         try {
@@ -572,13 +493,7 @@ export default function ProfilePage() {
                                         <SelectItem value="default">
                                             <div className="flex flex-col">
                                                 <span className="font-medium">MindScape Default</span>
-                                                <span className="text-[10px] text-zinc-400">Standard Quality • Limits Apply</span>
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="custom">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Direct Gemini API</span>
-                                                <span className="text-[10px] text-zinc-400">Use your own Key • Higher Limits</span>
+                                                <span className="text-[10px] text-zinc-400">Gemini 2.5 Flash • Standard Quality</span>
                                             </div>
                                         </SelectItem>
                                         <SelectItem value="pollinations">
@@ -591,51 +506,7 @@ export default function ProfilePage() {
                                 </Select>
                             </div>
 
-                            {/* API Key Input - Only shown for Custom Mode */}
-                            {activeMode === 'custom' && (
-                                <div className="mt-2 mb-2 space-y-2 pl-2 border-l-2 border-zinc-800 ml-1">
-                                    <div className="relative">
-                                        <Input
-                                            type={showApiKey ? "text" : "password"}
-                                            value={apiKeyInput}
-                                            onChange={(e) => setApiKeyInput(e.target.value)}
-                                            placeholder={hasStoredKey ? "Enter new key to replace..." : "Enter Gemini API Key"}
-                                            className="bg-zinc-800 border-zinc-700 text-xs pr-10"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowApiKey(!showApiKey)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                                        >
-                                            {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                        </button>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            onClick={saveApiKey}
-                                            disabled={!apiKeyInput.trim() || isSavingApiKey}
-                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-xs"
-                                        >
-                                            {isSavingApiKey ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Key className="h-3 w-3 mr-1" />}
-                                            {hasStoredKey ? 'Update Key' : 'Save & Encrypt'}
-                                        </Button>
-                                        {hasStoredKey && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={deleteApiKey}
-                                                className="text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
-                                            >
-                                                Delete
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-zinc-600">
-                                        Your key is encrypted with AES-256 and stored on our secure servers. We never store keys in plain text.
-                                    </p>
-                                </div>
-                            )}
+
                         </div>
                     </CardContent>
                 </Card>
