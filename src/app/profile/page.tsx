@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
     Loader2, ArrowLeft, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
-    Pencil, Check, X, Trophy, Target, Lock, ChevronRight
+    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Sparkles
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -467,7 +467,7 @@ export default function ProfilePage() {
                             <div className="flex flex-col gap-3 py-2.5">
                                 <div className="flex items-center gap-3">
                                     <div className="p-1.5 rounded-md bg-emerald-500/10">
-                                        <Key className="h-3.5 w-3.5 text-emerald-400" />
+                                        <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm text-zinc-300">AI Provider</span>
