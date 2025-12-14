@@ -34,8 +34,6 @@ interface UserProfile {
         totalQuizQuestions: number;
     };
     apiSettings?: {
-        useCustomApiKey: boolean;
-        customApiKey?: string;
         provider?: 'gemini' | 'pollinations';
     };
 }
@@ -128,14 +126,11 @@ export default function ProfilePage() {
                                 totalQuizQuestions: data.statistics?.totalQuizQuestions || 0,
                             },
                             apiSettings: {
-                                useCustomApiKey: data.apiSettings?.useCustomApiKey || false,
                                 provider: data.apiSettings?.provider || 'gemini',
                             }
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
-                        setUseCustomKey(data.apiSettings?.useCustomApiKey || false);
-                        setHasStoredKey(data.apiSettings?.hasStoredKey || false);
                     } else {
                         const defaultData: UserProfile = {
                             displayName: user.displayName || 'User',
@@ -143,15 +138,12 @@ export default function ProfilePage() {
                             photoURL: user.photoURL || undefined,
                             preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
                             apiSettings: {
-                                useCustomApiKey: false,
                                 provider: 'gemini'
                             },
                             statistics: { currentStreak: 0, totalQuizQuestions: 0 },
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
-                        setUseCustomKey(false);
-                        setHasStoredKey(false);
                     }
                     setLoading(false);
                 }, (error) => {
@@ -194,11 +186,11 @@ export default function ProfilePage() {
         try {
             if (mode === 'default') {
                 await setDoc(doc(firestore, 'users', user.uid), {
-                    apiSettings: { useCustomApiKey: false, provider: 'gemini' }
+                    apiSettings: { provider: 'gemini' }
                 }, { merge: true });
             } else if (mode === 'pollinations') {
                 await setDoc(doc(firestore, 'users', user.uid), {
-                    apiSettings: { useCustomApiKey: false, provider: 'pollinations' }
+                    apiSettings: { provider: 'pollinations' }
                 }, { merge: true });
             }
 

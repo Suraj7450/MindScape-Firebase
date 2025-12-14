@@ -26,7 +26,6 @@ import {
   FirestorePermissionError,
 } from '@/firebase';
 import { doc, getDoc, collection, query, where, getDocs, limit, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   generateComparisonMapAction,
   generateMindMapAction,
@@ -152,34 +151,30 @@ function MindMapPageContent() {
 
   const lastFetchedParamsRef = useRef<string>('');
 
-  const getCustomApiKey = async () => {
+  /**
+   * Check which AI provider the user has selected
+   * Returns 'provider:pollinations' if Pollinations is selected, undefined otherwise (use default)
+   */
+  const getProviderKey = async () => {
     if (!user) return undefined;
     try {
-      // 1. Check local Firestore profile first (Fast path for Pollinations)
       const userRef = doc(firestore, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.apiSettings?.provider === 'pollinations') {
-          console.log("Using Pollinations provider (Client-side detected)");
+          console.log("Using Pollinations provider");
           return 'provider:pollinations';
         }
       }
 
-      // 2. If not Pollinations, or if we need the real key, call Cloud Function (Secure path)
-      const functions = getFunctions();
-      const getUserApiKey = httpsCallable(functions, 'getUserApiKey');
-      const result = await getUserApiKey();
-      const data = result.data as { hasCustomKey: boolean, apiKey: string | null };
-
-      if (data.hasCustomKey && data.apiKey) {
-        return data.apiKey;
-      }
+      // Default: use server-side Gemini API key
+      return undefined;
     } catch (e) {
-      console.error("Error fetching secure API key", e);
+      console.error("Error checking provider settings", e);
+      return undefined;
     }
-    return undefined;
   };
 
   useEffect(() => {
@@ -250,7 +245,7 @@ function MindMapPageContent() {
           }
         } else if (singleTopic) {
           currentMode = 'standard';
-          const apiKey = await getCustomApiKey();
+          const apiKey = await getProviderKey();
           result = await generateMindMapAction({
             topic: singleTopic,
             parentTopic: parentTopic || undefined,
@@ -258,7 +253,7 @@ function MindMapPageContent() {
           }, apiKey);
         } else if (topic1 && topic2) {
           currentMode = 'compare';
-          const apiKey = await getCustomApiKey();
+          const apiKey = await getProviderKey();
           result = await generateComparisonMapAction({
             topic1,
             topic2,
@@ -281,7 +276,7 @@ function MindMapPageContent() {
 
             if (sessionType === 'image') {
               currentMode = 'vision-image';
-              const apiKey = await getCustomApiKey();
+              const apiKey = await getProviderKey();
               // fileContent is the data URI for the image
               result = await generateMindMapFromImageAction({
                 imageDataUri: fileContent,
@@ -289,7 +284,7 @@ function MindMapPageContent() {
               }, apiKey);
             } else if (sessionType === 'text') {
               currentMode = 'vision-text';
-              const apiKey = await getCustomApiKey();
+              const apiKey = await getProviderKey();
               result = await generateMindMapFromTextAction({
                 text: fileContent,
                 context: additionalText,
@@ -430,7 +425,7 @@ function MindMapPageContent() {
 
     try {
       const lang = searchParams.get('lang') || 'en';
-      const apiKey = await getCustomApiKey();
+      const apiKey = await getProviderKey();
 
       const result = await generateMindMapAction({
         topic: subTopic,

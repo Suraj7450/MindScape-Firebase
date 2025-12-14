@@ -23,7 +23,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 
 import { doc, getDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,23 +133,6 @@ export function ChatPanel({
           const savedPersona = prefs?.defaultAIPersona?.toLowerCase() as Persona;
           if (savedPersona && ['standard', 'teacher', 'concise', 'creative'].includes(savedPersona)) {
             setPersona(savedPersona);
-          }
-
-          // Load Secure API Key
-          if (docSnap.data().apiSettings?.useCustomApiKey) {
-            // Fetch the secure key from Cloud Function
-            try {
-              const functions = getFunctions();
-              const getUserApiKey = httpsCallable(functions, 'getUserApiKey');
-              const result = await getUserApiKey();
-              const data = result.data as { hasCustomKey: boolean, apiKey: string | null };
-
-              if (data.hasCustomKey && data.apiKey) {
-                setCustomApiKey(data.apiKey);
-              }
-            } catch (e) {
-              console.error("Error fetching secure API key for chat", e);
-            }
           }
         }
       } catch (error) {
