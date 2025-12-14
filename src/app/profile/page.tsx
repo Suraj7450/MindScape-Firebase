@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, collection, query, getDocs, onSnapshot } from 'firebase/firestore';
-import { updateProfile, signOut } from 'firebase/auth';
+import { updateProfile, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -500,6 +500,49 @@ export default function ProfilePage() {
 
 
                         </div>
+
+                        {/* Password Management (Only for Email/Password users) */}
+                        {user?.providerData.some(p => p.providerId === 'password') && (
+                            <>
+                                <Separator className="bg-zinc-800" />
+                                <div className="flex items-center justify-between py-2.5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-1.5 rounded-md bg-red-500/10">
+                                            <Lock className="h-3.5 w-3.5 text-red-400" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm text-zinc-300">Security</span>
+                                            <span className="text-[10px] text-zinc-500">Update your password</span>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                            if (!user?.email) return;
+                                            try {
+                                                await sendPasswordResetEmail(auth!, user.email);
+                                                toast({
+                                                    title: 'Reset Email Sent',
+                                                    description: `Check ${user.email} to change password.`
+                                                });
+                                            } catch (error: any) {
+                                                toast({
+                                                    variant: 'destructive',
+                                                    title: 'Error',
+                                                    description: error.message
+                                                });
+                                            }
+                                        }}
+                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
+                                    >
+                                        Change Password
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+
+
                     </CardContent>
                 </Card>
 
