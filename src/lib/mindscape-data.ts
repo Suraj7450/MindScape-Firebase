@@ -182,6 +182,60 @@ export const mindscapeMap: GenerateMindMapOutput = {
             icon: "user",
             categories: [
                 {
+                    name: "Mind Entry Portal",
+                    icon: "door-open",
+                    subCategories: [
+                        {
+                            name: "Dynamic Login Showcases",
+                            description: "Rotating content on each visit highlighting different MindScape capabilities: MindGPT, AI Generation, Infinite Exploration, and Vision Mode.",
+                            icon: "shuffle",
+                            tags: ["Dynamic", "Engaging", "Value Proposition"]
+                        },
+                        {
+                            name: "Glassmorphism Design",
+                            description: "Premium authentication interface with zinc/purple color scheme, subtle glows, and backdrop blur effects.",
+                            icon: "sparkles",
+                            tags: ["Modern", "Premium", "Aesthetic"]
+                        },
+                        {
+                            name: "Unified Auth Flow",
+                            description: "Seamless sign-in/sign-up experience with Google OAuth and email/password options in a single interface.",
+                            icon: "key",
+                            tags: ["Streamlined", "Secure", "Flexible"]
+                        }
+                    ]
+                },
+                {
+                    name: "Home Page Journey",
+                    icon: "home",
+                    subCategories: [
+                        {
+                            name: "Hero Section",
+                            description: "Action-oriented entry point with 'Visualize Smarter. Think Faster.' headline and instant mind map generation.",
+                            icon: "zap",
+                            tags: ["CTA", "Immediate Value", "Interactive"]
+                        },
+                        {
+                            name: "Transition Bridge",
+                            description: "Philosophical anchor 'Everything starts with a thought' connecting user intent to product capabilities.",
+                            icon: "bridge",
+                            tags: ["Narrative", "Philosophy", "Connection"]
+                        },
+                        {
+                            name: "Capability Strip",
+                            description: "Clean 4-column grid showcasing AI Generation, Nested Exploration, Visual Learning, and Vision Mode with subtle icon glows.",
+                            icon: "grid-3x3",
+                            tags: ["Overview", "Features", "Lightweight"]
+                        },
+                        {
+                            name: "Feature Cards",
+                            description: "Deep exploration cards for My Maps, MindGPT, and Public Maps with hover effects and navigation.",
+                            icon: "layers",
+                            tags: ["Navigation", "Discovery", "Interactive"]
+                        }
+                    ]
+                },
+                {
                     name: "Dashboard",
                     icon: "layout-dashboard",
                     subCategories: [
@@ -206,30 +260,6 @@ export const mindscapeMap: GenerateMindMapOutput = {
                     ]
                 },
                 {
-                    name: "Authentication",
-                    icon: "lock",
-                    subCategories: [
-                        {
-                            name: "Google Sign-In",
-                            description: "Quick and secure authentication using your Google account for instant access.",
-                            icon: "chrome",
-                            tags: ["OAuth", "Quick", "Secure"]
-                        },
-                        {
-                            name: "Email/Password",
-                            description: "Traditional email-based authentication with unified sign-up and sign-in flow.",
-                            icon: "mail",
-                            tags: ["Traditional", "Secure", "Flexible"]
-                        },
-                        {
-                            name: "Profile Management",
-                            description: "View your avatar and name in the navbar with easy logout functionality.",
-                            icon: "user-circle",
-                            tags: ["Profile", "Settings", "Control"]
-                        }
-                    ]
-                },
-                {
                     name: "Publishing & Sharing",
                     icon: "share",
                     subCategories: [
@@ -250,6 +280,60 @@ export const mindscapeMap: GenerateMindMapOutput = {
                             description: "Generate shareable links to your mind maps for easy collaboration and presentation.",
                             icon: "link",
                             tags: ["Collaboration", "Sharing", "Access"]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            name: "Design Philosophy",
+            icon: "palette",
+            categories: [
+                {
+                    name: "Visual Identity",
+                    icon: "eye",
+                    subCategories: [
+                        {
+                            name: "Purple/Zinc Theme",
+                            description: "Consistent color palette using purple-400 accents on dark zinc backgrounds (zinc-900/zinc-950) for premium feel.",
+                            icon: "droplet",
+                            tags: ["Branding", "Consistency", "Premium"]
+                        },
+                        {
+                            name: "Glassmorphism Effects",
+                            description: "Subtle backdrop blur, border-white/5 borders, and purple shadow glows for depth and modern aesthetics.",
+                            icon: "layers",
+                            tags: ["Modern", "Depth", "Visual Hierarchy"]
+                        },
+                        {
+                            name: "Micro-animations",
+                            description: "Smooth transitions, hover effects, and scroll-based reveals using Framer Motion for engaging interactions.",
+                            icon: "sparkles",
+                            tags: ["Polish", "Engagement", "UX"]
+                        }
+                    ]
+                },
+                {
+                    name: "Information Architecture",
+                    icon: "sitemap",
+                    subCategories: [
+                        {
+                            name: "Thought → Structure → Clarity",
+                            description: "Page flow designed to guide users from philosophical understanding to concrete action and deep exploration.",
+                            icon: "arrow-right",
+                            tags: ["Narrative", "Flow", "User Journey"]
+                        },
+                        {
+                            name: "Progressive Disclosure",
+                            description: "Information revealed in layers: Hero (action) → Transition (philosophy) → Capabilities (proof) → Features (exploration).",
+                            icon: "unfold-vertical",
+                            tags: ["Hierarchy", "Clarity", "Cognitive Load"]
+                        },
+                        {
+                            name: "Minimal Noise",
+                            description: "Reduced visual clutter, focused typography, and strategic use of whitespace for calm, professional experience.",
+                            icon: "minimize-2",
+                            tags: ["Clean", "Focus", "Professional"]
                         }
                     ]
                 }

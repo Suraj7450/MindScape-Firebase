@@ -11,6 +11,10 @@ import {
   List,
   ArrowRight,
   Globe,
+  GitBranch,
+  Scan,
+  Zap,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -127,13 +131,17 @@ function Hero({
       >
         <div className="mt-12 grid grid-cols-1 md:grid-cols-10 items-center gap-8">
           <div className="md:col-span-6">
-            <h1 className="text-4xl font-extrabold leading-tight md:text-6xl text-center whitespace-nowrap">
+            <h1 className="text-4xl font-extrabold leading-tight md:text-6xl text-center whitespace-nowrap mb-4">
               Visualize Smarter.
               <br />
               <span className="text-purple-400">Think Faster.</span>
             </h1>
 
-            <div className="mt-8 w-full rounded-2xl border border-white/5 bg-zinc-900/40 p-4 shadow-[0_0_35px_rgba(168,85,247,0.2)]">
+            <p className="text-zinc-400 text-lg md:text-xl text-center mb-10 max-w-lg mx-auto">
+              Turn curiosity into structured knowledge using AI-powered mind maps.
+            </p>
+
+            <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/5 bg-zinc-900/60 backdrop-blur-xl p-4 shadow-xl">
               <div className="flex justify-center">
                 <ToggleTabs mode={mode} setMode={setMode} />
               </div>
@@ -259,7 +267,7 @@ function Hero({
           </div>
 
           <div className="hidden md:flex items-center justify-center md:col-span-4 relative">
-            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.25),transparent_65%)] blur-3xl animate-heartbeat-pulse-grow" />
+            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.15),transparent_60%)] blur-3xl animate-heartbeat-pulse-grow" />
             <div className="relative w-full max-w-sm aspect-square">
               <Image
                 src="/MindScape-Logo.png"
@@ -390,6 +398,62 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
   );
 }
 
+
+// ---------- TRANSITION SECTION ----------
+function TransitionSection() {
+  return (
+    <section className="mt-24 text-center max-w-3xl mx-auto px-6">
+      <h2 className="text-3xl font-semibold text-white">
+        Everything starts with a <span className="text-purple-400">thought.</span>
+      </h2>
+
+      <p className="mt-4 text-zinc-400 leading-relaxed text-lg">
+        MindScape helps you turn unstructured ideas into clear,
+        explorable knowledge through intelligent visualization.
+      </p>
+    </section>
+  );
+}
+
+// ---------- CAPABILITY STRIP ----------
+function CapabilityStrip() {
+  const capabilities = [
+    {
+      icon: Sparkles,
+      title: "AI Generation",
+      desc: "Instant structured maps"
+    },
+    {
+      icon: GitBranch,
+      title: "Nested Exploration",
+      desc: "Unlimited depth"
+    },
+    {
+      icon: ImageIcon,
+      title: "Visual Learning",
+      desc: "AI-generated imagery"
+    },
+    {
+      icon: Scan,
+      title: "Vision Mode",
+      desc: "Docs → maps instantly"
+    },
+  ];
+
+  return (
+    <div className="mt-16 mb-24 max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {capabilities.map((cap, i) => (
+        <div key={i} className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-white/5 transition-colors">
+          <div className="p-3 rounded-full bg-zinc-900 border border-white/10 shadow-[0_0_15px_rgba(168,85,247,0.15)] mb-3">
+            <cap.icon className="w-5 h-5 text-purple-400" />
+          </div>
+          <h3 className="font-semibold text-white mb-1">{cap.title}</h3>
+          <p className="text-sm text-zinc-500">{cap.desc}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ---------- ROOT COMPONENT ----------
 export default function Home() {
@@ -525,6 +589,10 @@ export default function Home() {
         languageSelectRef={languageSelectRef}
         fileInputRef={fileInputRef}
       />
+
+      <TransitionSection />
+      <CapabilityStrip />
+
       <Features onDocMapClick={handleDocMapClick} />
 
       <button
