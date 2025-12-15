@@ -1,8 +1,8 @@
 
 # **MindScape: Product Requirements Document (PRD)**
 
-**Version:** 2.1  
-**Date:** December 10, 2025  
+**Version:** 2.2
+**Date:** December 15, 2025
 **Status:** Production
 
 ---
@@ -121,11 +121,13 @@ A gallery for community-shared mind maps.
 *   **User Story 4 (Share Public Map):** I want to copy a shareable link to any public map to share with others.
 *   **User Story 5 (Unpublish My Maps):** I want to unpublish any of my public maps, removing them from the gallery.
 
-### **3.9. Feature: User Authentication**
-Secure and simple user sign-up and login.
+### **3.9. Feature: User Authentication & Onboarding**
+Secure, simple, and visually inviting user authentication.
 
-*   **User Story 1 (Unified Auth):** As a new user, I want to enter my email and password to sign up. If my email already exists, the form should seamlessly allow me to sign in instead.
-*   **User Story 2 (Profile Management):** As a logged-in user, I want to see my avatar and name in the navbar and have a simple way to log out.
+*   **User Story 1 (Mind Entry Portal):** As a visitor, I want to be greeted by a premium, animated "Mind Entry Video" or visualization on the login page that communicates the app's value before I even sign in.
+*   **User Story 2 (Unified Auth):** As a new user, I want to enter my email and password to sign up. If my email already exists, the form should seamlessly allow me to sign in instead.
+*   **User Story 3 (Social Login):** I want to be able to sign in easily using my Google account.
+*   **User Story 4 (Profile Management):** As a logged-in user, I want to see my avatar and name in the navbar and have a simple way to log out.
 
 ### **3.10. Feature: Breadcrumb Navigation**
 Navigation aid for branching maps.

@@ -2,7 +2,7 @@
 
 This document provides a comprehensive, page-by-page breakdown of every feature, button, and component in the MindScape application. It details the **what** (functionality), **why** (purpose), and **how** (implementation) of each element.
 
-**Last Updated:** December 10, 2025
+**Last Updated:** December 15, 2025
 
 ---
 
@@ -495,19 +495,35 @@ A gallery for community-shared mind maps.
 
 ## **7. Login Page (`/login`)**
 
-A **unified authentication form** for both login and sign-up.
+A **Mind Entry Portal** featuring a premium, immersive authentication experience that communicates the app's value before sign-in.
 
 ### **Features & Components**
 
-#### **1. Auth Form**
+#### **1. Split Layout & Visualization**
 
-*   **What**: Single form handling both sign-in and sign-up flows.
-*   **Why**: Simplifies onboarding by detecting whether a user already exists.
+*   **What**: A responsive two-column layout (on large screens) separating the visualization from the form.
+*   **Why**: Tells a story about the product's value *before* the user signs in.
 *   **How**:
-    *   Managed via `AuthForm` component (`src/components/auth-form.tsx`).
-    *   Attempts `signInWithEmailAndPassword` first.
-    *   On `user-not-found` error, toggles to sign-up mode.
-    *   In sign-up, calls `createUserWithEmailAndPassword` and `updateProfile` for display name.
+    *   **Left Side (Desktop)**: Displays a central "Brain" icon with orbiting nodes animation, reinforcing the mind mapping concept. A particle constellation background adds depth and visual interest.
+    *   **Hero Text**: "Visualize your thoughts" with explanations of the app's core value.
+    *   **Feature Badges**: Highlights "Secure", "Private", "AI-Powered".
+    *   **Mobile**: Stacks efficiently, hiding the heavier animations but keeping the hero text.
+    *   Implemented in `src/app/login/page.tsx`.
+
+---
+
+#### **2. Enhanced Auth Form**
+
+*   **What**: A glassmorphism-styled card handling both sign-in and sign-up.
+*   **Why**: Provides a modern, high-trust interface for sensitive authentication.
+*   **How**:
+    *   **Component**: `AuthForm` (`src/components/auth-form.tsx`).
+    *   **Unified Flow**: Toggles between Login and Sign Up based on user interaction or error codes (e.g., `user-not-found`).
+    *   **Google Login**: One-click OAuth integration via `signInWithPopup`.
+    *   **Password Reset**: Dedicated flow using `sendPasswordResetEmail` to send reset emails.
+    *   **Visuals**: Deep violet/indigo gradients, backdrop blur (`bg-[#1a1a3e]/80 backdrop-blur-xl`), rounded corners, and smooth focus transitions with violet focus rings.
+    *   **Form Fields**: Taller inputs (`h-14`) with custom styling for the dark theme.
+    *   **CTA Button**: Gradient button (`from-violet-600 to-purple-600`) with shadow effects.
 
 ---
 
@@ -650,4 +666,4 @@ All AI operations are implemented as server actions in `src/app/actions.ts`, cal
 
 ---
 
-*This documentation reflects the application state as of December 7, 2025.*
+*This documentation reflects the application state as of December 15, 2025.*
