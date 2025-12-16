@@ -9,7 +9,7 @@ import Image from 'next/image';
  */
 export const Icons = {
   logo: (props: Omit<LucideProps, 'ref'>) => (
-    <Image src="/MindScape-Logo.png" alt="MindScape Logo" width={28} height={28} {...props} />
+    <Image src="/MindScape-Logo.png" alt="MindScape Logo" width={28} height={28} className={props.className} style={props.style} />
   ),
   export: (props: Omit<LucideProps, 'ref'>) => (
     <svg

@@ -52,7 +52,6 @@ const expandMindMapFlow = ai.defineFlow(
     name: 'expandMindMapFlow',
     inputSchema: ExpandMindMapInputSchema,
     outputSchema: ExpandMindMapOutputSchema,
-    retries: 2,
   },
   async ({ mindMap }) => {
     const { output } = await prompt({

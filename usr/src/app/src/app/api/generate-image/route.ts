@@ -33,14 +33,14 @@ export async function POST(req: Request) {
       model: 'googleai/imagen-4.0-fast-generate-001',
       prompt: finalPrompt,
     });
-    
-    if (finishReason !== 'stop' || !media.url) {
-        throw new Error('Image generation failed. The model did not produce an image.');
+
+    if (!media || finishReason !== 'stop' || !media.url) {
+      throw new Error('Image generation failed. The model did not produce an image.');
     }
 
     // The media.url is already a data URI (e.g., 'data:image/png;base64,...')
     const dataUri = media.url;
-    
+
     // Return the generated image data URI
     return NextResponse.json({ images: [dataUri] });
 
