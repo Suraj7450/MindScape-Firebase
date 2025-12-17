@@ -89,7 +89,7 @@ import { Icons } from './icons';
 import { ImageGalleryDialog } from './image-gallery-dialog';
 import Image from 'next/image';
 import { Badge } from './ui/badge';
-import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
@@ -931,7 +931,9 @@ export const MindMap = ({
 
   const handleGenerateImageClick = async (subCategory: SubCategoryInfo) => {
     const generationId = `img-${Date.now()}`;
-    const placeholderUrl = `https://picsum.photos/seed/${generationId}/512/512`;
+
+    // Use a simple data URI placeholder instead of external service
+    const placeholderUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI3MjcyNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5HZW5lcmF0aW5nLi4uPC90ZXh0Pjwvc3ZnPg==';
 
     const placeholderImage: GeneratedImage = {
       id: generationId,
@@ -971,11 +973,27 @@ export const MindMap = ({
     updateStep();
 
     try {
+      // Get user's image provider preference
+      let imageProvider = 'pollinations'; // default
+      if (user && firestore) {
+        try {
+          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+          const userData = userDoc.data();
+          imageProvider = userData?.apiSettings?.imageProvider || 'pollinations';
+        } catch (error) {
+          console.error('Error fetching image provider preference:', error);
+        }
+      }
+
       const prompt = `${subCategory.name}, ${subCategory.description}`;
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, style: 'Photorealistic' }),
+        body: JSON.stringify({
+          prompt,
+          style: 'Photorealistic',
+          provider: imageProvider
+        }),
       });
 
       const data = await res.json();
@@ -1177,10 +1195,10 @@ export const MindMap = ({
       setOpenSubTopics([]);
       setOpenCategories([]);
     } else {
-      const allSubTopics = mindMap.subTopics.map(
+      const allSubTopics = mindMap.subTopics?.map(
         (_, subIndex) => `subtopic-${subIndex}`
-      );
-      const allCategories = mindMap.subTopics.flatMap((subTopic, subIndex) =>
+      ) || [];
+      const allCategories = mindMap.subTopics?.flatMap((subTopic, subIndex) =>
         subTopic.categories.map(
           (_, catIndex) => `subtopic-${subIndex}-category-${catIndex}`
         )
@@ -1505,7 +1523,7 @@ export const MindMap = ({
           value={openSubTopics}
           onValueChange={setOpenSubTopics}
         >
-          {mindMap.subTopics.map((subTopic, subIndex) => {
+          {mindMap.subTopics?.map((subTopic, subIndex) => {
             const SubTopicIcon =
               (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
 

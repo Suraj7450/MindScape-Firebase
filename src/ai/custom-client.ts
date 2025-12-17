@@ -13,7 +13,7 @@ export async function generateContentWithCustomKey(
 ): Promise<any> {
     // Check for explicit provider override
     if (apiKey === 'provider:pollinations') {
-        return await generateContentWithBackup(systemPrompt, userPrompt);
+        return await generateContentWithBackup(systemPrompt, userPrompt, images);
     }
 
     try {

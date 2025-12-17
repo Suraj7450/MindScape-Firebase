@@ -165,7 +165,26 @@ export async function generateMindMap(
   
   IMPORTANT: The output MUST be a valid JSON object that strictly adheres to the MindMapSchema. Do NOT include any extra text, explanations, or markdown formatting like \`\`\`json. Your response should start with '{' and end with '}'.`;
 
-    return generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+    const rawResult = await generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+
+    // Validate and sanitize the result 
+    // Ensure subTopics exists even if the AI omitted it
+    if (rawResult && !rawResult.subTopics) {
+      rawResult.subTopics = [];
+    }
+
+    try {
+      const validatedResult = GenerateMindMapOutputSchema.parse(rawResult);
+      return validatedResult;
+    } catch (e) {
+      console.error("Schema validation failed for Pollinations result:", e);
+      // Fallback or attempt to fix casing if needed, but for now rethrow or return raw if close enough
+      // For robustness, let's return it if it looks like a mind map, otherwise throw
+      if (rawResult && rawResult.topic) {
+        return rawResult as GenerateMindMapOutput;
+      }
+      throw new Error("Generated mind map did not match required schema.");
+    }
   }
 
   return generateMindMapFlow(input);

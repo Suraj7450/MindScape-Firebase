@@ -5,15 +5,31 @@
 
 export async function generateContentWithBackup(
     systemPrompt: string,
-    userPrompt: string
+    userPrompt: string,
+    images?: { inlineData: { mimeType: string, data: string } }[]
 ): Promise<any> {
     console.log("⚠️ Switching to Backup AI Provider (Pollinations.ai)...");
 
     try {
-        const messages = [
-            { role: 'system', content: systemPrompt + "\n\nIMPORTANT: You must return ONLY valid JSON. No markdown formatting, no code blocks, just the raw JSON object." },
-            { role: 'user', content: userPrompt }
+        const messages: any[] = [
+            { role: 'system', content: systemPrompt + "\n\nIMPORTANT: You must return ONLY valid JSON. No markdown formatting, no code blocks, just the raw JSON object." }
         ];
+
+        // Construct user message with potential images
+        const userContent: any[] = [{ type: 'text', text: userPrompt }];
+
+        if (images && images.length > 0) {
+            images.forEach(img => {
+                userContent.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`
+                    }
+                });
+            });
+        }
+
+        messages.push({ role: 'user', content: userContent });
 
         // Pollinations.ai text generation endpoint
         // It's free and often uses models like GPT-4o-mini, Qwen, or Llama

@@ -35,6 +35,7 @@ interface UserProfile {
     };
     apiSettings?: {
         provider?: 'gemini' | 'pollinations';
+        imageProvider?: 'pollinations' | 'gemini-imagen';
     };
 }
 
@@ -127,6 +128,7 @@ export default function ProfilePage() {
                             },
                             apiSettings: {
                                 provider: data.apiSettings?.provider || 'gemini',
+                                imageProvider: data.apiSettings?.imageProvider || 'pollinations',
                             }
                         };
                         setProfile(profileData);
@@ -138,7 +140,8 @@ export default function ProfilePage() {
                             photoURL: user.photoURL || undefined,
                             preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
                             apiSettings: {
-                                provider: 'gemini'
+                                provider: 'gemini',
+                                imageProvider: 'pollinations',
                             },
                             statistics: { currentStreak: 0, totalQuizQuestions: 0 },
                         };
@@ -492,6 +495,62 @@ export default function ProfilePage() {
                                             <div className="flex flex-col">
                                                 <span className="font-medium">Pollinations.ai</span>
                                                 <span className="text-[10px] text-zinc-400">Free Open Source Models • No Key</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <Separator className="bg-zinc-800" />
+
+                        {/* Image Provider */}
+                        <div className="pt-2">
+                            <div className="flex flex-col gap-3 py-2.5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 rounded-md bg-pink-500/10">
+                                        <Wand2 className="h-3.5 w-3.5 text-pink-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-zinc-300">Image Provider</span>
+                                        <span className="text-[10px] text-zinc-500">
+                                            Choose image generation engine
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <Select
+                                    value={profile?.apiSettings?.imageProvider || 'pollinations'}
+                                    onValueChange={async (value: 'pollinations' | 'gemini-imagen') => {
+                                        if (!user || !firestore) return;
+                                        try {
+                                            await setDoc(doc(firestore, 'users', user.uid), {
+                                                apiSettings: { imageProvider: value }
+                                            }, { merge: true });
+                                            toast({
+                                                title: 'Updated',
+                                                description: `Image provider set to ${value === 'pollinations' ? 'Pollinations AI' : 'Gemini Imagen 4'}`
+                                            });
+                                        } catch (error) {
+                                            console.error(error);
+                                            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update' });
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="pollinations">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Pollinations AI</span>
+                                                <span className="text-[10px] text-zinc-400">Free • Fast • Basic Quality</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="gemini-imagen">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Gemini Imagen 4</span>
+                                                <span className="text-[10px] text-zinc-400">Premium • High Quality • Requires API Key</span>
                                             </div>
                                         </SelectItem>
                                     </SelectContent>
