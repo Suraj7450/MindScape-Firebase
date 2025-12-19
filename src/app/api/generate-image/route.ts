@@ -28,13 +28,8 @@ export async function POST(req: Request) {
 
     const finalPrompt = enhancedPrompt.enhancedPrompt;
 
-    // 2. Generate image based on provider
-    if (provider === 'gemini-imagen') {
-      return await generateWithGemini(finalPrompt);
-    } else {
-      // Default to Pollinations
-      return await generateWithPollinations(finalPrompt, size);
-    }
+    // 2. Generate image (Always use Pollinations)
+    return await generateWithPollinations(finalPrompt, size);
 
   } catch (error: any) {
     console.error('💥 Error in /api/generate-image:', error);
@@ -42,24 +37,6 @@ export async function POST(req: Request) {
       { error: error.message || 'Internal Server Error' },
       { status: 500 }
     );
-  }
-}
-
-async function generateWithGemini(prompt: string) {
-  try {
-    const { media, finishReason } = await ai.generate({
-      model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: prompt,
-    });
-
-    if (!media || finishReason !== 'stop' || !media.url) {
-      throw new Error('Gemini Imagen generation failed. The model did not produce an image.');
-    }
-
-    return NextResponse.json({ images: [media.url] });
-  } catch (error: any) {
-    console.error('Gemini Imagen error:', error);
-    throw new Error(`Gemini Imagen failed: ${error.message}`);
   }
 }
 

@@ -35,7 +35,6 @@ interface UserProfile {
     };
     apiSettings?: {
         provider?: 'gemini' | 'pollinations';
-        imageProvider?: 'pollinations' | 'gemini-imagen';
     };
 }
 
@@ -128,7 +127,6 @@ export default function ProfilePage() {
                             },
                             apiSettings: {
                                 provider: data.apiSettings?.provider || 'gemini',
-                                imageProvider: data.apiSettings?.imageProvider || 'pollinations',
                             }
                         };
                         setProfile(profileData);
@@ -141,7 +139,6 @@ export default function ProfilePage() {
                             preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
                             apiSettings: {
                                 provider: 'gemini',
-                                imageProvider: 'pollinations',
                             },
                             statistics: { currentStreak: 0, totalQuizQuestions: 0 },
                         };
@@ -502,120 +499,64 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        <Separator className="bg-zinc-800" />
+                    </div>
 
-                        {/* Image Provider */}
-                        <div className="pt-2">
-                            <div className="flex flex-col gap-3 py-2.5">
+                    {/* Password Management (Only for Email/Password users) */}
+                    {user?.providerData.some(p => p.providerId === 'password') && (
+                        <>
+                            <Separator className="bg-zinc-800" />
+                            <div className="flex items-center justify-between py-2.5">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-1.5 rounded-md bg-pink-500/10">
-                                        <Wand2 className="h-3.5 w-3.5 text-pink-400" />
+                                    <div className="p-1.5 rounded-md bg-red-500/10">
+                                        <Lock className="h-3.5 w-3.5 text-red-400" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-sm text-zinc-300">Image Provider</span>
-                                        <span className="text-[10px] text-zinc-500">
-                                            Choose image generation engine
-                                        </span>
+                                        <span className="text-sm text-zinc-300">Security</span>
+                                        <span className="text-[10px] text-zinc-500">Update your password</span>
                                     </div>
                                 </div>
-
-                                <Select
-                                    value={profile?.apiSettings?.imageProvider || 'pollinations'}
-                                    onValueChange={async (value: 'pollinations' | 'gemini-imagen') => {
-                                        if (!user || !firestore) return;
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={async () => {
+                                        if (!user?.email) return;
                                         try {
-                                            await setDoc(doc(firestore, 'users', user.uid), {
-                                                apiSettings: { imageProvider: value }
-                                            }, { merge: true });
+                                            await sendPasswordResetEmail(auth!, user.email);
                                             toast({
-                                                title: 'Updated',
-                                                description: `Image provider set to ${value === 'pollinations' ? 'Pollinations AI' : 'Gemini Imagen 4'}`
+                                                title: 'Reset Email Sent',
+                                                description: `Check ${user.email} to change password.`
                                             });
-                                        } catch (error) {
-                                            console.error(error);
-                                            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update' });
+                                        } catch (error: any) {
+                                            toast({
+                                                variant: 'destructive',
+                                                title: 'Error',
+                                                description: error.message
+                                            });
                                         }
                                     }}
+                                    className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
                                 >
-                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pollinations">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Pollinations AI</span>
-                                                <span className="text-[10px] text-zinc-400">Free • Fast • Basic Quality</span>
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="gemini-imagen">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Gemini Imagen 4</span>
-                                                <span className="text-[10px] text-zinc-400">Premium • High Quality • Requires API Key</span>
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    Change Password
+                                </Button>
                             </div>
+                        </>
+                    )}
 
 
-                        </div>
+                </CardContent>
+            </Card>
 
-                        {/* Password Management (Only for Email/Password users) */}
-                        {user?.providerData.some(p => p.providerId === 'password') && (
-                            <>
-                                <Separator className="bg-zinc-800" />
-                                <div className="flex items-center justify-between py-2.5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-1.5 rounded-md bg-red-500/10">
-                                            <Lock className="h-3.5 w-3.5 text-red-400" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm text-zinc-300">Security</span>
-                                            <span className="text-[10px] text-zinc-500">Update your password</span>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={async () => {
-                                            if (!user?.email) return;
-                                            try {
-                                                await sendPasswordResetEmail(auth!, user.email);
-                                                toast({
-                                                    title: 'Reset Email Sent',
-                                                    description: `Check ${user.email} to change password.`
-                                                });
-                                            } catch (error: any) {
-                                                toast({
-                                                    variant: 'destructive',
-                                                    title: 'Error',
-                                                    description: error.message
-                                                });
-                                            }
-                                        }}
-                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
-                                    >
-                                        Change Password
-                                    </Button>
-                                </div>
-                            </>
-                        )}
+            {/* Sign Out */}
+            <button
+                onClick={handleLogout}
+                className="w-full py-3 rounded-xl text-sm font-medium text-red-400 bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2"
+            >
+                <LogOut className="h-4 w-4" />
+                Log Out
+            </button>
 
-
-                    </CardContent>
-                </Card>
-
-                {/* Sign Out */}
-                <button
-                    onClick={handleLogout}
-                    className="w-full py-3 rounded-xl text-sm font-medium text-red-400 bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2"
-                >
-                    <LogOut className="h-4 w-4" />
-                    Log Out
-                </button>
-
-                <p className="text-center text-[10px] text-zinc-700 mt-6">MindScape</p>
-            </div>
+            <p className="text-center text-[10px] text-zinc-700 mt-6">MindScape</p>
+        </div>
         </div >
     );
 }
