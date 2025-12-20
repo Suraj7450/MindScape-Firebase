@@ -38,12 +38,12 @@ export type ExplainMindMapNodeOutput = z.infer<
   typeof ExplainMindMapNodeOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function explainMindMapNode(
-  input: ExplainMindMapNodeInput & { apiKey?: string }
+  input: ExplainMindMapNodeInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExplainMindMapNodeOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const systemPrompt = `You are an expert AI assistant providing detailed information for a mind map.
 
     The main topic of the mind map is: ${input.mainTopic}.
@@ -62,7 +62,12 @@ export async function explainMindMapNode(
 
     const userPrompt = "Generate the explanation.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return explainMindMapNodeFlow(input);
 }

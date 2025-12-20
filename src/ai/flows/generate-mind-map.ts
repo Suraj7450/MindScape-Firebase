@@ -102,12 +102,12 @@ const generateMindMapFlow = ai.defineFlow(
   }
 );
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMap(
-  input: GenerateMindMapInput & { apiKey?: string }
+  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateMindMapOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     // Simple template replacement (handlebars-style light)
     let processedPrompt = MIND_MAP_PROMPT
       .replace('{{{topic}}}', input.topic)
@@ -165,7 +165,12 @@ export async function generateMindMap(
   
   IMPORTANT: The output MUST be a valid JSON object that strictly adheres to the MindMapSchema. Do NOT include any extra text, explanations, or markdown formatting like \`\`\`json. Your response should start with '{' and end with '}'.`;
 
-    const rawResult = await generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+    const rawResult = await generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt: "System: XML Schema compliant JSON generator",
+      userPrompt: manualPrompt
+    });
 
     // Validate and sanitize the result 
     // Ensure subTopics exists even if the AI omitted it

@@ -14,12 +14,12 @@ import {
   ConversationalMindMapOutputSchema,
 } from '@/ai/schemas/conversational-mind-map-schema';
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function conversationalMindMap(
-  input: ConversationalMindMapInput
+  input: ConversationalMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ConversationalMindMapOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const historyText = input.history?.map(h => `- ${h.role}: ${h.content}`).join('\n') || '';
 
     const systemPrompt = `You are MindSpark, a friendly and brilliant AI assistant helping a user build a mind map.
@@ -55,7 +55,12 @@ export async function conversationalMindMap(
 
     const userPrompt = input.message === "FINALIZE_MIND_MAP" ? "FINALIZE_MIND_MAP" : "Reply to the user.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return conversationalMindMapFlow(input);
 }

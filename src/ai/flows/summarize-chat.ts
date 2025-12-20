@@ -14,12 +14,12 @@ import {
   SummarizeChatOutputSchema,
 } from '@/ai/schemas/summarize-chat-schema';
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function summarizeChat(
-  input: SummarizeChatInput
+  input: SummarizeChatInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<SummarizeChatOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const historyText = input.history.map(h => `${h.role}: ${h.content}`).join('\n');
     const systemPrompt = `Based on the following conversation history, create a short, descriptive topic title (3-5 words).
   
@@ -34,7 +34,12 @@ export async function summarizeChat(
 
     const userPrompt = "Summarize the chat.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return summarizeChatFlow(input);
 }

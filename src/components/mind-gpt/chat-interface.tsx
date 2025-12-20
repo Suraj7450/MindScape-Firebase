@@ -7,6 +7,8 @@ import { conversationalMindMapAction } from '@/app/actions';
 import { MessageList } from './message-list';
 import { InputArea } from './input-area';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -17,9 +19,34 @@ export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
     const router = useRouter();
     const { toast } = useToast();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const { user } = useUser();
+    const firestore = useFirestore();
+
+    // Fetch user provider settings
+    useEffect(() => {
+        const loadSettings = async () => {
+            if (!user || !firestore) return;
+            try {
+                const userRef = doc(firestore, 'users', user.uid);
+                const snap = await getDoc(userRef);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.apiSettings?.provider === 'pollinations') {
+                        setProviderOptions({ provider: 'pollinations' });
+                    } else {
+                        setProviderOptions({ provider: 'gemini' });
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        loadSettings();
+    }, [user, firestore]);
 
     const scrollToBottom = () => {
         if (scrollAreaRef.current) {
@@ -34,13 +61,19 @@ export function ChatInterface() {
         scrollToBottom();
     }, [messages, isLoading, suggestions]);
 
+    const initialSent = useRef(false);
+
     useEffect(() => {
+        if (initialSent.current) return;
+        initialSent.current = true;
+
         // Initial message from the assistant
         const sendInitialMessage = async () => {
             setIsLoading(true);
+            // Default to Pollinations (undefined keys) for initial greeting to be fast
             const { response, error } = await conversationalMindMapAction({
                 history: [],
-                message: 'Hello', // A dummy message to trigger the initial prompt
+                message: 'Hello',
             });
             setIsLoading(false);
 
@@ -59,8 +92,8 @@ export function ChatInterface() {
             }
         };
         sendInitialMessage();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
 
     const handleSend = async (content: string) => {
         if (!content.trim()) return;
@@ -74,7 +107,7 @@ export function ChatInterface() {
         const { response, error } = await conversationalMindMapAction({
             history: newMessages,
             message: content,
-        });
+        }, providerOptions);
 
         setIsLoading(false);
 

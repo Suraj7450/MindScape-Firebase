@@ -39,12 +39,12 @@ const GenerateQuizOutputSchema = z.object({
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateQuiz(
-  input: GenerateQuizInput & { apiKey?: string }
+  input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateQuizOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
     const systemPrompt = `You are an expert in creating educational quizzes.
   
@@ -57,7 +57,12 @@ export async function generateQuiz(
 
     const userPrompt = "Generate the quiz JSON.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return generateQuizFlow(input);
 }

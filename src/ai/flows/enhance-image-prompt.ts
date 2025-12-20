@@ -29,12 +29,12 @@ export type EnhanceImagePromptOutput = z.infer<
   typeof EnhanceImagePromptOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function enhanceImagePrompt(
-  input: EnhanceImagePromptInput & { apiKey?: string }
+  input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<EnhanceImagePromptOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const styleInstruction = input.style
       ? `**Requested Style:**
       "${input.style}"
@@ -54,7 +54,12 @@ export async function enhanceImagePrompt(
 
     const userPrompt = `Enhance this prompt: "${input.prompt}"`;
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return enhanceImagePromptFlow(input);
 }

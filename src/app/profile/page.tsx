@@ -499,64 +499,64 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                    </div>
-
-                    {/* Password Management (Only for Email/Password users) */}
-                    {user?.providerData.some(p => p.providerId === 'password') && (
-                        <>
-                            <Separator className="bg-zinc-800" />
-                            <div className="flex items-center justify-between py-2.5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-1.5 rounded-md bg-red-500/10">
-                                        <Lock className="h-3.5 w-3.5 text-red-400" />
+                        {/* Password Management (Only for Email/Password users) */}
+                        {user?.providerData.some(p => p.providerId === 'password') && (
+                            <>
+                                <Separator className="bg-zinc-800" />
+                                <div className="flex items-center justify-between py-2.5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-1.5 rounded-md bg-red-500/10">
+                                            <Lock className="h-3.5 w-3.5 text-red-400" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm text-zinc-300">Security</span>
+                                            <span className="text-[10px] text-zinc-500">Update your password</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm text-zinc-300">Security</span>
-                                        <span className="text-[10px] text-zinc-500">Update your password</span>
-                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                            if (!user?.email) return;
+                                            try {
+                                                await sendPasswordResetEmail(auth!, user.email);
+                                                toast({
+                                                    title: 'Reset Email Sent',
+                                                    description: `Check ${user.email} to change password.`
+                                                });
+                                            } catch (error: any) {
+                                                toast({
+                                                    variant: 'destructive',
+                                                    title: 'Error',
+                                                    description: error.message
+                                                });
+                                            }
+                                        }}
+                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
+                                    >
+                                        Change Password
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={async () => {
-                                        if (!user?.email) return;
-                                        try {
-                                            await sendPasswordResetEmail(auth!, user.email);
-                                            toast({
-                                                title: 'Reset Email Sent',
-                                                description: `Check ${user.email} to change password.`
-                                            });
-                                        } catch (error: any) {
-                                            toast({
-                                                variant: 'destructive',
-                                                title: 'Error',
-                                                description: error.message
-                                            });
-                                        }
-                                    }}
-                                    className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
-                                >
-                                    Change Password
-                                </Button>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
 
 
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            {/* Sign Out */}
-            <button
-                onClick={handleLogout}
-                className="w-full py-3 rounded-xl text-sm font-medium text-red-400 bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2"
-            >
-                <LogOut className="h-4 w-4" />
-                Log Out
-            </button>
+                {/* Sign Out */}
+                <button
+                    onClick={handleLogout}
+                    className="w-full py-3 rounded-xl text-sm font-medium text-red-400 bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2"
+                >
+                    <LogOut className="h-4 w-4" />
+                    Log Out
+                </button>
 
-            <p className="text-center text-[10px] text-zinc-700 mt-6">MindScape</p>
+                <p className="text-center text-[10px] text-zinc-700 mt-6">MindScape</p>
+            </div>
+
+
         </div>
-        </div >
     );
 }

@@ -76,12 +76,12 @@ const expandNodeFlow = ai.defineFlow(
   }
 );
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function expandNode(
-  input: ExpandNodeInput & { apiKey?: string }
+  input: ExpandNodeInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExpandNodeOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     // Manual prompt construction
     const manualPrompt = `You are an expert educator and content synthesizer. Your task is to expand a specific node within a mind map by generating detailed sub-categories.
 
@@ -119,7 +119,12 @@ Return a JSON object with:
   ]
 }`;
 
-    return generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt: "System: XML Schema compliant JSON generator",
+      userPrompt: manualPrompt
+    });
   }
   return expandNodeFlow(input);
 }

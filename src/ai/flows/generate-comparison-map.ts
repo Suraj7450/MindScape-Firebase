@@ -31,12 +31,12 @@ export type GenerateComparisonMapOutput = z.infer<
   typeof GenerateComparisonMapOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateComparisonMap(
-  input: GenerateComparisonMapInput & { apiKey?: string }
+  input: GenerateComparisonMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateComparisonMapOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const targetLangInstruction = input.targetLang
       ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
       : `The entire mind map MUST be in English.`;
@@ -68,7 +68,12 @@ export async function generateComparisonMap(
 
     const userPrompt = `Generate a structured mind map comparing and contrasting "${input.topic1}" and "${input.topic2}".`;
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return generateComparisonMapFlow(input);
 }

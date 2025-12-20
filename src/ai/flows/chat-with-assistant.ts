@@ -159,12 +159,12 @@ const chatWithAssistantFlow = ai.defineFlow(
   }
 );
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function chatWithAssistant(
-  input: ChatWithAssistantInput & { apiKey?: string }
+  input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ChatWithAssistantOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     // Construct prompt manually for custom client
     const historyText = input.history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
 
@@ -204,7 +204,12 @@ Return a JSON object with:
 { "answer": "Your formatted markdown response here" }
 `;
 
-    return generateContentWithCustomKey(input.apiKey, "System: XML Schema compliant JSON generator", manualPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt: "System: XML Schema compliant JSON generator",
+      userPrompt: manualPrompt
+    });
   }
 
   return chatWithAssistantFlow(input);

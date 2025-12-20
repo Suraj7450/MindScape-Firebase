@@ -27,12 +27,12 @@ export type TranslateMindMapOutput = z.infer<
   typeof TranslateMindMapOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function translateMindMap(
-  input: TranslateMindMapInput & { apiKey?: string }
+  input: TranslateMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<TranslateMindMapOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
     const systemPrompt = `You are an expert translator. Translate the provided mind map JSON data into the target language: ${input.targetLang}.
   
@@ -47,7 +47,12 @@ export async function translateMindMap(
 
     const userPrompt = "Generate the translated JSON.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return translateMindMapFlow(input);
 }

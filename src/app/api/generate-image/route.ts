@@ -18,7 +18,11 @@ export async function POST(req: Request) {
 
     // 1. Enhance the user's prompt
     const { enhancedPrompt, error: enhanceError } =
-      await enhanceImagePromptAction({ prompt, style });
+      await enhanceImagePromptAction(
+        { prompt, style },
+        // Pass provider from request if valid, otherwise undefined (defaults to Pollinations)
+        { provider: (provider === 'gemini' ? 'gemini' : 'pollinations') }
+      );
 
     if (enhanceError || !enhancedPrompt) {
       throw new Error(

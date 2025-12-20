@@ -35,12 +35,12 @@ export type GenerateMindMapFromImageOutput = z.infer<
   typeof GenerateMindMapFromImageOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMapFromImage(
-  input: GenerateMindMapFromImageInput
+  input: GenerateMindMapFromImageInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateMindMapFromImageOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const targetLangInstruction = input.targetLang
       ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
       : `The entire mind map MUST be in English.`;
@@ -76,7 +76,13 @@ export async function generateMindMapFromImage(
       images = [{ inlineData: { mimeType: matches[1], data: matches[2] } }];
     }
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt, images);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt,
+      images
+    });
   }
   return generateMindMapFromImageFlow(input);
 }

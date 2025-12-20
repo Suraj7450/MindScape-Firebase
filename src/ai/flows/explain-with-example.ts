@@ -32,12 +32,12 @@ export type ExplainWithExampleOutput = z.infer<
   typeof ExplainWithExampleOutputSchema
 >;
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function explainWithExample(
-  input: ExplainWithExampleInput & { apiKey?: string }
+  input: ExplainWithExampleInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExplainWithExampleOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const systemPrompt = `You are an expert at explaining complex topics with simple, relatable, real-life examples.
 
     The main topic is "${input.mainTopic}". The user wants an example for the concept: "${input.topicName}".
@@ -58,7 +58,12 @@ export async function explainWithExample(
 
     const userPrompt = "Generate the example.";
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return explainWithExampleFlow(input);
 }

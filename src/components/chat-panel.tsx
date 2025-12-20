@@ -120,16 +120,20 @@ export function ChatPanel({
   const [persona, setPersona] = useState<Persona>('standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
-  const [customApiKey, setCustomApiKey] = useState<string | undefined>(undefined);
+  // Use 'pollinations' | 'gemini' options object. Default to empty (implies default action behavior) or explicit default.
+  // Actually default action behavior is now Pollinations if undefined passed? No, default arg is { provider: 'pollinations' }.
+  // So undefined -> Pollinations.
+  // If we want Gemini Default, we must pass { provider: 'gemini' }.
+  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
 
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
 
-  // Load persona preference from user profile
+  // Load persona and provider preference from user profile
   useEffect(() => {
-    const loadPersonaPreference = async () => {
+    const loadPreferences = async () => {
       if (!user || !firestore) return;
 
       try {
@@ -137,19 +141,28 @@ export function ChatPanel({
         const docSnap = await getDoc(userRef);
 
         if (docSnap.exists()) {
-          const prefs = docSnap.data().preferences;
+          const data = docSnap.data();
+          const prefs = data.preferences;
           const savedPersona = prefs?.defaultAIPersona?.toLowerCase() as Persona;
           if (savedPersona && ['standard', 'teacher', 'concise', 'creative'].includes(savedPersona)) {
             setPersona(savedPersona);
           }
+
+          // Provider settings
+          if (data.apiSettings?.provider === 'pollinations') {
+            setProviderOptions({ provider: 'pollinations' });
+          } else {
+            // Default to Gemini (Genkit)
+            setProviderOptions({ provider: 'gemini' });
+          }
         }
       } catch (error) {
-        console.error('Error loading persona preference:', error);
+        console.error('Error loading preferences:', error);
       }
     };
 
     if (isOpen) {
-      loadPersonaPreference();
+      loadPreferences();
     }
   }, [isOpen, user, firestore]);
 
@@ -187,8 +200,8 @@ export function ChatPanel({
       !isLoading
     ) {
       const sessionIdToUpdate = activeSession.id;
-      // Pass customApiKey if available
-      summarizeChatAction({ history: activeSession.messages.slice(0, 4) }, customApiKey)
+      // Pass providerOptions if available
+      summarizeChatAction({ history: activeSession.messages.slice(0, 4) }, providerOptions)
         .then(({ summary, error }) => {
           if (summary && !error) {
             setSessions(prev => prev.map(s =>
@@ -426,7 +439,7 @@ export function ChatPanel({
       topic,
       history,
       persona
-    }, customApiKey);
+    }, providerOptions);
     setIsLoading(false);
 
     const assistantMessage: Message = {
@@ -487,7 +500,7 @@ export function ChatPanel({
       question: userMessage,
       topic,
       persona
-    }, customApiKey);
+    }, providerOptions);
     setIsLoading(false);
 
     const newAssistantMessage: Message = {

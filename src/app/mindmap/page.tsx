@@ -93,6 +93,7 @@ function MindMapPageContent() {
     try {
       const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
 
+      // Use default or Pollinations for summary? Assuming Pollinations for cost/speed or just use default action options
       const { summary: summaryData, error: summaryError } = await summarizeMindMapAction({ mindMapData: mapToSave });
       if (summaryError || !summaryData) {
         throw new Error(summaryError || 'Failed to generate mind map summary.');
@@ -153,7 +154,7 @@ function MindMapPageContent() {
 
   /**
    * Check which AI provider the user has selected
-   * Returns 'provider:pollinations' if Pollinations is selected, undefined otherwise (use default)
+   * Returns options object for the action
    */
   const getProviderKey = async () => {
     if (!user) return undefined;
@@ -164,13 +165,12 @@ function MindMapPageContent() {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.apiSettings?.provider === 'pollinations') {
-          console.log("Using Pollinations provider");
-          return 'provider:pollinations';
+          return { provider: 'pollinations' as const };
         }
       }
 
-      // Default: use server-side Gemini API key
-      return undefined;
+      // Default: use server-side Gemini API key (represented as 'gemini' provider without custom key, allowing fallthrough to genkit)
+      return { provider: 'gemini' as const };
     } catch (e) {
       console.error("Error checking provider settings", e);
       return undefined;

@@ -1,14 +1,14 @@
 /**
- * Backup AI Client using Pollinations.ai
- * Provides a free fallback when the primary API quota is exceeded or fails.
+ * AI Client using Pollinations.ai
+ * Provides free text and image generation using open source models.
  */
 
-export async function generateContentWithBackup(
+export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[]
 ): Promise<any> {
-    console.log("⚠️ Switching to Backup AI Provider (Pollinations.ai)...");
+    // console.log("Using Pollinations.ai..."); 
 
     try {
         const messages: any[] = [
@@ -32,7 +32,6 @@ export async function generateContentWithBackup(
         messages.push({ role: 'user', content: userContent });
 
         // Pollinations.ai text generation endpoint
-        // It's free and often uses models like GPT-4o-mini, Qwen, or Llama
         const response = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
             headers: {
@@ -40,13 +39,13 @@ export async function generateContentWithBackup(
             },
             body: JSON.stringify({
                 messages: messages,
-                model: 'openai', // or 'mistral', 'llama' - openai usually maps to gpt-4o-mini equivalent
-                json: true // Hint for JSON output
+                model: 'openai',
+                json: true
             }),
         });
 
         if (!response.ok) {
-            throw new Error(`Backup API error: ${response.status} ${response.statusText}`);
+            throw new Error(`Pollinations API error: ${response.status} ${response.statusText}`);
         }
 
         const text = await response.text();
@@ -56,8 +55,7 @@ export async function generateContentWithBackup(
 
         return JSON.parse(cleanedText);
     } catch (error: any) {
-        console.error("Backup AI Generation Failed:", error);
-        // If even the backup fails, we have to throw
-        throw new Error(`All AI providers failed. Primary: Quota/Error. Backup: ${error.message}`);
+        console.error("Pollinations AI Generation Failed:", error);
+        throw new Error(`Pollinations API failed: ${error.message}`);
     }
 }

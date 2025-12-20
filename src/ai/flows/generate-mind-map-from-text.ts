@@ -15,12 +15,12 @@ import {
   GenerateMindMapFromTextOutputSchema,
 } from '@/ai/schemas/generate-mind-map-from-text-schema';
 
-import { generateContentWithCustomKey } from '@/ai/custom-client';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMapFromText(
-  input: GenerateMindMapFromTextInput
+  input: GenerateMindMapFromTextInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateMindMapFromTextOutput> {
-  if (input.apiKey) {
+  if (input.provider === 'pollinations' || input.apiKey) {
     const contextInstruction = input.context
       ? `The user has provided the following additional context or instructions, which you should prioritize: "${input.context}"`
       : '';
@@ -55,7 +55,12 @@ export async function generateMindMapFromText(
 
     const userPrompt = `Text to analyze:\n---\n${input.text}\n---`;
 
-    return generateContentWithCustomKey(input.apiKey, systemPrompt, userPrompt);
+    return generateContent({
+      provider: input.provider,
+      apiKey: input.apiKey,
+      systemPrompt,
+      userPrompt
+    });
   }
   return generateMindMapFromTextFlow(input);
 }

@@ -675,6 +675,23 @@ export const MindMap = ({
   // Track study time
   useStudyTimeTracker(firestore, user?.uid, true);
 
+  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchProvider = async () => {
+      if (!user || !firestore) return;
+      try {
+        const snap = await getDoc(doc(firestore, 'users', user.uid));
+        if (snap.exists()) {
+          const p = snap.data().apiSettings?.provider;
+          if (p === 'pollinations') setProviderOptions({ provider: 'pollinations' });
+          else setProviderOptions({ provider: 'gemini' });
+        }
+      } catch (e) { console.error(e); }
+    };
+    fetchProvider();
+  }, [user, firestore]);
+
 
 
 
@@ -848,7 +865,7 @@ export const MindMap = ({
     const { translation, error } = await translateMindMapAction({
       mindMapData: plainMindMapData,
       targetLang: langCode,
-    });
+    }, providerOptions);
     setIsTranslating(false);
 
     if (error) {
@@ -871,7 +888,7 @@ export const MindMap = ({
       subCategoryName: activeSubCategory.name,
       subCategoryDescription: activeSubCategory.description,
       explanationMode: explanationMode,
-    });
+    }, providerOptions);
 
     if (error) {
       toast({
@@ -900,7 +917,7 @@ export const MindMap = ({
       mainTopic: mindMap.topic,
       topicName: activeExplainableNode.name,
       explanationMode,
-    });
+    }, providerOptions);
     setIsExampleLoading(false);
 
     if (error) {
@@ -974,16 +991,7 @@ export const MindMap = ({
 
     try {
       // Get user's image provider preference
-      let imageProvider = 'pollinations'; // default
-      if (user && firestore) {
-        try {
-          const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-          const userData = userDoc.data();
-          imageProvider = userData?.apiSettings?.imageProvider || 'pollinations';
-        } catch (error) {
-          console.error('Error fetching image provider preference:', error);
-        }
-      }
+      let imageProvider = providerOptions?.provider || 'pollinations';
 
       const prompt = `${subCategory.name}, ${subCategory.description}`;
       const res = await fetch('/api/generate-image', {
@@ -1062,7 +1070,7 @@ export const MindMap = ({
 
     const { quiz, error } = await generateQuizAction({
       mindMapData: plainMindMapData,
-    });
+    }, providerOptions);
 
     if (error) {
       toast({
@@ -1094,7 +1102,7 @@ export const MindMap = ({
 
       // Generate summary
       const { summary: summaryData, error: summaryError } =
-        await summarizeMindMapAction({ mindMapData: plainMindMapData });
+        await summarizeMindMapAction({ mindMapData: plainMindMapData }, providerOptions);
 
       if (summaryError || !summaryData) {
         throw new Error(summaryError || 'Failed to generate mind map summary.');
@@ -1255,7 +1263,7 @@ export const MindMap = ({
         parentTopic: mindMap.topic,
         nodeDescription,
         depth,
-      });
+      }, providerOptions);
 
       if (error) {
         // Remove placeholder on error

@@ -1,5 +1,6 @@
 
 'use server';
+import { AIProvider } from '@/ai/client-dispatcher';
 import {
   generateMindMap,
   GenerateMindMapOutput,
@@ -83,7 +84,7 @@ export interface GenerateMindMapFromImageInput {
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapOutput | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);
@@ -93,7 +94,7 @@ export async function generateMindMapAction(
   }
 
   try {
-    const result = await generateMindMap({ ...input, topic, apiKey: customApiKey });
+    const result = await generateMindMap({ ...input, topic, ...options });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapAction:', error);
@@ -113,14 +114,14 @@ export async function generateMindMapAction(
  */
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
   }
 
   try {
-    const result = await generateMindMapFromImage({ ...input, apiKey: customApiKey });
+    const result = await generateMindMapFromImage({ ...input, ...options });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromImageAction:', error);
@@ -140,14 +141,14 @@ export async function generateMindMapFromImageAction(
  */
 export async function generateMindMapFromTextAction(
   input: GenerateMindMapFromTextInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
   }
 
   try {
-    const result = await generateMindMapFromText({ ...input, apiKey: customApiKey });
+    const result = await generateMindMapFromText({ ...input, ...options });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromTextAction:', error);
@@ -167,14 +168,14 @@ export async function generateMindMapFromTextAction(
  */
 export async function generateComparisonMapAction(
   input: GenerateComparisonMapInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }> {
   if (!input.topic1 || input.topic1.length < 1 || !input.topic2 || input.topic2.length < 1) {
     return { data: null, error: 'Both topics must be at least 1 character long.' };
   }
 
   try {
-    const result = await generateComparisonMap({ ...input, apiKey: customApiKey });
+    const result = await generateComparisonMap({ ...input, ...options });
     return { data: result, error: null };
   } catch (error) {
     console.error(error);
@@ -195,10 +196,10 @@ export async function generateComparisonMapAction(
  */
 export async function explainNodeAction(
   input: ExplainMindMapNodeInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
-    const result = await explainMindMapNode({ ...input, apiKey: customApiKey });
+    const result = await explainMindMapNode({ ...input, ...options });
     return { explanation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -218,10 +219,10 @@ export async function explainNodeAction(
  */
 export async function generateQuizAction(
   input: GenerateQuizInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ quiz: GenerateQuizOutput | null; error: string | null }> {
   try {
-    const result = await generateQuiz({ ...input, apiKey: customApiKey });
+    const result = await generateQuiz({ ...input, ...options });
     return { quiz: result, error: null };
   } catch (error) {
     console.error(error);
@@ -246,10 +247,10 @@ export async function generateQuizAction(
  */
 export async function chatAction(
   input: ChatWithAssistantInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
-    const result = await chatWithAssistant({ ...input, apiKey: customApiKey });
+    const result = await chatWithAssistant({ ...input, ...options });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -269,10 +270,10 @@ export async function chatAction(
  */
 export async function translateMindMapAction(
   input: TranslateMindMapInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ translation: TranslateMindMapOutput | null; error: string | null }> {
   try {
-    const result = await translateMindMap({ ...input, apiKey: customApiKey });
+    const result = await translateMindMap({ ...input, ...options });
     return { translation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -292,10 +293,10 @@ export async function translateMindMapAction(
  */
 export async function explainWithExampleAction(
   input: ExplainWithExampleInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
-    const result = await explainWithExample({ ...input, apiKey: customApiKey });
+    const result = await explainWithExample({ ...input, ...options });
     return { example: result, error: null };
   } catch (error) {
     console.error('Error in explainWithExampleAction:', error);
@@ -315,10 +316,10 @@ export async function explainWithExampleAction(
  */
 export async function summarizeChatAction(
   input: SummarizeChatInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ summary: SummarizeChatOutput | null; error: string | null }> {
   try {
-    const result = await summarizeChat({ ...input, apiKey: customApiKey });
+    const result = await summarizeChat({ ...input, ...options });
     return { summary: result, error: null };
   } catch (error) {
     console.error(error);
@@ -338,10 +339,10 @@ export async function summarizeChatAction(
  */
 export async function conversationalMindMapAction(
   input: ConversationalMindMapInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
   try {
-    const result = await conversationalMindMap({ ...input, apiKey: customApiKey });
+    const result = await conversationalMindMap({ ...input, ...options });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -361,13 +362,13 @@ export async function conversationalMindMapAction(
  */
 export async function enhanceImagePromptAction(
   input: EnhanceImagePromptInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{
   enhancedPrompt: EnhanceImagePromptOutput | null;
   error: string | null;
 }> {
   try {
-    const result = await enhanceImagePrompt({ ...input, apiKey: customApiKey });
+    const result = await enhanceImagePrompt({ ...input, ...options });
     return { enhancedPrompt: result, error: null };
   } catch (error) {
     console.error('Error in enhanceImagePromptAction:', error);
@@ -387,10 +388,10 @@ export async function enhanceImagePromptAction(
  */
 export async function summarizeMindMapAction(
   input: SummarizeMindMapInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }> {
   try {
-    const result = await summarizeMindMap({ ...input, apiKey: customApiKey });
+    const result = await summarizeMindMap({ ...input, ...options });
     return { summary: result, error: null };
   } catch (error) {
     console.error('Error in summarizeMindMapAction:', error);
@@ -411,10 +412,10 @@ export async function summarizeMindMapAction(
  */
 export async function expandNodeAction(
   input: ExpandNodeInput,
-  customApiKey: string = 'provider:pollinations'
+  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
-    const result = await expandNode({ ...input, apiKey: customApiKey });
+    const result = await expandNode({ ...input, ...options });
     return { expansion: result, error: null };
   } catch (error) {
     console.error('Error in expandNodeAction:', error);

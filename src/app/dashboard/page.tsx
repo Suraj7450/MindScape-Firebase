@@ -23,7 +23,6 @@ import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, Fi
 import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
-import { summarizeMindMapAction } from '@/app/actions';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SummaryDialog } from '@/components/summary-dialog';
@@ -109,7 +108,7 @@ export default function DashboardPage() {
     });
     setMapToDelete(null);
   };
-  
+
   const handleConfirmPublish = async () => {
     if (!user || !mapToPublish) return;
     setIsPublishing(true);
@@ -190,28 +189,28 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredAndSortedMaps.map((map) => {
               const updatedAt = map.updatedAt?.toDate();
-              
+
               return (
                 <div
                   key={map.id}
                   className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-300 hover:border-purple-600/50 hover:shadow-glow hover:-translate-y-1"
                 >
-                    <div className="w-full aspect-video relative mb-4" onClick={() => handleMindMapClick(map.id)}>
-                      <Image
-                        src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`}
-                        alt={`Thumbnail for ${map.topic}`}
-                        fill
-                        className="object-cover rounded-xl"
-                        data-ai-hint="abstract concept"
-                      />
-                    </div>
-                  
+                  <div className="w-full aspect-video relative mb-4" onClick={() => handleMindMapClick(map.id)}>
+                    <Image
+                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`}
+                      alt={`Thumbnail for ${map.topic}`}
+                      fill
+                      className="object-cover rounded-xl"
+                      data-ai-hint="abstract concept"
+                    />
+                  </div>
+
                   <h3 className="font-bold text-lg text-white mb-2 truncate" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>
-                  
+
                   <div className="flex-grow min-h-[20px]"></div>
 
                   <div className="mt-auto flex justify-between items-center">
-                      {updatedAt && (
+                    {updatedAt && (
                       <p className="text-sm text-gray-500 flex items-center gap-1.5">
                         <Clock className="h-3 w-3" />
                         {formatShortDistanceToNow(updatedAt)}
@@ -220,7 +219,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                           <Button
+                          <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-gray-400 hover:text-white"
@@ -248,7 +247,7 @@ export default function DashboardPage() {
                           <p>Publish</p>
                         </TooltipContent>
                       </Tooltip>
-                       <Tooltip>
+                      <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant="ghost"
@@ -317,7 +316,7 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-       <SummaryDialog
+      <SummaryDialog
         isOpen={!!summaryInfo}
         onClose={() => setSummaryInfo(null)}
         title={summaryInfo?.title || ''}
