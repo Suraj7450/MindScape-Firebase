@@ -85,19 +85,23 @@ function MindMapPageContent() {
 
   const { data: savedMindMap, isLoading: isFetchingSavedMap } = useDoc<MindMapWithId>(docPath);
 
+  /* Safe auto-save with race condition lock */
+  const isSavingRef = useRef(false);
+
   const handleSaveMap = useCallback(async (mapToSave: MindMapWithId) => {
-    if (!mapToSave || !user || mapToSave.id) {
+    // Prevent double-writes or saving if already saved
+    if (!mapToSave || !user || mapToSave.id || isSavingRef.current) {
       return;
     }
+
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
 
-      // Use default or Pollinations for summary? Assuming Pollinations for cost/speed or just use default action options
-      const { summary: summaryData, error: summaryError } = await summarizeMindMapAction({ mindMapData: mapToSave });
-      if (summaryError || !summaryData) {
-        throw new Error(summaryError || 'Failed to generate mind map summary.');
-      }
+      // Note: Auto-summarization removed to prevent API call explosion. 
+      // Summary is generated on-demand during Publish or explicitly requested.
+      const summary = '';
 
       const { ...cleanMapData } = mapToSave;
 
@@ -106,11 +110,12 @@ function MindMapPageContent() {
 
       const newMindMapData = {
         ...cleanMapData,
-        summary: summaryData.summary,
+        summary: summary,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         thumbnailUrl,
         thumbnailPrompt,
+        uid: user.uid,
       };
 
       const docRef = await addDoc(mindMapsCollection, newMindMapData);
@@ -134,19 +139,26 @@ function MindMapPageContent() {
       // Track activity
       await trackMapCreated(firestore, user.uid);
     } catch (err: any) {
-      const permissionError = new FirestorePermissionError({
-        path: `users/${user.uid}/mindmaps`,
-        operation: 'create',
-        requestResourceData: { ...mapToSave },
-      });
-      errorEmitter.emit('permission-error', permissionError);
+      console.error('🔥 Firestore save failed:', err);
+
+      // Check for actual permission error before emitting
+      if (err.code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+          path: `users/${user.uid}/mindmaps`,
+          operation: 'create',
+          requestResourceData: { ...mapToSave },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
+
       toast({
         variant: 'destructive',
         title: 'Auto-Save Failed',
-        description: permissionError.message || 'An unknown error occurred.',
+        description: err.message || 'An unknown error occurred.',
       });
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   }, [user, firestore, toast]);
 
@@ -208,9 +220,13 @@ function MindMapPageContent() {
         return;
       }
 
-      // Prevent duplicate fetches for the same params if we're technically already loading or have loaded it
+      // Guard against double-invocation (React Strict Mode + Navigation)
+      if (hasFetchedRef.current) return;
+
+      // Additional guard for params equality
       if (lastFetchedParamsRef.current === currentParamsKey && isLoading) return;
       lastFetchedParamsRef.current = currentParamsKey;
+      hasFetchedRef.current = true;
 
       setIsLoading(true);
       setError(null);

@@ -1100,17 +1100,24 @@ export const MindMap = ({
       const publicMapsCollection = collection(firestore, 'publicMindmaps');
       const { id, createdAt, updatedAt, ...plainMindMapData } = mindMap as any;
 
-      // Generate summary
-      const { summary: summaryData, error: summaryError } =
-        await summarizeMindMapAction({ mindMapData: plainMindMapData }, providerOptions);
+      // Generate summary (Non-blocking)
+      let summaryStr = '';
+      try {
+        const { summary: summaryData, error: summaryError } =
+          await summarizeMindMapAction({ mindMapData: plainMindMapData }, providerOptions);
 
-      if (summaryError || !summaryData) {
-        throw new Error(summaryError || 'Failed to generate mind map summary.');
+        if (!summaryError && summaryData) {
+          summaryStr = summaryData.summary;
+        } else {
+          console.warn('Summary generation failed during publish (non-fatal):', summaryError);
+        }
+      } catch (err) {
+        console.warn('Summary generation threw error during publish (non-fatal):', err);
       }
 
       await addDoc(publicMapsCollection, {
         ...plainMindMapData,
-        summary: summaryData.summary,
+        summary: summaryStr,
         originalAuthorId: user.uid,
         authorName: user.displayName || 'Anonymous',
         createdAt: serverTimestamp(),
@@ -1119,7 +1126,9 @@ export const MindMap = ({
 
       toast({
         title: 'Map Published!',
-        description: `"${mindMap.topic}" is now available for the community to view.`,
+        description: summaryStr
+          ? `"${mindMap.topic}" is now available for the community.`
+          : `"${mindMap.topic}" is public. Summary will be added shortly.`,
       });
       setIsPublished(true);
     } catch (error: any) {
