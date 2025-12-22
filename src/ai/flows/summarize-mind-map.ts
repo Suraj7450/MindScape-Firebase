@@ -25,9 +25,9 @@ export type SummarizeMindMapOutput = z.infer<typeof SummarizeMindMapOutputSchema
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function summarizeMindMap(
-  input: SummarizeMindMapInput & { apiKey?: string; provider?: AIProvider }
+  input: SummarizeMindMapInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<SummarizeMindMapOutput> {
-  const { provider, apiKey, mindMapData } = input;
+  const { provider, apiKey, mindMapData, strict } = input;
   const mindMapDataString = JSON.stringify(mindMapData, null, 2);
 
   const systemPrompt = `You are an expert in synthesizing information.

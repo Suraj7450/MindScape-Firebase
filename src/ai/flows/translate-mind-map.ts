@@ -31,9 +31,9 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 // Simplified to always use client-dispatcher
 export async function translateMindMap(
-  input: TranslateMindMapInput & { apiKey?: string; provider?: AIProvider }
+  input: TranslateMindMapInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<TranslateMindMapOutput> {
-  const { provider, apiKey, mindMapData, targetLang } = input;
+  const { provider, apiKey, mindMapData, targetLang, strict } = input;
   const mindMapDataString = JSON.stringify(mindMapData, null, 2);
   const systemPrompt = `You are an expert translator. Translate the provided mind map JSON data into the target language: ${targetLang}.
   

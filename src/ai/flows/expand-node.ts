@@ -13,6 +13,7 @@ const ExpandNodeInputSchema = z.object({
   parentTopic: z.string().describe('The main topic of the parent mind map'),
   nodeDescription: z.string().optional().describe('Description of the node being expanded'),
   depth: z.number().default(1).describe('Current nesting depth'),
+  persona: z.string().optional().describe('AI persona to use'),
 });
 
 export type ExpandNodeInput = z.infer<typeof ExpandNodeInputSchema>;
@@ -80,12 +81,45 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 // Simplified to always use client-dispatcher
 export async function expandNode(
-  input: ExpandNodeInput & { apiKey?: string; provider?: AIProvider }
+  input: ExpandNodeInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<ExpandNodeOutput> {
-  const { provider, apiKey, nodeName, parentTopic, nodeDescription, depth } = input;
+  const { provider, apiKey, nodeName, parentTopic, nodeDescription, depth, persona, strict } = input;
+
+  let personaInstruction = '';
+  if (persona === 'Teacher') {
+    personaInstruction = `
+    ADOPT PERSONA: "Expert Teacher"
+    - Use educational analogies to expand on the node.
+    - Focus on "How" and "Why" in sub-category descriptions.
+    - Structure expansion like a specific modular lesson.
+    - Descriptions should be encouraging and clear.`;
+  } else if (persona === 'Concise') {
+    personaInstruction = `
+    ADOPT PERSONA: "Efficiency Expert"
+    - Keep all expanded sub-categories extremely brief.
+    - Use high-impact keywords instead of long sentences.
+    - Focus only on the most critical deeper information.
+    - Descriptions should be very short (max 15 words).`;
+  } else if (persona === 'Creative') {
+    personaInstruction = `
+    ADOPT PERSONA: "Creative Visionary"
+    - Find unique, imaginative ways to expand on this node.
+    - Use vivid, evocative language in descriptions.
+    - Suggest interesting or theoretical sub-paths.
+    - Make the result feel inspired and non-obvious.`;
+  } else {
+    personaInstruction = `
+    ADOPT PERSONA: "Standard Academic Assistant"
+    - Provide a balanced and well-structured expansion of the node.
+    - Use clear, professional, yet accessible language.
+    - Ensure comprehensive coverage of the node's facets.
+    - Keep descriptions highly focused and under 2 sentences.`;
+  }
 
   // Manual prompt construction
   const manualPrompt = `You are an expert educator and content synthesizer. Your task is to expand a specific node within a mind map by generating detailed sub-categories.
+
+  ${personaInstruction}
 
 **Node to Expand:** "${nodeName}"
 **Parent Topic:** "${parentTopic}"

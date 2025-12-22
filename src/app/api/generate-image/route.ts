@@ -3,7 +3,7 @@ import { enhanceImagePromptAction } from '@/app/actions';
 import { NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 
-const pollinationsModels = ['stable-diffusion', 'flux', 'turbo'];
+const pollinationsModels = ['flux', 'flux-pro', 'stable-diffusion', 'turbo'];
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const finalPrompt = enhancedPrompt.enhancedPrompt;
+    const finalPrompt = enhancedPrompt.enhancedPrompt || prompt;
 
     // 2. Generate image (Always use Pollinations)
     return await generateWithPollinations(finalPrompt, size);

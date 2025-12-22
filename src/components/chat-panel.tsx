@@ -56,13 +56,13 @@ interface ChatSession {
   timestamp: number;
 }
 
-type Persona = 'standard' | 'teacher' | 'concise' | 'creative';
+type Persona = 'Standard' | 'Teacher' | 'Concise' | 'Creative';
 
 const personas: { id: Persona; label: string; icon: any; color: string }[] = [
-  { id: 'standard', label: 'Standard', icon: Sparkles, color: 'text-blue-400' },
-  { id: 'teacher', label: 'Teacher', icon: GraduationCap, color: 'text-yellow-400' },
-  { id: 'concise', label: 'Concise', icon: Zap, color: 'text-orange-400' },
-  { id: 'creative', label: 'Creative', icon: Palette, color: 'text-pink-400' },
+  { id: 'Standard', label: 'Standard', icon: Sparkles, color: 'text-blue-400' },
+  { id: 'Teacher', label: 'Teacher', icon: GraduationCap, color: 'text-yellow-400' },
+  { id: 'Concise', label: 'Concise', icon: Zap, color: 'text-orange-400' },
+  { id: 'Creative', label: 'Creative', icon: Palette, color: 'text-pink-400' },
 ];
 
 /**
@@ -117,7 +117,7 @@ export function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [persona, setPersona] = useState<Persona>('standard');
+  const [persona, setPersona] = useState<Persona>('Standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
   // Use 'pollinations' | 'gemini' options object. Default to empty (implies default action behavior) or explicit default.
@@ -143,8 +143,8 @@ export function ChatPanel({
         if (docSnap.exists()) {
           const data = docSnap.data();
           const prefs = data.preferences;
-          const savedPersona = prefs?.defaultAIPersona?.toLowerCase() as Persona;
-          if (savedPersona && ['standard', 'teacher', 'concise', 'creative'].includes(savedPersona)) {
+          const savedPersona = prefs?.defaultAIPersona as Persona;
+          if (savedPersona && ['Standard', 'Teacher', 'Concise', 'Creative'].includes(savedPersona)) {
             setPersona(savedPersona);
           }
 
@@ -629,7 +629,7 @@ export function ChatPanel({
                 </Avatar>
 
                 {/* Greeting with fade-in animation */}
-                <h2 className="text-2xl font-bold mb-6 animate-fade-in bg-gradient-to-r from-purple-300 via-pink-300 to-blue-300 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold mb-6 animate-fade-in text-white">
                   How can I help you?
                 </h2>
               </div>

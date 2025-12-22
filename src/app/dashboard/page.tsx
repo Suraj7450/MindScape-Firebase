@@ -208,7 +208,7 @@ export default function DashboardPage() {
 
                   <h3 className="font-bold text-lg text-white mb-2 truncate" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>
 
-                  <div className="flex-grow min-h-[20px]"></div>
+                  <div className="flex-grow"></div>
 
                   <div className="mt-auto flex justify-between items-center">
                     {updatedAt && (

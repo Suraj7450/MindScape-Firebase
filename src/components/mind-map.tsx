@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -61,6 +62,7 @@ import {
   translateMindMapAction,
   summarizeMindMapAction,
   expandNodeAction,
+  enhanceImagePromptAction,
 } from '@/app/actions';
 import { NestedMapsDialog } from './nested-maps-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -150,6 +152,8 @@ interface MindMapProps {
   generatingNode: string | null;
   selectedLanguage: string;
   onLanguageChange: (langCode: string) => void;
+  onAIPersonaChange: (persona: string) => void;
+  aiPersona: string;
   onRegenerate: () => void;
   isRegenerating: boolean;
   canRegenerate: boolean;
@@ -342,7 +346,7 @@ const LeafNodeCard = memo(function LeafNodeCard({
         </h4>
       </div>
 
-      <p className="text-sm text-zinc-400 leading-relaxed min-h-[60px] flex-grow line-clamp-4">
+      <p className="text-sm text-zinc-400 leading-relaxed min-h-[40px] flex-grow line-clamp-2">
         {node.description}
       </p>
 
@@ -413,10 +417,9 @@ const LeafNodeCard = memo(function LeafNodeCard({
             e.stopPropagation();
             onSubCategoryClick(node);
           }}
-          variant="ghost"
-          className="h-auto py-1 px-0 text-xs font-bold text-zinc-400 hover:text-purple-400 transition-colors flex items-center gap-1"
+          className="h-8 py-1.5 px-4 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-full transition-all shadow-sm flex items-center gap-1.5 border-none"
         >
-          Read More <ArrowRight className="w-3 h-3" />
+          Read More <ArrowRight className="w-3.5 h-3.5" />
         </Button>
       </div>
     </Card>
@@ -612,6 +615,8 @@ export const MindMap = ({
   generatingNode,
   selectedLanguage,
   onLanguageChange,
+  onAIPersonaChange,
+  aiPersona,
   onRegenerate,
   isRegenerating,
   canRegenerate,
@@ -625,7 +630,7 @@ export const MindMap = ({
   // Track study time
   useStudyTimeTracker(firestore, user?.uid, true);
 
-  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
+  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini'; strict?: boolean } | undefined>(undefined);
 
   useEffect(() => {
     const fetchProvider = async () => {
@@ -634,8 +639,8 @@ export const MindMap = ({
         const snap = await getDoc(doc(firestore, 'users', user.uid));
         if (snap.exists()) {
           const p = snap.data().apiSettings?.provider;
-          if (p === 'pollinations') setProviderOptions({ provider: 'pollinations' });
-          else setProviderOptions({ provider: 'gemini' });
+          if (p === 'pollinations') setProviderOptions({ provider: 'pollinations', strict: true });
+          else setProviderOptions({ provider: 'gemini', strict: true });
         }
       } catch (e) { console.error(e); }
     };
@@ -899,25 +904,14 @@ export const MindMap = ({
   const handleGenerateImageClick = async (subCategory: SubCategoryInfo) => {
     const generationId = `img-${Date.now()}`;
 
-    // Use a simple data URI placeholder instead of external service
-    const placeholderUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI3MjcyNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5HZW5lcmF0aW5nLi4uPC90ZXh0Pjwvc3ZnPg==';
-
     const placeholderImage: GeneratedImage = {
       id: generationId,
-      url: placeholderUrl,
+      url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI3MjcyNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5HZW5lcmF0aW5nLi4uPC90ZXh0Pjwvc3ZnPg==',
       name: subCategory.name,
       description: subCategory.description,
       status: 'generating',
     };
     setGeneratedImages(prev => [...prev, placeholderImage]);
-
-    const generationSteps = [
-      'Enhancing prompt with AI...',
-      'Connecting to image model...',
-      'Generating your image...',
-      'Finalizing...',
-    ];
-    let currentStep = 0;
 
     const { id: toastId, update } = toast({
       title: 'Starting Image Generation...',
@@ -925,45 +919,29 @@ export const MindMap = ({
       duration: Infinity,
     });
 
-    const updateStep = () => {
-      if (currentStep < generationSteps.length) {
-        update({
-          id: toastId,
-          title: 'Generating Image...',
-          description: generationSteps[currentStep],
-        });
-        currentStep++;
-      }
-    };
-
-    const stepInterval = setInterval(updateStep, 1500);
-    updateStep();
-
     try {
-      // Get user's image provider preference
-      let imageProvider = providerOptions?.provider || 'pollinations';
+      // 1. Enhance the prompt using main topic context
+      update({ id: toastId, title: 'Enhancing Prompt...', description: 'AI is analyzing your topic for perfect visuals.' });
+      const promptToEnhance = `${subCategory.name} in the context of "${mindMap.topic}": ${subCategory.description}`;
 
-      const prompt = `${subCategory.name}, ${subCategory.description}`;
-      const res = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          style: 'Photorealistic',
-          provider: imageProvider
-        }),
-      });
+      const { enhancedPrompt, error: enhanceError } = await enhanceImagePromptAction(
+        { prompt: promptToEnhance, style: 'Photorealistic' },
+        providerOptions
+      );
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate image.');
-      }
+      if (enhanceError || !enhancedPrompt) throw new Error(enhanceError || 'Prompt enhancement failed');
 
-      clearInterval(stepInterval);
+      // 2. Generate direct Pollinations URL
+      update({ id: toastId, title: 'Generating Image...', description: 'Connecting to artistic model...' });
 
+      const finalPrompt = enhancedPrompt.enhancedPrompt || `${subCategory.name}: ${subCategory.description}`;
+      const seed = Math.floor(Math.random() * 1000000);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+
+      // 3. Update Gallery State
       const newImage: GeneratedImage = {
         id: generationId,
-        url: data.images[0],
+        url: imageUrl,
         name: subCategory.name,
         description: subCategory.description,
         status: 'completed',
@@ -971,8 +949,6 @@ export const MindMap = ({
 
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? newImage : img));
 
-      // Track activity
-      // Track activity
       if (firestore && user) {
         await trackImageGenerated(firestore, user.uid);
       }
@@ -980,7 +956,7 @@ export const MindMap = ({
       update({
         id: toastId,
         title: 'Image Created!',
-        description: `Image for "${subCategory.name}" is ready.`,
+        description: `Visual for "${subCategory.name}" is ready in high quality.`,
         duration: 5000,
         action: (
           <div className="flex items-center gap-2">
@@ -999,7 +975,6 @@ export const MindMap = ({
       });
 
     } catch (err: any) {
-      clearInterval(stepInterval);
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? { ...img, status: 'failed' } : img));
       update({
         id: toastId,
@@ -1135,13 +1110,34 @@ export const MindMap = ({
   };
 
   const copyToClipboard = () => {
-    const url = window.location.href;
+    // Aggressively hunt for an ID: 1. data.id, 2. mindMap.id, 3. URL search params
+    const sParams = new URLSearchParams(window.location.search);
+    const effectiveId = data.id || mindMap.id || sParams.get('mapId');
+
+    let url = window.location.href;
+
+    // If we have any form of map ID, construct a stable ID-based link
+    if (effectiveId) {
+      const baseUrl = `${window.location.origin}${window.location.pathname}`;
+      const params = new URLSearchParams();
+      params.set('mapId', effectiveId);
+
+      // Transfer relevant status flags but drop 'topic'
+      if (isPublic) params.set('public', 'true');
+      if (selectedLanguage && selectedLanguage !== 'en') {
+        params.set('lang', selectedLanguage);
+      }
+      url = `${baseUrl}?${params.toString()}`;
+    }
+
     navigator.clipboard.writeText(url);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
     toast({
-      title: "Link Copied",
-      description: "Mind map link copied to clipboard.",
+      title: effectiveId ? "Map ID-Link Copied" : "Link Copied",
+      description: effectiveId
+        ? "Stable link with map ID is now in your clipboard."
+        : "Direct link copied. Note: ID not yet available.",
     });
   };
 
@@ -1166,28 +1162,14 @@ export const MindMap = ({
       {/* Header / Toolbar */}
       <div className="sticky top-[58px] z-30 w-full mb-8 pointer-events-none">
         <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 pointer-events-auto ring-1 ring-white/5">
-            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-              <Badge variant="outline" className="text-secondary-foreground border-secondary-foreground/20 px-3 py-1 text-sm bg-secondary/10 whitespace-nowrap">
-                <BookOpen className="w-3.5 h-3.5 mr-2" />
-                {mindMap.topic}
-              </Badge>
-              {isSaved && (
-                <Badge variant="default" className="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20">
-                  <Check className="w-3 h-3 mr-1" /> Saved
-                </Badge>
-              )}
-              {isPublic && (
-                <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                  <Share2 className="w-3 h-3 mr-1" /> Public
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <div className="flex items-center bg-zinc-900/50 rounded-lg p-1 border border-white/5 mr-2">
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col md:flex-row justify-between items-center gap-4 pointer-events-auto ring-1 ring-white/5">
+            {/* Left Side: Navigation & Utilities */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              {/* Language Selector */}
+              <div className="flex items-center bg-zinc-900/50 rounded-xl px-2 py-1 border border-white/5 ring-1 ring-white/5">
                 <Select value={selectedLanguage} onValueChange={handleLanguageChange} disabled={isTranslating}>
-                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[130px] text-xs">
+                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[120px] text-xs font-medium">
+                    <LucideIcons.Languages className="w-3.5 h-3.5 mr-2 text-zinc-400" />
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1198,110 +1180,144 @@ export const MindMap = ({
                     ))}
                   </SelectContent>
                 </Select>
-                {isTranslating && <Loader2 className="w-3 h-3 animate-spin ml-2 text-muted-foreground" />}
+                {isTranslating && <Loader2 className="w-3 h-3 animate-spin ml-2 text-purple-400" />}
               </div>
 
+              {/* AI Persona Selector */}
+              <div className="flex items-center bg-zinc-900/50 rounded-xl px-2 py-1 border border-white/5 ring-1 ring-white/5">
+                <Select value={aiPersona} onValueChange={onAIPersonaChange} disabled={isRegenerating}>
+                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[110px] text-xs font-medium">
+                    {aiPersona === 'Teacher' && <LucideIcons.GraduationCap className="w-3.5 h-3.5 mr-2 text-yellow-500" />}
+                    {aiPersona === 'Concise' && <LucideIcons.Zap className="w-3.5 h-3.5 mr-2 text-orange-500" />}
+                    {aiPersona === 'Creative' && <LucideIcons.Palette className="w-3.5 h-3.5 mr-2 text-pink-500" />}
+                    {(aiPersona === 'Standard' || !aiPersona) && <LucideIcons.Sparkles className="w-3.5 h-3.5 mr-2 text-blue-500" />}
+                    <SelectValue placeholder="Style" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
+                    <SelectItem value="Standard" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
+                      <div className="flex items-center gap-2">
+                        <LucideIcons.Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Standard</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Teacher" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
+                      <div className="flex items-center gap-2">
+                        <LucideIcons.GraduationCap className="w-3.5 h-3.5 text-yellow-500" />
+                        <span>Teacher</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Concise" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
+                      <div className="flex items-center gap-2">
+                        <LucideIcons.Zap className="w-3.5 h-3.5 text-orange-500" />
+                        <span>Concise</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Creative" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
+                      <div className="flex items-center gap-2">
+                        <LucideIcons.Palette className="w-3.5 h-3.5 text-pink-500" />
+                        <span>Creative</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator orientation="vertical" className="h-6 bg-white/10 mx-1 hidden md:block" />
+
+              {/* Expand/Collapse with Text */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={isAllExpanded ? collapseAll : expandAll}
+                className="h-9 px-3 gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-all rounded-xl"
+              >
+                {isAllExpanded ? (
+                  <>
+                    <Minimize2 className="h-4 w-4" />
+                    <span>Collapse All</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-4 w-4" />
+                    <span>Expand All</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Right Side: Actions */}
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              {/* Share/Link Icon */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={isAllExpanded ? collapseAll : expandAll}
-                      className="h-9 w-9 rounded-lg hover:bg-white/5"
+                      onClick={copyToClipboard}
+                      className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all ring-1 ring-white/5"
                     >
-                      {isAllExpanded ? (
-                        <Minimize2 className="h-4 w-4" />
-                      ) : (
-                        <Maximize2 className="h-4 w-4" />
-                      )}
+                      {isCopied ? <Check className="h-4 w-4 text-green-400" /> : <LucideIcons.Link2 className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{isAllExpanded ? 'Collapse All' : 'Expand All'}</p>
+                    <p>Copy Map Link</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2 ml-1 hidden sm:flex">
-                    <Share className="w-4 h-4" />
-                    Share
-                    <ChevronDown className="w-3 h-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={handlePublishMap} disabled={isPublishing || isPublished} className="gap-2">
-                    {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                    {isPublished ? 'Published' : 'Publish to Community'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyToClipboard} className="gap-2">
-                    {isCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                    Copy Link
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Separator orientation="vertical" className="h-6 bg-white/10 mx-1" />
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 sm:hidden">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handlePublishMap} disabled={isPublishing || isPublished}>
-                    {isPublished ? 'Published' : 'Publish'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyToClipboard}>
-                    Copy Link
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onRegenerate} disabled={!canRegenerate || isRegenerating}>
-                    Regenerate
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Desktop Regenerate Button */}
+              {/* Save Button (Always visible, status-aware) */}
               <Button
-                variant="default"
+                onClick={onSaveMap}
+                disabled={isSaved}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 focus:ring-purple-500/50",
+                  isSaved
+                    ? "text-emerald-400 ring-emerald-500/20 bg-emerald-500/5 cursor-default"
+                    : "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 ring-purple-500/20"
+                )}
+              >
+                {isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                {isSaved ? 'Saved' : 'Save Map'}
+              </Button>
+
+              {/* Publish Button */}
+              {!isPublic && (
+                <Button
+                  onClick={handlePublishMap}
+                  disabled={isPublishing || isPublished}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 focus:ring-purple-500/50",
+                    isPublished
+                      ? "text-emerald-400 ring-emerald-500/20 bg-emerald-500/5 cursor-default"
+                      : "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 ring-blue-500/20"
+                  )}
+                >
+                  {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : isPublished ? <Check className="w-4 h-4" /> : <LucideIcons.UploadCloud className="w-4 h-4" />}
+                  {isPublished ? 'Published' : 'Publish'}
+                </Button>
+              )}
+
+              {/* Regenerate Button */}
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onRegenerate}
                 disabled={!canRegenerate || isRegenerating}
-                className={`h-9 hidden sm:flex ${!canRegenerate ? 'opacity-0 w-0 p-0 overflow-hidden' : 'ml-2'}`}
-              >
-                {isRegenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                className={cn(
+                  "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 ring-indigo-500/20 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10",
+                  (!canRegenerate || isRegenerating) && "opacity-50"
                 )}
+              >
+                {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Regenerate
               </Button>
-
-
-              {!isSaved && (
-                <Button
-                  onClick={onSaveMap}
-                  variant="default"
-                  size="sm"
-                  className="h-9 ml-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/20"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Map
-                </Button>
-              )}
-              {isSaved && !isPublic && (
-                <Button
-                  onClick={handleDuplicate}
-                  disabled={isDuplicating}
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 ml-2"
-                >
-                  {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
-                  <span className="ml-2 hidden lg:inline">Duplicate</span>
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -1311,10 +1327,35 @@ export const MindMap = ({
         {/* Main Topic Hero */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-          <div className="relative rounded-3xl border border-white/10 bg-zinc-900/80 backdrop-blur-xl p-8 md:p-12 text-center overflow-hidden">
+          <div className="relative rounded-3xl border border-white/10 bg-zinc-950/60 backdrop-blur-xl p-8 md:p-12 text-center overflow-hidden">
+            {/* Topic-related background images (Seamless Faded Edges) */}
+            <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+              {/* Left Image */}
+              <div className="absolute inset-y-0 left-0 w-1/2 opacity-30">
+                <img
+                  src={`https://image.pollinations.ai/prompt/${encodeURIComponent(mindMap.topic)} artistic conceptual representation, left composition?width=800&height=600&nologo=true&seed=42`}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ maskImage: 'linear-gradient(to right, black 20%, transparent 80%)', WebkitMaskImage: 'linear-gradient(to right, black 20%, transparent 80%)' }}
+                />
+              </div>
+              {/* Right Image */}
+              <div className="absolute inset-y-0 right-0 w-1/2 opacity-30">
+                <img
+                  src={`https://image.pollinations.ai/prompt/${encodeURIComponent(mindMap.topic)} artistic conceptual representation, right composition?width=800&height=600&nologo=true&seed=1337`}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ maskImage: 'linear-gradient(to left, black 20%, transparent 80%)', WebkitMaskImage: 'linear-gradient(to left, black 20%, transparent 80%)' }}
+                />
+              </div>
+              {/* Global Overlays for seamless blending */}
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-zinc-950"></div>
+            </div>
 
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 drop-shadow-sm">
-              {mindMap.topic}
+
+
+            <h1 className="text-4xl font-black tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 drop-shadow-sm">
+              {(mindMap as any).shortTitle || mindMap.topic}
             </h1>
 
 
@@ -1581,6 +1622,6 @@ export const MindMap = ({
         }}
       />
 
-    </div>
+    </div >
   );
 };

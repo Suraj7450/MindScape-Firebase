@@ -29,9 +29,9 @@ const ChatWithAssistantInputSchema = z.object({
     .optional()
     .describe('Previous chat history to provide context.'),
   persona: z
-    .enum(['standard', 'teacher', 'concise', 'creative'])
+    .enum(['Standard', 'Teacher', 'Concise', 'Creative'])
     .optional()
-    .default('standard')
+    .default('Standard')
     .describe('The personality/style of the AI assistant.'),
 });
 export type ChatWithAssistantInput = z.infer<
@@ -71,10 +71,10 @@ Provide clear, engaging, and visually structured responses.
 
 {{#if persona}}
 Adjust your response style based on the persona:
-- **teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
-- **concise**: Be brief and direct. Use bullet points. Avoid fluff. Focus on the "what" and "how".
-- **creative**: Be imaginative and brainstorm ideas. Use colorful language and metaphors. Suggest out-of-the-box connections.
-- **standard**: Balanced, helpful, and professional with clear structure and moderate detail.
+- **Teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
+- **Concise**: Be brief and direct. Use bullet points. Avoid fluff. Focus on the "what" and "how".
+- **Creative**: Be imaginative and brainstorm ideas. Use colorful language and metaphors. Suggest out-of-the-box connections.
+- **Standard**: Balanced, helpful, and professional with clear structure and moderate detail.
 {{/if}}
 
 ## 📋 Formatting Guidelines
@@ -162,22 +162,21 @@ const chatWithAssistantFlow = ai.defineFlow(
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function chatWithAssistant(
-  input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider }
+  input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<ChatWithAssistantOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    // Construct prompt manually for custom client
-    const historyText = input.history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
+  const { provider, apiKey, topic, persona, history, question, strict } = input;
 
-    // Simple manual template construction to avoid complexity with handlebars/regex
-    const manualPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+  const historyText = history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
 
-🧠 **Current Topic**: ${input.topic}
-🎭 **Current Persona**: ${input.persona}
+  const systemPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+
+🧠 **Current Topic**: ${topic}
+🎭 **Current Persona**: ${persona}
 
 ${historyText ? `**Chat History**:\n${historyText}` : ''}
 
 **User Question**:
-"${input.question}"
+"${question}"
 
 ---
 
@@ -186,7 +185,7 @@ Provide clear, engaging, and visually structured responses.
 
 ## 🎭 Persona Instructions
 
-**Current Persona Mode**: ${input.persona}
+**Current Persona Mode**: ${persona}
 
 Adjust your response style based on the persona:
 - **teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
@@ -200,19 +199,29 @@ Adjust your response style based on the persona:
 - Use tables for comparisons.
 - Be encouraging and positive.
 
-Return a JSON object with:
-{ "answer": "Your formatted markdown response here" }
-`;
+The output MUST be a valid JSON object with the following structure:
+{
+  "answer": "Your formatted markdown response here"
+}
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt: "System: XML Schema compliant JSON generator",
-      userPrompt: manualPrompt
-    });
+IMPORTANT: Return ONLY the raw JSON object, no other text or explanation.`;
+
+  const userPrompt = "Provide your response.";
+
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt,
+    userPrompt
+  });
+
+  try {
+    const validated = ChatWithAssistantOutputSchema.parse(rawResult);
+    return validated;
+  } catch (e: any) {
+    if (rawResult && typeof rawResult.answer === 'string') return rawResult as ChatWithAssistantOutput;
+    throw new Error(`Chat response failed validation: ${e.message}`);
   }
-
-  return chatWithAssistantFlow(input);
 }
 
 

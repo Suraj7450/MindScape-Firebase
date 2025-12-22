@@ -42,9 +42,9 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 // Simplified to always use client-dispatcher
 export async function explainMindMapNode(
-  input: ExplainMindMapNodeInput & { apiKey?: string; provider?: AIProvider }
+  input: ExplainMindMapNodeInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<ExplainMindMapNodeOutput> {
-  const { provider, apiKey, mainTopic, subCategoryName, subCategoryDescription, explanationMode } = input;
+  const { provider, apiKey, mainTopic, subCategoryName, subCategoryDescription, explanationMode, strict } = input;
 
   const systemPrompt = `You are an expert AI assistant providing detailed information for a mind map.
 

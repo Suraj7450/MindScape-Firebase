@@ -75,6 +75,7 @@ import { addDoc, collection } from 'firebase/firestore';
 export interface GenerateMindMapFromImageInput {
   imageDataUri: string;
   targetLang?: string;
+  persona?: string;
 }
 
 /**
@@ -84,7 +85,7 @@ export interface GenerateMindMapFromImageInput {
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapOutput | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);
@@ -114,7 +115,7 @@ export async function generateMindMapAction(
  */
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
@@ -141,7 +142,7 @@ export async function generateMindMapFromImageAction(
  */
 export async function generateMindMapFromTextAction(
   input: GenerateMindMapFromTextInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
@@ -168,7 +169,7 @@ export async function generateMindMapFromTextAction(
  */
 export async function generateComparisonMapAction(
   input: GenerateComparisonMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }> {
   if (!input.topic1 || input.topic1.length < 1 || !input.topic2 || input.topic2.length < 1) {
     return { data: null, error: 'Both topics must be at least 1 character long.' };
@@ -196,7 +197,7 @@ export async function generateComparisonMapAction(
  */
 export async function explainNodeAction(
   input: ExplainMindMapNodeInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
     const result = await explainMindMapNode({ ...input, ...options });
@@ -219,7 +220,7 @@ export async function explainNodeAction(
  */
 export async function generateQuizAction(
   input: GenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ quiz: GenerateQuizOutput | null; error: string | null }> {
   try {
     const result = await generateQuiz({ ...input, ...options });
@@ -247,7 +248,7 @@ export async function generateQuizAction(
  */
 export async function chatAction(
   input: ChatWithAssistantInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
     const result = await chatWithAssistant({ ...input, ...options });
@@ -270,7 +271,7 @@ export async function chatAction(
  */
 export async function translateMindMapAction(
   input: TranslateMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ translation: TranslateMindMapOutput | null; error: string | null }> {
   try {
     const result = await translateMindMap({ ...input, ...options });
@@ -293,7 +294,7 @@ export async function translateMindMapAction(
  */
 export async function explainWithExampleAction(
   input: ExplainWithExampleInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
     const result = await explainWithExample({ ...input, ...options });
@@ -316,7 +317,7 @@ export async function explainWithExampleAction(
  */
 export async function summarizeChatAction(
   input: SummarizeChatInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ summary: SummarizeChatOutput | null; error: string | null }> {
   try {
     const result = await summarizeChat({ ...input, ...options });
@@ -339,7 +340,7 @@ export async function summarizeChatAction(
  */
 export async function conversationalMindMapAction(
   input: ConversationalMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
   try {
     const result = await conversationalMindMap({ ...input, ...options });
@@ -362,7 +363,7 @@ export async function conversationalMindMapAction(
  */
 export async function enhanceImagePromptAction(
   input: EnhanceImagePromptInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{
   enhancedPrompt: EnhanceImagePromptOutput | null;
   error: string | null;
@@ -388,7 +389,7 @@ export async function enhanceImagePromptAction(
  */
 export async function summarizeMindMapAction(
   input: SummarizeMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }> {
   try {
     const result = await summarizeMindMap({ ...input, ...options });
@@ -412,7 +413,7 @@ export async function summarizeMindMapAction(
  */
 export async function expandNodeAction(
   input: ExpandNodeInput,
-  options: { apiKey?: string; provider?: AIProvider } = { provider: 'pollinations' }
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
     const result = await expandNode({ ...input, ...options });

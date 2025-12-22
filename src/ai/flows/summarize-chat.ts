@@ -17,9 +17,10 @@ import {
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function summarizeChat(
-  input: SummarizeChatInput & { apiKey?: string; provider?: AIProvider }
+  input: SummarizeChatInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<SummarizeChatOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
+  const { provider, apiKey, strict } = input;
+  if (provider === 'pollinations' || apiKey || provider === 'gemini') {
     const historyText = input.history.map(h => `${h.role}: ${h.content}`).join('\n');
     const systemPrompt = `Based on the following conversation history, create a short, descriptive topic title (3-5 words).
   
@@ -35,10 +36,11 @@ export async function summarizeChat(
     const userPrompt = "Summarize the chat.";
 
     return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
+      provider: provider,
+      apiKey: apiKey,
       systemPrompt,
-      userPrompt
+      userPrompt,
+      strict
     });
   }
   return summarizeChatFlow(input);

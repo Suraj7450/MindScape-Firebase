@@ -80,6 +80,7 @@ const SubTopicSchema = z.object({
 
 export const MindMapSchema = z.object({
   topic: z.string().describe('The main topic of the mind map.'),
+  shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words) for focused display.'),
   icon: z
     .string()
     .describe(

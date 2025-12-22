@@ -35,9 +35,9 @@ export type ExplainWithExampleOutput = z.infer<
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function explainWithExample(
-  input: ExplainWithExampleInput & { apiKey?: string; provider?: AIProvider }
+  input: ExplainWithExampleInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<ExplainWithExampleOutput> {
-  const { provider, apiKey, mainTopic, topicName, explanationMode } = input;
+  const { provider, apiKey, mainTopic, topicName, explanationMode, strict } = input;
 
   const systemPrompt = `You are an expert at explaining complex topics with simple, relatable, real-life examples.
 
@@ -63,7 +63,8 @@ export async function explainWithExample(
     provider,
     apiKey,
     systemPrompt,
-    userPrompt
+    userPrompt,
+    strict
   });
 
   try {

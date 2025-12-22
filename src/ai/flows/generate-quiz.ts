@@ -43,9 +43,9 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 // Simplified to always use client-dispatcher
 export async function generateQuiz(
-  input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider }
+  input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<GenerateQuizOutput> {
-  const { provider, apiKey, mindMapData } = input;
+  const { provider, apiKey, mindMapData, strict } = input;
   const mindMapDataString = JSON.stringify(mindMapData, null, 2);
   const systemPrompt = `You are an expert in creating educational quizzes.
   
@@ -74,7 +74,8 @@ export async function generateQuiz(
     provider,
     apiKey,
     systemPrompt,
-    userPrompt
+    userPrompt,
+    strict
   });
 
   try {

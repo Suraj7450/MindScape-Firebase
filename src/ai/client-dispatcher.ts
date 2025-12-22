@@ -9,6 +9,7 @@ interface GenerateContentOptions {
     systemPrompt: string;
     userPrompt: string;
     images?: { inlineData: { mimeType: string, data: string } }[];
+    strict?: boolean; // If true, do not fall back to other providers
 }
 
 /**
@@ -58,7 +59,7 @@ function disablePollinations(minutes = 10) {
  */
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
     let { provider = 'pollinations' } = options;
-    const { apiKey, systemPrompt, userPrompt, images } = options;
+    const { apiKey, systemPrompt, userPrompt, images, strict } = options;
 
     // 1. Try Pollinations (if selected AND available)
     if (provider === 'pollinations') {
@@ -66,18 +67,24 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             try {
                 return await retry(() => generateContentWithPollinations(systemPrompt, userPrompt, images));
             } catch (error: any) {
-                console.warn("⚠️ Pollinations failed, automatically falling back to Gemini.", error);
+                console.warn("⚠️ Pollinations failed.", error.message);
+
+                if (strict) {
+                    throw new Error(`Pollinations failed and strict mode is enabled: ${error.message}`);
+                }
 
                 // Trip circuit breaker if it's a 500-level error
                 if (error.message && (error.message.includes('502') || error.message.includes('503') || error.message.includes('504'))) {
                     disablePollinations(5); // Disable for 5 mins
                 }
 
-                // Fallthrough to Gemini
                 provider = 'gemini';
             }
         } else {
-            console.warn("⚠️ Pollinations is temporarily disabled due to recent failures. Using Gemini instead.");
+            if (strict) {
+                throw new Error("Pollinations is temporarily disabled and strict mode is enabled.");
+            }
+            console.warn("⚠️ Pollinations is temporarily disabled. Falling back to Gemini.");
             provider = 'gemini';
         }
     }
@@ -93,8 +100,10 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
+            // Using gemini-1.5-flash for better stability and higher rate limits (less 429s)
+            // Users often refer to the high-performance lite models as "flash"
             const model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash-latest',
+                model: 'gemini-1.5-flash',
                 generationConfig: {
                     responseMimeType: 'application/json'
                 }
@@ -108,9 +117,15 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
             const result = await model.generateContent(parts);
             const response = await result.response;
-            const text = response.text();
 
-            if (!text) throw new Error("Empty response from Gemini");
+            if (!response) throw new Error("No response received from Gemini");
+
+            const text = response.text();
+            if (!text) {
+                // Check for safety ratings or other reasons for no text
+                const safety = response.promptFeedback?.blockReason;
+                throw new Error(safety ? `Gemini blocked content: ${safety}` : "Empty response from Gemini");
+            }
 
             return JSON.parse(text);
         } catch (error: any) {
