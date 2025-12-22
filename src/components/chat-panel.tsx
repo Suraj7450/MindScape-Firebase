@@ -234,7 +234,14 @@ export function ChatPanel({
 
   /**
    * Handles sending an initial message if one is provided.
+   * Resets the flag if the message changes (e.g. clicking different nodes)
    */
+  useEffect(() => {
+    if (initialMessage) {
+      hasSentInitialMessage.current = false;
+    }
+  }, [initialMessage]);
+
   useEffect(() => {
     if (isOpen && initialMessage && !hasSentInitialMessage.current && activeSession) {
       handleSend(initialMessage);

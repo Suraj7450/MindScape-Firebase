@@ -200,6 +200,7 @@ export default function DashboardPage() {
                       src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`}
                       alt={`Thumbnail for ${map.topic}`}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-cover rounded-xl"
                       data-ai-hint="abstract concept"
                     />

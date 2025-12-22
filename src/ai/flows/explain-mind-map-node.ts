@@ -40,68 +40,47 @@ export type ExplainMindMapNodeOutput = z.infer<
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
+// Simplified to always use client-dispatcher
 export async function explainMindMapNode(
   input: ExplainMindMapNodeInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExplainMindMapNodeOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    const systemPrompt = `You are an expert AI assistant providing detailed information for a mind map.
+  const { provider, apiKey, mainTopic, subCategoryName, subCategoryDescription, explanationMode } = input;
 
-    The main topic of the mind map is: ${input.mainTopic}.
+  const systemPrompt = `You are an expert AI assistant providing detailed information for a mind map.
+
+    The main topic of the mind map is: ${mainTopic}.
     
-    The user has clicked on the sub-category: "${input.subCategoryName}", which has a brief description: "${input.subCategoryDescription}".
+    The user has clicked on the sub-category: "${subCategoryName}", which has a brief description: "${subCategoryDescription}".
     
-    The user has requested the explanation at the "${input.explanationMode}" level.
+    The user has requested the explanation at the "${explanationMode}" level.
     - If the mode is "Beginner", use very simple terms, short sentences, and analogies. Avoid jargon.
     - If the mode is "Intermediate", assume the user has some basic knowledge. Be clear and comprehensive.
     - If the mode is "Expert", provide a technical, in-depth explanation suitable for someone knowledgeable in the field.
     
-    Provide a detailed explanation of "${input.subCategoryName}" with a focus on its relationship to "${input.mainTopic}", tailored to the requested explanation mode.
+    Provide a detailed explanation of "${subCategoryName}" with a focus on its relationship to "${mainTopic}", tailored to the requested explanation mode.
     Expand on the provided description and offer any additional context, required knowledge, or interesting facts.
     
-    Present the information as a list of small and focused bullet points.`;
+    The output MUST be a valid JSON object with the following structure:
+    {
+      "explanationPoints": ["Point 1", "Point 2", "Point 3"]
+    }
+    
+    IMPORTANT: Return ONLY the raw JSON object, no other text or explanation.`;
 
-    const userPrompt = "Generate the explanation.";
+  const userPrompt = "Generate the explanation.";
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt,
-      userPrompt
-    });
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt,
+    userPrompt
+  });
+
+  try {
+    const validated = ExplainMindMapNodeOutputSchema.parse(rawResult);
+    return validated;
+  } catch (e: any) {
+    if (rawResult && rawResult.explanationPoints) return rawResult as ExplainMindMapNodeOutput;
+    throw new Error(`Explanation generation failed validation: ${e.message}`);
   }
-  return explainMindMapNodeFlow(input);
 }
-
-const prompt = ai.definePrompt({
-  name: 'explainMindMapNodePrompt',
-  input: { schema: ExplainMindMapNodeInputSchema },
-  output: { schema: ExplainMindMapNodeOutputSchema },
-  prompt: `You are an expert AI assistant providing detailed information for a mind map.
-
-The main topic of the mind map is: {{{mainTopic}}}.
-
-The user has clicked on the sub-category: "{{subCategoryName}}", which has a brief description: "{{subCategoryDescription}}".
-
-The user has requested the explanation at the "{{{explanationMode}}}" level.
-- If the mode is "Beginner", use very simple terms, short sentences, and analogies. Avoid jargon.
-- If the mode is "Intermediate", assume the user has some basic knowledge. Be clear and comprehensive.
-- If the mode is "Expert", provide a technical, in-depth explanation suitable for someone knowledgeable in the field.
-
-Provide a detailed explanation of "{{subCategoryName}}" with a focus on its relationship to "{{mainTopic}}", tailored to the requested explanation mode.
-Expand on the provided description and offer any additional context, required knowledge, or interesting facts.
-
-Present the information as a list of small and focused bullet points.
-`,
-});
-
-const explainMindMapNodeFlow = ai.defineFlow(
-  {
-    name: 'explainMindMapNodeFlow',
-    inputSchema: ExplainMindMapNodeInputSchema,
-    outputSchema: ExplainMindMapNodeOutputSchema,
-  },
-  async input => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);

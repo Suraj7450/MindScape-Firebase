@@ -94,7 +94,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
             const model = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-1.5-flash-latest',
                 generationConfig: {
                     responseMimeType: 'application/json'
                 }

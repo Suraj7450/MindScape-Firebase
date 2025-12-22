@@ -112,13 +112,13 @@ export default function PublicMapsPage() {
   const handleUnpublishMap = async () => {
     if (!mapToUnpublish || !user) return;
     const docRef = doc(firestore, 'publicMindmaps', mapToUnpublish);
-    
+
     // Additional check to ensure only the owner can delete
     const mapToDel = publicMaps?.find(m => m.id === mapToUnpublish);
     if (mapToDel?.originalAuthorId !== user.uid) {
-        toast({ variant: 'destructive', title: 'Permission Denied', description: 'You can only unpublish your own maps.' });
-        setMapToUnpublish(null);
-        return;
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You can only unpublish your own maps.' });
+      setMapToUnpublish(null);
+      return;
     }
 
     deleteDoc(docRef).catch(async (serverError) => {
@@ -127,7 +127,7 @@ export default function PublicMapsPage() {
     });
     setMapToUnpublish(null);
   };
-  
+
   const handleDuplicateMap = async (map: PublicMindMap) => {
     if (!user) {
       toast({
@@ -139,11 +139,11 @@ export default function PublicMapsPage() {
       return;
     }
     if (!firestore) return;
-  
+
     try {
       const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
       const { id, createdAt, updatedAt, originalAuthorId, authorName, ...plainMindMapData } = map as any;
-      
+
       const docRef = await addDoc(mindMapsCollection, {
         ...plainMindMapData,
         createdAt: serverTimestamp(),
@@ -151,12 +151,12 @@ export default function PublicMapsPage() {
         thumbnailUrl: map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`,
         thumbnailPrompt: `A cinematic 3D render of ${map.topic}, in futuristic purple tones, mind-map theme, highly detailed`
       });
-  
+
       toast({
         title: 'Map Saved!',
         description: `A copy of "${map.topic}" has been added to your "My Maps".`,
       });
-  
+
     } catch (error) {
       console.error('Failed to duplicate mind map:', error);
       toast({
@@ -197,6 +197,7 @@ export default function PublicMapsPage() {
             }
             alt={`Thumbnail for ${map.topic}`}
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover rounded-xl"
             data-ai-hint="abstract concept"
           />
@@ -205,22 +206,22 @@ export default function PublicMapsPage() {
         <h3 className="font-bold text-lg text-white mb-2 truncate" onClick={() => handleMindMapClick(map.id)}>
           {map.topic}
         </h3>
-        
+
         {!isMyMap && (
           <div className="flex items-center gap-2 mb-3">
-             <Avatar className="h-6 w-6">
-                <AvatarFallback className='text-xs bg-primary text-primary-foreground'>
-                    {map.authorName ? map.authorName.charAt(0) : <UserIcon size={14}/>}
-                </AvatarFallback>
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className='text-xs bg-primary text-primary-foreground'>
+                {map.authorName ? map.authorName.charAt(0) : <UserIcon size={14} />}
+              </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium text-gray-400">{map.authorName || 'Anonymous'}</span>
           </div>
         )}
 
         <div className="flex-grow min-h-[20px]"></div>
-        
+
         <div className="mt-auto flex justify-between items-center">
-            {updatedAt && (
+          {updatedAt && (
             <p className="text-sm text-gray-500 flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
               {formatShortDistanceToNow(updatedAt)}
@@ -229,17 +230,17 @@ export default function PublicMapsPage() {
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
             <Tooltip>
-                <TooltipTrigger asChild>
-                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-gray-400 hover:text-white"
-                    onClick={() => setSummaryInfo({ title: map.topic, summary: map.summary })}
-                  >
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Summarize</p></TooltipContent>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-gray-400 hover:text-white"
+                  onClick={() => setSummaryInfo({ title: map.topic, summary: map.summary })}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Summarize</p></TooltipContent>
             </Tooltip>
             {isMyMap ? (
               <Tooltip>
@@ -251,21 +252,21 @@ export default function PublicMapsPage() {
                 <TooltipContent><p>Unpublish</p></TooltipContent>
               </Tooltip>
             ) : (
-               <Tooltip>
+              <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button
+                  <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-gray-400 hover:text-white"
                     onClick={() => handleDuplicateMap(map)}
-                    >
+                  >
                     <Copy className="h-4 w-4" />
-                    </Button>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                    <p>Save to My Maps</p>
+                  <p>Save to My Maps</p>
                 </TooltipContent>
-                </Tooltip>
+              </Tooltip>
             )}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -275,7 +276,7 @@ export default function PublicMapsPage() {
               </TooltipTrigger>
               <TooltipContent><p>Share</p></TooltipContent>
             </Tooltip>
-        </div>
+          </div>
         </div>
       </div>
     );
@@ -307,7 +308,7 @@ export default function PublicMapsPage() {
               className="pl-10 glassmorphism"
             />
           </div>
-           <Select
+          <Select
             value={sortOption}
             onValueChange={(value) => setSortOption(value as SortOption)}
           >
@@ -381,7 +382,7 @@ export default function PublicMapsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <SummaryDialog
         isOpen={!!summaryInfo}
         onClose={() => setSummaryInfo(null)}

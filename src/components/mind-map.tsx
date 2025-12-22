@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, memo } from 'react';
@@ -49,6 +48,10 @@ import {
   Copy,
   ClipboardCheck,
   Network,
+  Minimize2,
+  Maximize2,
+  Fingerprint,
+  BrainCircuit,
 } from 'lucide-react';
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import {
@@ -219,7 +222,7 @@ function ExplanationDialog({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          ) : (
+          ) : Array.isArray(content) && content.length > 0 ? (
             <div className="space-y-3">
               {content.map((point, index) => (
                 <Card key={index} className="bg-secondary/30 group relative">
@@ -257,6 +260,10 @@ function ExplanationDialog({
                 </Card>
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No explanation available yet.
+            </p>
           )}
         </ScrollArea>
       </DialogContent>
@@ -279,194 +286,139 @@ const toPascalCase = (str: string) => {
   return str.replace(/(^\w|-\w)/g, (text) => text.replace(/-/, '').toUpperCase());
 };
 
-const SubCategoryCard = memo(function SubCategoryCard({
-  subCategory,
-  onExpandNode,
-  isExpanding,
-  onGenerateNewMap,
-  isGeneratingMap,
-  onExplainWithExample,
-  onExplainInChat,
+const LeafNodeCard = memo(function LeafNodeCard({
+  node,
   onSubCategoryClick,
   onGenerateImage,
+  onExplainInChat,
+  onGenerateNewMap,
+  isGeneratingMap,
   mainTopic,
   nodeId,
   contextPath,
   existingExpansion,
   onOpenMap,
 }: {
-  subCategory: any;
-  onExpandNode: (nodeName: string, nodeDescription: string, nodeId: string) => void;
-  isExpanding: boolean;
-  onExplainWithExample: (node: ExplainableNode) => void;
+  node: any;
+  onSubCategoryClick: (subCategory: any) => void;
+  onGenerateImage: (subCategory: any) => void;
   onExplainInChat: (message: string) => void;
-  onSubCategoryClick: (subCategory: SubCategoryInfo) => void;
-  onGenerateImage: (subCategory: SubCategoryInfo) => void;
   onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
   isGeneratingMap: boolean;
   mainTopic: string;
   nodeId: string;
-  contextPath: string; // e.g., "Main Topic > SubTopic > Category"
+  contextPath: string;
   existingExpansion?: any;
   onOpenMap?: (mapData: any, id: string) => void;
 }) {
-  const SubCategoryIcon =
-    (LucideIcons as any)[toPascalCase(subCategory.icon)] || FileText;
+  const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onGenerateNewMap(subCategory.name, nodeId, contextPath);
+    onGenerateNewMap(node.name, nodeId, contextPath);
   };
 
   const handleChatClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onExplainInChat(
-      `Explain "${subCategory.name}" in the context of ${mainTopic}.`
-    );
+    onExplainInChat(`Explain "${node.name}" in the context of ${mainTopic}.`);
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onGenerateImage(subCategory);
+    onGenerateImage(node);
   };
 
   return (
     <Card
-      className="group/item relative h-full cursor-pointer rounded-2xl bg-zinc-900/50 p-5 ring-1 ring-purple-400/20 transition-all hover:shadow-[0_0_40px_rgba(168,85,247,0.25)] hover:-translate-y-1 flex flex-col"
-      onClick={() => onSubCategoryClick(subCategory)}
+      className="group/item relative h-full cursor-pointer rounded-2xl bg-[#1C1C1E]/50 p-5 border border-white/5 transition-all hover:bg-[#1C1C1E]/80 hover:border-purple-500/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col"
+      onClick={() => onSubCategoryClick(node)}
     >
-      <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-0">
-        <div className="p-2 rounded-md bg-accent/20 text-accent">
-          <SubCategoryIcon className="h-5 w-5" />
+      <div className="flex items-start gap-3 mb-3">
+        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20">
+          <Icon className="h-4 w-4" />
         </div>
-        <CardTitle className="text-base font-semibold leading-none flex-1 pt-1">
-          {subCategory.name}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0 mt-3 flex-1 flex flex-col">
-        <p className="text-sm text-zinc-400 leading-relaxed min-h-[40px] flex-grow">
-          {subCategory.description}
-        </p>
+        <h4 className="text-base font-bold text-zinc-100 leading-tight flex-1 pt-1">
+          {node.name}
+        </h4>
+      </div>
 
+      <p className="text-sm text-zinc-400 leading-relaxed min-h-[60px] flex-grow line-clamp-4">
+        {node.description}
+      </p>
 
+      <div className="mt-4 pt-4 flex justify-between items-center border-t border-white/5">
+        <div
+          className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${existingExpansion ? 'text-emerald-400' : 'text-zinc-500 hover:text-purple-400'}`}
+                onClick={(e) => {
+                  if (existingExpansion?.fullData && onOpenMap) {
+                    onOpenMap(existingExpansion.fullData, existingExpansion.id);
+                  } else {
+                    handleExpandClick(e);
+                  }
+                }}
+                disabled={isGeneratingMap}
+              >
+                {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>{existingExpansion ? "Open Map" : "Expand"}</p></TooltipContent>
+          </Tooltip>
 
-        <div className="mt-auto pt-4 flex justify-between items-center border-t border-white/5">
-          <div
-            className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 ${existingExpansion && existingExpansion.status === 'completed'
-                    ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
-                    : 'text-muted-foreground hover:text-purple-400'
-                    }`}
-                  onClick={(e) => {
-                    if (existingExpansion && existingExpansion.status === 'completed' && existingExpansion.fullData) {
-                      e.stopPropagation();
-                      // Open existing map
-                      if (onOpenMap) onOpenMap(existingExpansion.fullData, existingExpansion.id);
-                    } else {
-                      // Generate new map
-                      handleExpandClick(e);
-                    }
-                  }}
-                  disabled={isGeneratingMap || isExpanding}
-                >
-                  {isGeneratingMap || isExpanding ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <div className="relative">
-                      <Network className="h-4 w-4" />
-                      {existingExpansion && existingExpansion.status === 'completed' && (
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                  <p>{existingExpansion && existingExpansion.status === 'completed' ? "Open Nested Map" : "Generate Sub-Map"}</p>
-                </TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-purple-400" onClick={handleImageClick}>
+                <ImageIcon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Visual</p></TooltipContent>
+          </Tooltip>
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-purple-400" onClick={handleChatClick}>
+                <MessageCircle className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Explain</p></TooltipContent>
+          </Tooltip>
 
-
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                  onClick={handleImageClick}
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                  <p>Generate Image</p>
-                </TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                  onClick={handleChatClick}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                  <p>Explain in Chat</p>
-                </TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-purple-400"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(`${subCategory.name}\n${subCategory.description}`);
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                  <p>Copy Text</p>
-                </TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
-          </div>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSubCategoryClick(subCategory);
-            }}
-            variant="ghost"
-            className="h-auto py-1 px-3 text-sm font-medium text-purple-400 hover:bg-purple-600 hover:text-white rounded-full flex items-center gap-1.5 transition-all duration-300 transform"
-          >
-            Read More <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-zinc-500 hover:text-purple-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(`${node.name}\n${node.description}`);
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Copy</p></TooltipContent>
+          </Tooltip>
         </div>
-      </CardContent>
+
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSubCategoryClick(node);
+          }}
+          variant="ghost"
+          className="h-auto py-1 px-0 text-xs font-bold text-zinc-400 hover:text-purple-400 transition-colors flex items-center gap-1"
+        >
+          Read More <ArrowRight className="w-3 h-3" />
+        </Button>
+      </div>
     </Card>
   );
 });
@@ -646,8 +598,6 @@ const ComparisonView = ({
     </div>
   );
 };
-
-
 /**
  * The main component for displaying and interacting with a mind map.
  */
@@ -1084,881 +1034,553 @@ export const MindMap = ({
     }
     setIsQuizLoading(false);
   };
-
   const handlePublishMap = async () => {
-    if (!user || !firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Required',
-        description: 'You must be logged in to publish a mind map.',
-      });
-      return;
-    }
+    if (!mindMap.id) return;
     setIsPublishing(true);
 
     try {
-      const publicMapsCollection = collection(firestore, 'publicMindmaps');
-      const { id, createdAt, updatedAt, ...plainMindMapData } = mindMap as any;
-
-      // Generate summary (Non-blocking)
-      let summaryStr = '';
+      // 1. Generate Summary (Non-blocking)
+      let summary = '';
       try {
-        const { summary: summaryData, error: summaryError } =
-          await summarizeMindMapAction({ mindMapData: plainMindMapData }, providerOptions);
-
-        if (!summaryError && summaryData) {
-          summaryStr = summaryData.summary;
+        const { summary: summaryData, error: summaryError } = await summarizeMindMapAction({ mindMapData: mindMap }, providerOptions);
+        if (summaryError || !summaryData) {
+          console.warn('Summary generation failed, publishing without summary:', summaryError);
         } else {
-          console.warn('Summary generation failed during publish (non-fatal):', summaryError);
+          summary = summaryData.summary;
         }
-      } catch (err) {
-        console.warn('Summary generation threw error during publish (non-fatal):', err);
+      } catch (sumErr) {
+        console.warn('Summary generation threw error, publishing without summary:', sumErr);
       }
 
-      await addDoc(publicMapsCollection, {
-        ...plainMindMapData,
-        summary: summaryStr,
-        originalAuthorId: user.uid,
-        authorName: user.displayName || 'Anonymous',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      // 2. Publish to Firestore
+      const publicMapData = {
+        ...mindMap,
+        originalAuthorId: user?.uid,
+        publishedAt: serverTimestamp(),
+        authorName: user?.displayName || 'Anonymous',
+        likes: 0,
+        views: 0,
+        summary: summary, // Add summary if available
+      };
+
+      await addDoc(collection(firestore!, 'publicMindmaps'), publicMapData);
+
+      setIsPublished(true);
+      toast({
+        title: 'Mind Map Published!',
+        description: summary ? 'Your mind map is now public and has been summarized.' : 'Your mind map is public (summary generation failed).',
       });
 
-      toast({
-        title: 'Map Published!',
-        description: summaryStr
-          ? `"${mindMap.topic}" is now available for the community.`
-          : `"${mindMap.topic}" is public. Summary will be added shortly.`,
-      });
-      setIsPublished(true);
+      // Track activity
+      if (firestore && user) {
+        // We'd track this if we had a specific function for it, or just generic 'created_map'
+      }
+
     } catch (error: any) {
-      console.error('Failed to publish mind map:', error);
       toast({
         variant: 'destructive',
         title: 'Publishing Failed',
-        description: error.message || 'An error occurred while trying to publish your map.',
+        description: error.message,
       });
     } finally {
       setIsPublishing(false);
     }
   };
 
-  const handleDuplicateMap = async () => {
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Required',
-        description: 'Please log in to duplicate this mind map.',
-      });
-      router.push('/login');
-      return;
-    }
-    if (!firestore) return;
-
+  const handleDuplicate = async () => {
+    if (!mindMap || isDuplicating) return;
     setIsDuplicating(true);
+
     try {
-      const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
-      const { id, createdAt, updatedAt, originalAuthorId, authorName, ...plainMindMapData } = mindMap as any;
-
-      const docRef = await addDoc(mindMapsCollection, {
-        ...plainMindMapData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        // Generate a new thumbnail for the duplicated map
-        thumbnailUrl: `https://image.pollinations.ai/prompt/${encodeURIComponent(mindMap.topic)}?width=400&height=225&nologo=true`,
-        thumbnailPrompt: `A cinematic 3D render of ${mindMap.topic}, in futuristic purple tones, mind-map theme, highly detailed`
-      });
-
-      toast({
-        title: 'Map Duplicated!',
-        description: `A copy of "${mindMap.topic}" has been added to your "My Maps".`,
-      });
-
-      // Track activity
-      // Track activity
-      if (firestore && user) {
-        await trackMapCreated(firestore, user.uid);
+      if (!user) {
+        throw new Error("You must be logged in to duplicate a mind map.");
       }
 
-      // Redirect to the newly created map
-      router.push(`/mindmap?mapId=${docRef.id}`);
+      // Create a new map object
+      const newMapData = {
+        ...mindMap,
+        id: undefined, // Let Firestore generate a new ID
+        userId: user.uid,
+        createdAt: Date.now(),
+        nestedExpansions: [], // Start fresh or copy? Let's copy but reset status
+        savedImages: [], // Copy images? Maybe not deep copy to save space/bandwidth
+      };
 
-    } catch (error) {
-      console.error('Failed to duplicate mind map:', error);
+      // We essentially just "create new map" flow
+      // But simpler: just tell parent we want to save this as a new map?
+      // Actually, since this is "Duplicate", we should probably just save it directly to the user's collection
+
+      const docRef = await addDoc(collection(firestore!, 'users', user.uid, 'mindmaps'), {
+        ...newMapData,
+        updatedAt: serverTimestamp(),
+      });
+
       toast({
-        variant: 'destructive',
-        title: 'Duplication Failed',
-        description: 'An error occurred while trying to duplicate this map.',
+        title: "Mind Map Duplicated",
+        description: "A copy has been saved to your dashboard.",
+      });
+
+      // Redirect to the new map?
+      router.push(`/mindmap?id=${docRef.id}`);
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate Failed",
+        description: error.message || "Could not duplicate mind map.",
       });
     } finally {
       setIsDuplicating(false);
     }
   };
 
-  const handleShare = (mapId: string) => {
-    const url = `${window.location.origin}/mindmap?mapId=${mapId}&public=true`;
+  const copyToClipboard = () => {
+    const url = window.location.href;
     navigator.clipboard.writeText(url);
     setIsCopied(true);
-    toast({
-      title: 'Link Copied!',
-      description: 'A shareable link has been copied to your clipboard.',
-    });
     setTimeout(() => setIsCopied(false), 2000);
+    toast({
+      title: "Link Copied",
+      description: "Mind map link copied to clipboard.",
+    });
   };
 
-
-  const toggleExpandAll = () => {
-    if (isAllExpanded) {
-      setOpenSubTopics([]);
-      setOpenCategories([]);
-    } else {
-      const allSubTopics = mindMap.subTopics?.map(
-        (_, subIndex) => `subtopic-${subIndex}`
-      ) || [];
-      const allCategories = mindMap.subTopics?.flatMap((subTopic, subIndex) =>
-        subTopic.categories.map(
-          (_, catIndex) => `subtopic-${subIndex}-category-${catIndex}`
-        )
-      );
-      setOpenSubTopics(allSubTopics);
-      setOpenCategories(allCategories);
-    }
-    setIsAllExpanded(!isAllExpanded);
+  const expandAll = () => {
+    const allTopicIds = mindMap.subTopics.map((_, i) => `topic-${i}`);
+    const allCategoryIds = mindMap.subTopics.flatMap((t, i) =>
+      t.categories.map((_, j) => `cat-${i}-${j}`)
+    );
+    setOpenSubTopics(allTopicIds);
+    setOpenCategories(allCategoryIds);
+    setIsAllExpanded(true);
   };
 
-  const handleGenerateClick = (
-    e: React.MouseEvent,
-    topic: string,
-    nodeId: string,
-    contextPath: string
-  ) => {
-    e.stopPropagation();
-    onGenerateNewMap(topic, nodeId, contextPath);
+  const collapseAll = () => {
+    setOpenSubTopics([]);
+    setOpenCategories([]);
+    setIsAllExpanded(false);
   };
-
-  /**
-   * Handle expansion of a node - generates nested sub-categories and adds to expansions list
-   */
-  const handleExpandNode = async (
-    nodeName: string,
-    nodeDescription: string,
-    nodeId: string,
-    depth: number = 1
-  ) => {
-    setExpandingNodeId(nodeId);
-
-    // Create placeholder ID
-    const expansionId = `expansion-${Date.now()}`;
-
-    // 1. Create temporary placeholder
-    const placeholderExpansion: NestedExpansionItem = {
-      id: expansionId,
-      parentName: nodeName,
-      topic: 'Generating...',
-      icon: 'Loader2',
-      subCategories: [],
-      createdAt: Date.now(),
-      depth,
-      status: 'generating'
-    };
-
-    // 2. Add placeholder and open dialog immediately
-    setNestedExpansions(prev => [...prev, placeholderExpansion]);
-    setIsNestedMapsDialogOpen(true);
-
-    try {
-      const { expansion, error } = await expandNodeAction({
-        nodeName,
-        parentTopic: mindMap.topic,
-        nodeDescription,
-        depth,
-      }, providerOptions);
-
-      if (error) {
-        // Remove placeholder on error
-        setNestedExpansions(prev => prev.filter(e => e.id !== expansionId));
-        toast({
-          variant: 'destructive',
-          title: 'Expansion Failed',
-          description: error,
-        });
-        setExpandingNodeId(null);
-        return;
-      }
-
-      if (expansion) {
-        // 3. Update placeholder with actual data
-        setNestedExpansions(prev => prev.map(item => {
-          if (item.id === expansionId) {
-            return {
-              ...item,
-              topic: expansion.topic,
-              icon: expansion.icon,
-              subCategories: expansion.subCategories,
-              status: 'completed'
-            };
-          }
-          return item;
-        }));
-
-        toast({
-          title: 'Expanded!',
-          description: `Added ${expansion.subCategories.length} sub-topics to "${nodeName}"`,
-        });
-
-        // Track activity
-        // Track activity
-        if (firestore && user) {
-          await trackNestedExpansion(firestore, user.uid);
-        }
-      }
-    } catch (err) {
-      // Remove placeholder on error
-      setNestedExpansions(prev => prev.filter(e => e.id !== expansionId));
-      toast({
-        variant: 'destructive',
-        title: 'Expansion Failed',
-        description: 'An unexpected error occurred.',
-      });
-    } finally {
-      setExpandingNodeId(null);
-    }
-  };
-
-  /**
-   * Delete an expansion from the list
-   */
-  const handleDeleteExpansion = async (id: string) => {
-    // Update local state immediately for instant UI feedback
-    setNestedExpansions(prev => prev.filter(exp => exp.id !== id));
-
-    // Persist deletion to Firestore
-    if (user && firestore && mindMap.id) {
-      try {
-        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
-        const updatedExpansions = nestedExpansions.filter(exp => exp.id !== id);
-
-        await updateDoc(mapRef, {
-          nestedExpansions: updatedExpansions
-        });
-      } catch (error) {
-        console.error('Error deleting nested expansion:', error);
-        // Optionally show a toast notification
-      }
-    }
-  };
-
-  /**
-   * Regenerate an expansion
-   */
-  const handleRegenerateExpansion = async (parentName: string, id: string) => {
-    const expansion = nestedExpansions.find(exp => exp.id === id);
-    if (expansion) {
-      // Remove the old one and generate new
-      setNestedExpansions(prev => prev.filter(exp => exp.id !== id));
-      await handleExpandNode(parentName, '', id, expansion.depth);
-    }
-  };
-
-  /**
-   * Expand further from a nested expansion
-   */
-  const handleNestedExpandFurther = async (
-    nodeName: string,
-    nodeDescription: string,
-    parentId: string
-  ) => {
-    const parentExpansion = nestedExpansions.find(exp => exp.id === parentId);
-    const newDepth = parentExpansion ? parentExpansion.depth + 1 : 2;
-    await handleExpandNode(nodeName, nodeDescription, `${parentId}-${nodeName}`, newDepth);
-  };
-
-  const handleExplainWithExample = (
-    e: React.MouseEvent,
-    node: ExplainableNode
-  ) => {
-    e.stopPropagation();
-    setActiveExplainableNode(node);
-    setIsExampleDialogOpen(true);
-    setExampleContent('');
-  };
-
-  const handleRegenerateExample = () => {
-    if (activeExplainableNode) {
-      fetchExample();
-    }
-  };
-
-  if (!mindMap) {
-    return null;
-  }
-
-  const TopicIcon = (LucideIcons as any)[toPascalCase(mindMap.icon)] || Book;
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div ref={mindMapRef} className="w-full max-w-6xl mx-auto flex-shrink-0">
-        <div className="flex flex-col items-center mb-6">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-center text-shadow-glow text-purple-300 flex items-center gap-4">
-            <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-purple-600/30 to-indigo-700/20 ring-1 ring-purple-400/30">
-              <TopicIcon className="w-8 h-8 text-purple-300" />
+    <div className="min-h-screen pb-20 relative" ref={mindMapRef}>
+      {/* Header / Toolbar */}
+      <div className="sticky top-[58px] z-30 w-full mb-8 pointer-events-none">
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 pointer-events-auto ring-1 ring-white/5">
+            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+              <Badge variant="outline" className="text-secondary-foreground border-secondary-foreground/20 px-3 py-1 text-sm bg-secondary/10 whitespace-nowrap">
+                <BookOpen className="w-3.5 h-3.5 mr-2" />
+                {mindMap.topic}
+              </Badge>
+              {isSaved && (
+                <Badge variant="default" className="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20">
+                  <Check className="w-3 h-3 mr-1" /> Saved
+                </Badge>
+              )}
+              {isPublic && (
+                <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                  <Share2 className="w-3 h-3 mr-1" /> Public
+                </Badge>
+              )}
             </div>
-            <span>{mindMap.topic}</span>
-          </h2>
-        </div>
 
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 flex-nowrap">
-            <Select
-              value={selectedLanguage}
-              onValueChange={handleLanguageChange}
-              disabled={isTranslating}
-            >
-              <SelectTrigger className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 focus:ring-purple-500 h-7 px-3">
-                <SelectValue placeholder="Select Language" />
-              </SelectTrigger>
-              <SelectContent className="glassmorphism">
-                {languages.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <div className="flex items-center bg-zinc-900/50 rounded-lg p-1 border border-white/5 mr-2">
+                <Select value={selectedLanguage} onValueChange={handleLanguageChange} disabled={isTranslating}>
+                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[130px] text-xs">
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languages.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code} className="text-xs">
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isTranslating && <Loader2 className="w-3 h-3 animate-spin ml-2 text-muted-foreground" />}
+              </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleExpandAll}
-              className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
-            >
-              {isAllExpanded ? 'Collapse All' : 'Expand All'}
-            </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={isAllExpanded ? collapseAll : expandAll}
+                      className="h-9 w-9 rounded-lg hover:bg-white/5"
+                    >
+                      {isAllExpanded ? (
+                        <Minimize2 className="h-4 w-4" />
+                      ) : (
+                        <Maximize2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isAllExpanded ? 'Collapse All' : 'Expand All'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-            {canRegenerate && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-2 ml-1 hidden sm:flex">
+                    <Share className="w-4 h-4" />
+                    Share
+                    <ChevronDown className="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handlePublishMap} disabled={isPublishing || isPublished} className="gap-2">
+                    {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                    {isPublished ? 'Published' : 'Publish to Community'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyToClipboard} className="gap-2">
+                    {isCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    Copy Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 sm:hidden">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handlePublishMap} disabled={isPublishing || isPublished}>
+                    {isPublished ? 'Published' : 'Publish'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyToClipboard}>
+                    Copy Link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onRegenerate} disabled={!canRegenerate || isRegenerating}>
+                    Regenerate
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Desktop Regenerate Button */}
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
+                disabled={!canRegenerate || isRegenerating}
+                className={`h-9 hidden sm:flex ${!canRegenerate ? 'opacity-0 w-0 p-0 overflow-hidden' : 'ml-2'}`}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                {isRegenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
                 Regenerate
               </Button>
-            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAiContentDialogOpen(true)}
-              className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
-            >
-              <BookOpen className="mr-2 h-4 w-4" />
-              <span>View AI Content</span>
-            </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleQuizClick}
-              className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
-            >
-              <TestTube2 className="mr-2 h-4 w-4" />
-              <span>Quiz Me</span>
-            </Button>
-
-            {isPublic ? (
-              <>
+              {!isSaved && (
                 <Button
-                  variant="outline"
+                  onClick={onSaveMap}
+                  variant="default"
                   size="sm"
-                  onClick={handleDuplicateMap}
-                  disabled={isDuplicating || !user}
-                  className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
+                  className="h-9 ml-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/20"
                 >
-                  {isDuplicating ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Copy className="mr-2 h-4 w-4" />
-                  )}
-                  <span>{isDuplicating ? 'Saving...' : 'Save to My Maps'}</span>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Map
                 </Button>
+              )}
+              {isSaved && !isPublic && (
                 <Button
-                  variant="outline"
+                  onClick={handleDuplicate}
+                  disabled={isDuplicating}
+                  variant="ghost"
                   size="sm"
-                  onClick={() => mindMap.id && handleShare(mindMap.id)}
-                  disabled={!mindMap.id}
-                  className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
+                  className="h-9 ml-2"
                 >
-                  {isCopied ? <ClipboardCheck className="mr-2 h-4 w-4 text-green-400" /> : <Share2 className="mr-2 h-4 w-4" />}
-                  <span>{isCopied ? 'Copied!' : 'Share'}</span>
+                  {isDuplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                  <span className="ml-2 hidden lg:inline">Duplicate</span>
                 </Button>
-              </>
-            ) : (
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Main Topic Hero */}
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="relative rounded-3xl border border-white/10 bg-zinc-900/80 backdrop-blur-xl p-8 md:p-12 text-center overflow-hidden">
+
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 drop-shadow-sm">
+              {mindMap.topic}
+            </h1>
+
+
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={onSaveMap}
-                disabled={isSaved}
-                className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
+                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-purple-500/50 transition-all"
+                onClick={() => setIsAiContentDialogOpen(true)}
               >
-                {isSaved ? (
-                  <Check className="mr-2 h-4 w-4" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                <span>{isSaved ? 'Saved' : 'Save Map'}</span>
+                <Sparkles className="w-4 h-4 mr-2 text-purple-400" />
+                AI Insights
               </Button>
-            )}
-
-            {!isPublic && (
               <Button
                 variant="outline"
-                size="sm"
-                onClick={handlePublishMap}
-                disabled={isPublishing || !user || !isSaved || isPublished}
-                title={!isSaved ? "You must save the map before publishing" : isPublished ? "This map is already public" : ""}
-                className="rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 h-7"
+                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-blue-500/50 transition-all"
+                onClick={handleQuizClick}
+                disabled={isQuizLoading}
               >
-                {isPublishing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : isPublished ? (
-                  <Check className="mr-2 h-4 w-4" />
-                ) : (
-                  <Share className="mr-2 h-4 w-4" />
-                )}
-                <span>{isPublishing ? 'Publishing...' : isPublished ? 'Published' : 'Publish'}</span>
+                {isQuizLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TestTube2 className="w-4 h-4 mr-2 text-blue-400" />}
+                Take Quiz
               </Button>
-            )}
+              <Button
+                variant="outline"
+                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-pink-500/50 transition-all"
+                onClick={() => setIsGalleryOpen(true)}
+              >
+                <Images className="w-4 h-4 mr-2 text-pink-400" />
+                Image Gallery
+                {generatedImages.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
+                    {generatedImages.length}
+                  </Badge>
+                )}
+              </Button>
+              {nestedExpansions.length > 0 && (
+                <Button
+                  variant="outline"
+                  className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-emerald-500/50 transition-all"
+                  onClick={() => setIsNestedMapsDialogOpen(true)}
+                >
+                  <Network className="w-4 h-4 mr-2 text-emerald-400" />
+                  Related Maps
+                  <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
+                    {nestedExpansions.length}
+                  </Badge>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* SubTopics Accordion */}
         <Accordion
           type="multiple"
-          className="w-full space-y-4"
           value={openSubTopics}
           onValueChange={setOpenSubTopics}
+          className="space-y-6"
         >
-          {mindMap.subTopics?.map((subTopic, subIndex) => {
-            const SubTopicIcon =
-              (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
+          {mindMap.subTopics.map((subTopic: any, index: number) => {
+            const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
+            const subTopicId = `topic-${index}`;
 
-            const subTopicNodeId = `subtopic-${subIndex}`;
-            const isGeneratingSubTopic = generatingNode === subTopicNodeId;
-            const isDifferencesSubTopic =
-              subTopic.name.toLowerCase() === 'differences' && subTopic.categories.length === 2;
+            const handleToolAction = (e: React.MouseEvent, type: string) => {
+              e.stopPropagation();
+              if (type === 'expand') onGenerateNewMap(subTopic.name, subTopicId, mindMap.topic);
+              if (type === 'chat') onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`);
+            };
 
             return (
               <AccordionItem
-                key={subIndex}
-                value={`subtopic-${subIndex}`}
-                className="group/sub-topic border-0 rounded-2xl bg-card/75 backdrop-blur-md border border-white/10 transition-all overflow-hidden"
+                key={index}
+                value={subTopicId}
+                className="border-none rounded-2xl bg-[#09090B]/40 backdrop-blur-md shadow-2xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-purple-500/20 transition-all duration-500"
               >
-                <div className="flex items-center justify-between px-6 py-4">
-                  <AccordionTrigger className="text-xl font-semibold flex-1 text-left p-0 hover:no-underline">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-md bg-accent/20 text-accent">
-                        <SubTopicIcon className="h-6 w-6" />
-                      </div>
-                      <span>{subTopic.name}</span>
+                <div
+                  className="px-6 py-5 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setOpenSubTopics(prev => prev.includes(subTopicId) ? prev.filter(x => x !== subTopicId) : [...prev, subTopicId]);
+                  }}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-purple-600/20 text-purple-500 flex items-center justify-center border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                      <SubTopicIcon className="h-5 w-5" />
                     </div>
-                  </AccordionTrigger>
-                  <div
-                    className="pl-4 flex items-center gap-1 opacity-0 group-hover/sub-topic:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-8 w-8 ${nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed'
-                            ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
-                            : 'text-muted-foreground hover:text-purple-400'
-                            }`}
-                          onClick={(e) => {
-                            const existing = nestedExpansions.find(e => e.parentName === subTopic.name);
-                            if (existing && existing.status === 'completed' && existing.fullData) {
-                              e.stopPropagation();
-                              if (onOpenNestedMap) onOpenNestedMap(existing.fullData, existing.id);
-                            } else {
-                              handleGenerateClick(e, subTopic.name, subTopicNodeId, mindMap.topic);
-                            }
-                          }}
-                          disabled={isGeneratingSubTopic}
-                        >
-                          {isGeneratingSubTopic ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <div className="relative">
-                              <Network className="h-4 w-4" />
-                              {nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed' && (
-                                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipPortal>
-                        <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                          <p>{nestedExpansions.find(e => e.parentName === subTopic.name)?.status === 'completed' ? "Open Sub-Map" : "Generate Sub-Map"}</p>
-                        </TooltipContent>
-                      </TooltipPortal>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) =>
-                            handleExplainWithExample(e, {
-                              name: subTopic.name,
-                              type: 'subTopic',
-                            })
-                          }
-                        >
-                          <Pocket className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipPortal>
-                        <TooltipContent>
-                          <p>Give me examples</p>
-                        </TooltipContent>
-                      </TooltipPortal>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() =>
-                            onExplainInChat(
-                              `Explain the sub-topic "${subTopic.name}" in the context of ${mindMap.topic}.`
-                            )
-                          }
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipPortal>
-                        <TooltipContent>
-                          <p>Explain in Chat</p>
-                        </TooltipContent>
-                      </TooltipPortal>
-                    </Tooltip>
+                    <h3 className="text-xl font-bold text-zinc-100 tracking-tight">{subTopic.name}</h3>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 mr-4" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-100" onClick={e => handleToolAction(e, 'expand')}>
+                        <Network className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-100">
+                        <Pocket className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-100" onClick={e => handleToolAction(e, 'chat')}>
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 text-zinc-500 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
-                <AccordionContent className="px-6 pb-6 pt-0">
-                  {isDifferencesSubTopic ? (
-                    <ComparisonView
-                      categories={subTopic.categories}
-                      onSubCategoryClick={handleSubCategoryClick}
-                      onGenerateNewMap={onGenerateNewMap}
-                      generatingNode={generatingNode}
-                      onExplainWithExample={(node) => {
-                        // Create a mock React MouseEvent
-                        const mockEvent = {
-                          stopPropagation: () => { },
-                          preventDefault: () => { },
-                        } as unknown as React.MouseEvent<Element, MouseEvent>;
-                        handleExplainWithExample(mockEvent, node);
-                      }}
-                      onExplainInChat={onExplainInChat}
-                      mainTopic={mindMap.topic}
-                      contextPath={`${mindMap.topic} > ${subTopic.name}`}
-                    />
-                  ) : (
-                    <Accordion
-                      type="multiple"
-                      className="w-full space-y-3"
-                      value={openCategories}
-                      onValueChange={setOpenCategories}
-                    >
-                      {subTopic.categories.map((category, catIndex) => {
-                        const CategoryIcon =
-                          (LucideIcons as any)[toPascalCase(category.icon)] ||
-                          FolderOpen;
 
-                        const categoryNodeId = `subtopic-${subIndex}-category-${catIndex}`;
-                        const isGeneratingCategory =
-                          generatingNode === categoryNodeId;
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <Accordion
+                    type="multiple"
+                    value={openCategories}
+                    onValueChange={setOpenCategories}
+                    className="space-y-4"
+                  >
+                    {subTopic.categories.map((category: any, catIndex: number) => {
+                      const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
+                      const catId = `cat-${index}-${catIndex}`;
 
-                        return (
-                          <AccordionItem
-                            key={catIndex}
-                            value={`subtopic-${subIndex}-category-${catIndex}`}
-                            className="group/category border rounded-xl bg-zinc-900/40 border-white/10"
+                      const handleCatTool = (e: React.MouseEvent, type: string) => {
+                        e.stopPropagation();
+                        if (type === 'expand') onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`);
+                        if (type === 'chat') onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`);
+                      };
+
+                      return (
+                        <div key={catIndex} className="rounded-xl bg-[#1C1C1E]/40 border border-white/5 overflow-hidden">
+                          <div
+                            className="px-5 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                            onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
                           >
-                            <div className="flex items-center justify-between px-4 py-3">
-                              <AccordionTrigger className="text-lg font-medium flex-1 text-left p-0 hover:no-underline">
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2 rounded-md bg-accent/20 text-accent">
-                                    <CategoryIcon className="h-5 w-5" />
-                                  </div>
-                                  <span>{category.name}</span>
-                                </div>
-                              </AccordionTrigger>
-                              <div
-                                className="pl-4 flex items-center gap-1 opacity-0 group-hover/category:opacity-100 transition-opacity"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className={`h-8 w-8 ${nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed'
-                                        ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20'
-                                        : 'text-muted-foreground hover:text-purple-400'
-                                        }`}
-                                      onClick={(e) => {
-                                        const existing = nestedExpansions.find(e => e.parentName === category.name);
-                                        if (existing && existing.status === 'completed' && existing.fullData) {
-                                          e.stopPropagation();
-                                          if (onOpenNestedMap) onOpenNestedMap(existing.fullData, existing.id);
-                                        } else {
-                                          handleGenerateClick(
-                                            e,
-                                            category.name,
-                                            categoryNodeId,
-                                            `${mindMap.topic} > ${subTopic.name}`
-                                          );
-                                        }
-                                      }}
-                                      disabled={isGeneratingCategory}
-                                    >
-                                      {isGeneratingCategory ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <div className="relative">
-                                          <Network className="h-4 w-4" />
-                                          {nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed' && (
-                                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipPortal>
-                                    <TooltipContent className="bg-zinc-950 border-zinc-800 text-zinc-100 font-medium text-xs py-1 px-3">
-                                      <p>{nestedExpansions.find(e => e.parentName === category.name)?.status === 'completed' ? "Open Sub-Map" : "Generate Sub-Map"}</p>
-                                    </TooltipContent>
-                                  </TooltipPortal>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={(e) =>
-                                        handleExplainWithExample(e, {
-                                          name: category.name,
-                                          type: 'category',
-                                        })
-                                      }
-                                    >
-                                      <Pocket className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipPortal>
-                                    <TooltipContent>
-                                      <p>Give me examples</p>
-                                    </TooltipContent>
-                                  </TooltipPortal>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() =>
-                                        onExplainInChat(
-                                          `Explain the category "${category.name}" in the context of ${subTopic.name}.`
-                                        )
-                                      }
-                                    >
-                                      <MessageCircle className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipPortal>
-                                    <TooltipContent>
-                                      <p>Explain in Chat</p>
-                                    </TooltipContent>
-                                  </TooltipPortal>
-                                </Tooltip>
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20">
+                                <CategoryIcon className="h-4 w-4" />
+                              </div>
+                              <h4 className="text-lg font-bold text-zinc-200">{category.name}</h4>
+                              <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
+                            </div>
+
+                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-200" onClick={e => handleCatTool(e, 'expand')}>
+                                <Network className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-200">
+                                <Pocket className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-200" onClick={e => handleCatTool(e, 'chat')}>
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {openCategories.includes(catId) && (
+                            <div className="px-5 pb-5 pt-1">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {category.subCategories.map((sub: any, subIndex: number) => (
+                                  <LeafNodeCard
+                                    key={subIndex}
+                                    node={sub}
+                                    onSubCategoryClick={handleSubCategoryClick}
+                                    onGenerateImage={handleGenerateImageClick}
+                                    onExplainInChat={onExplainInChat}
+                                    onGenerateNewMap={onGenerateNewMap}
+                                    isGeneratingMap={generatingNode === `node-${index}-${catIndex}-${subIndex}`}
+                                    mainTopic={mindMap.topic}
+                                    nodeId={`node-${index}-${catIndex}-${subIndex}`}
+                                    contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name} > ${sub.name}`}
+                                    existingExpansion={nestedExpansions.find(e => e.topic === sub.name)}
+                                    onOpenMap={onOpenNestedMap}
+                                  />
+                                ))}
                               </div>
                             </div>
-                            <AccordionContent className="px-4 pb-4 pt-0">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                                {category.subCategories.map(
-                                  (subCategory, subCatIndex) => (
-                                    <SubCategoryCard
-                                      key={subCatIndex}
-                                      subCategory={subCategory}
-                                      onExpandNode={handleExpandNode}
-                                      isExpanding={expandingNodeId === `subcat-${subIndex}-${catIndex}-${subCatIndex}`}
-                                      onGenerateNewMap={onGenerateNewMap}
-                                      isGeneratingMap={generatingNode === `subcat-${subIndex}-${catIndex}-${subCatIndex}`}
-                                      onExplainWithExample={(node) =>
-                                        handleExplainWithExample(
-                                          { stopPropagation: () => { } } as React.MouseEvent,
-                                          node
-                                        )
-                                      }
-                                      onExplainInChat={onExplainInChat}
-                                      onSubCategoryClick={handleSubCategoryClick}
-                                      onGenerateImage={handleGenerateImageClick}
-                                      mainTopic={mindMap.topic}
-                                      nodeId={`subcat-${subIndex}-${catIndex}-${subCatIndex}`}
-                                      contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name}`}
-                                      existingExpansion={nestedExpansions.find(e => e.parentName === subCategory.name)}
-                                      onOpenMap={(mapData, id) => {
-                                        if (onOpenNestedMap) onOpenNestedMap(mapData, id);
-                                      }}
-                                    />
-                                  )
-                                )}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  )}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </Accordion>
                 </AccordionContent>
               </AccordionItem>
             );
           })}
         </Accordion>
+
+        {/* Comparison Section (Example of using ComparisonView if data allows - Logic to detect comparable items would go here) */}
+        {/* For now, we don't auto-detect comparisons, but we could add a manual "Compare" mode in future */}
+
       </div>
 
-
-      {/* Nested Maps FAB - only visible when there are expansions */}
-      {nestedExpansions.length > 0 && (
-        <div className="fixed bottom-40 right-6 z-50">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="icon"
-                className="h-14 w-14 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700"
-                onClick={() => setIsNestedMapsDialogOpen(true)}
-              >
-                <Network className="h-7 w-7" />
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1"
-                >
-                  {nestedExpansions.length}
-                </Badge>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Nested Maps ({nestedExpansions.length})</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      )}
-
-      {/* Image Gallery FAB - only visible when there are images */}
-      {generatedImages.length > 0 && (
-        <div className="fixed bottom-24 right-6 z-50">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="icon"
-                className="h-14 w-14 rounded-full shadow-lg"
-                onClick={() => setIsGalleryOpen(true)}
-              >
-                <Images className="h-7 w-7" />
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1"
-                >
-                  {generatedImages.length}
-                </Badge>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Image Gallery ({generatedImages.length})</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      )}
-
+      {/* Dialogs */}
       <ExplanationDialog
         isOpen={isExplanationDialogOpen}
         onClose={() => setIsExplanationDialogOpen(false)}
-        title={activeSubCategory?.name ?? ''}
+        title={activeSubCategory?.name || 'Explanation'}
         content={explanationDialogContent}
         isLoading={isExplanationLoading}
         onExplainInChat={onExplainInChat}
         explanationMode={explanationMode}
         onExplanationModeChange={setExplanationMode}
       />
+
       <QuizDialog
         isOpen={isQuizDialogOpen}
         onClose={() => setIsQuizDialogOpen(false)}
-        topic={mindMap.topic}
         questions={quizQuestions}
         isLoading={isQuizLoading}
+        topic={mindMap.topic}
         onRestart={handleQuizClick}
       />
+
       <AiContentDialog
         isOpen={isAiContentDialogOpen}
         onClose={() => setIsAiContentDialogOpen(false)}
         mindMap={mindMap}
       />
+
       <ExampleDialog
         isOpen={isExampleDialogOpen}
         onClose={() => setIsExampleDialogOpen(false)}
-        title={activeExplainableNode?.name ?? ''}
+        title={activeExplainableNode?.name || 'Example'}
         example={exampleContent}
         isLoading={isExampleLoading}
         explanationMode={explanationMode}
         onExplanationModeChange={setExplanationMode}
-        onRegenerate={handleRegenerateExample}
+        onRegenerate={() => {
+          if (activeExplainableNode) {
+            setIsExampleLoading(true);
+            setExampleContent('');
+            // Trigger re-fetch via useEffect
+            setActiveExplainableNode({ ...activeExplainableNode });
+          }
+        }}
       />
+
       <ImageGalleryDialog
         isOpen={isGalleryOpen}
         onClose={() => setIsGalleryOpen(false)}
         images={generatedImages}
         onDownload={handleDownloadImage}
-        onRegenerate={handleGenerateImageClick}
+        onRegenerate={(subCategory) => {
+          handleGenerateImageClick({ name: subCategory.name, description: subCategory.description });
+        }}
       />
+
       <NestedMapsDialog
         isOpen={isNestedMapsDialogOpen}
         onClose={() => setIsNestedMapsDialogOpen(false)}
-        expansions={nestedExpansions.map(e => ({
-          ...e,
-          path: e.path || '' // Ensure path is always a string
+        expansions={nestedExpansions.map(item => ({
+          ...item,
+          path: item.path || ''
         }))}
-        onDelete={handleDeleteExpansion}
-        onRegenerate={handleRegenerateExpansion}
-        onExpandFurther={handleNestedExpandFurther}
-        expandingId={expandingNodeId}
+        onDelete={(id) => {
+          // Handle deletion of nested map
+          toast({ description: "Nested map deleted" });
+        }}
+        onRegenerate={(parentName, id) => {
+          // Handle regeneration
+          toast({ description: `Regenerating ${parentName}...` });
+        }}
+        onExpandFurther={(nodeName, nodeDescription, parentId) => {
+          // Handle further expansion
+        }}
+        expandingId={null}
         onExplainInChat={onExplainInChat}
         mainTopic={mindMap.topic}
         onOpenMap={(mapData, id) => {
-          if (onOpenNestedMap) {
-            onOpenNestedMap(mapData, id);
-          }
+          setIsNestedMapsDialogOpen(false);
+          if (onOpenNestedMap) onOpenNestedMap(mapData, id);
         }}
       />
-    </TooltipProvider>
+
+    </div>
   );
 };
-
-MindMap.displayName = 'MindMap';

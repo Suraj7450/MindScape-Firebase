@@ -78,19 +78,21 @@ const expandNodeFlow = ai.defineFlow(
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
+// Simplified to always use client-dispatcher
 export async function expandNode(
   input: ExpandNodeInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExpandNodeOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    // Manual prompt construction
-    const manualPrompt = `You are an expert educator and content synthesizer. Your task is to expand a specific node within a mind map by generating detailed sub-categories.
+  const { provider, apiKey, nodeName, parentTopic, nodeDescription, depth } = input;
 
-**Node to Expand:** "${input.nodeName}"
-**Parent Topic:** "${input.parentTopic}"
-${input.nodeDescription ? `**Node Description:** "${input.nodeDescription}"` : ''}
-**Current Depth:** ${input.depth}
+  // Manual prompt construction
+  const manualPrompt = `You are an expert educator and content synthesizer. Your task is to expand a specific node within a mind map by generating detailed sub-categories.
 
-Generate **4-6 detailed sub-categories** that dive deeper into "${input.nodeName}". Each sub-category should:
+**Node to Expand:** "${nodeName}"
+**Parent Topic:** "${parentTopic}"
+${nodeDescription ? `**Node Description:** "${nodeDescription}"` : ''}
+**Current Depth:** ${depth}
+
+Generate **4-6 detailed sub-categories** that dive deeper into "${nodeName}". Each sub-category should:
 1. Explore a specific aspect, concept, or component of the node
 2. Be educational and informative
 3. Provide value for someone learning about this topic
@@ -106,7 +108,7 @@ Generate **4-6 detailed sub-categories** that dive deeper into "${input.nodeName
 
 Return a JSON object with:
 {
-  "topic": "${input.nodeName}",
+  "topic": "${nodeName}",
   "icon": "appropriate-icon",
   "subCategories": [
     {
@@ -119,12 +121,23 @@ Return a JSON object with:
   ]
 }`;
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt: "System: XML Schema compliant JSON generator",
-      userPrompt: manualPrompt
-    });
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt: "System: XML Schema compliant JSON generator",
+    userPrompt: manualPrompt
+  });
+
+  try {
+    const validated = NestedExpansionOutputSchema.parse(rawResult);
+    return validated;
   }
-  return expandNodeFlow(input);
+  catch (e: any) {
+    console.error("Schema validation failed:", e);
+    // Best effort return
+    if (rawResult && rawResult.topic && Array.isArray(rawResult.subCategories)) {
+      return rawResult as ExpandNodeOutput;
+    }
+    throw new Error(`Expansion generation failed validation: ${e.message}`);
+  }
 }

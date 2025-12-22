@@ -29,12 +29,13 @@ export type TranslateMindMapOutput = z.infer<
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
+// Simplified to always use client-dispatcher
 export async function translateMindMap(
   input: TranslateMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<TranslateMindMapOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
-    const systemPrompt = `You are an expert translator. Translate the provided mind map JSON data into the target language: ${input.targetLang}.
+  const { provider, apiKey, mindMapData, targetLang } = input;
+  const mindMapDataString = JSON.stringify(mindMapData, null, 2);
+  const systemPrompt = `You are an expert translator. Translate the provided mind map JSON data into the target language: ${targetLang}.
   
     - Translate all user-facing strings: 'topic', 'name', and 'description'.
     - Do NOT translate the 'icon' fields. Keep them as they are.
@@ -43,18 +44,28 @@ export async function translateMindMap(
     Original Mind Map Data:
     ${mindMapDataString}
   
-    Translate this into ${input.targetLang} and return only the translated JSON object.`;
+    Translate this into ${targetLang} and return only the translated JSON object.`;
 
-    const userPrompt = "Generate the translated JSON.";
+  const userPrompt = "Generate the translated JSON.";
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt,
-      userPrompt
-    });
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt,
+    userPrompt
+  });
+
+  try {
+    // Relaxed validation for translation since it should match input structure
+    const validated = TranslateMindMapOutputSchema.parse(rawResult);
+    return validated;
+  } catch (e: any) {
+    console.error("Schema validation failed:", e);
+    if (rawResult && rawResult.topic) {
+      return rawResult as TranslateMindMapOutput;
+    }
+    throw new Error(`Translation failed validation: ${e.message}`);
   }
-  return translateMindMapFlow(input);
 }
 
 const prompt = ai.definePrompt({

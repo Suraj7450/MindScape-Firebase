@@ -37,35 +37,42 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function explainWithExample(
   input: ExplainWithExampleInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ExplainWithExampleOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    const systemPrompt = `You are an expert at explaining complex topics with simple, relatable, real-life examples.
+  const { provider, apiKey, mainTopic, topicName, explanationMode } = input;
 
-    The main topic is "${input.mainTopic}". The user wants an example for the concept: "${input.topicName}".
+  const systemPrompt = `You are an expert at explaining complex topics with simple, relatable, real-life examples.
+
+    The main topic is "${mainTopic}". The user wants an example for the concept: "${topicName}".
     
-    The user has requested the example at the "${input.explanationMode}" level.
+    The user has requested the example at the "${explanationMode}" level.
     - For "Beginner", use a very simple, everyday analogy.
     - For "Intermediate", use a more detailed but still accessible example.
     - For "Expert", use a specific, technical, or industry-related example.
     
     Your goal is to provide a single, concise, and easy-to-understand analogy or example tailored to the requested mode.
     
-    **Example Format:**
-    - For "API" (Beginner): "It's like a restaurant menu. You can order without knowing how the kitchen works."
-    - For "API" (Intermediate): "It's like a contract between two software applications, defining how they'll communicate and exchange data to perform a specific function."
-    - For "API" (Expert): "It's like a GraphQL endpoint that allows a client to request specific data fields from a server, reducing over-fetching compared to a traditional RESTful approach."
-    
-    Provide a similar real-life example for "${input.topicName}".`;
+    The output MUST be a valid JSON object with the following structure:
+    {
+      "example": "Your example text here"
+    }
 
-    const userPrompt = "Generate the example.";
+    IMPORTANT: Return ONLY the raw JSON object, no other text or explanation.`;
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt,
-      userPrompt
-    });
+  const userPrompt = "Generate the example.";
+
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt,
+    userPrompt
+  });
+
+  try {
+    const validated = ExplainWithExampleOutputSchema.parse(rawResult);
+    return validated;
+  } catch (e: any) {
+    if (rawResult && typeof rawResult.example === 'string') return rawResult as ExplainWithExampleOutput;
+    throw new Error(`Example generation failed validation: ${e.message}`);
   }
-  return explainWithExampleFlow(input);
 }
 
 const prompt = ai.definePrompt({

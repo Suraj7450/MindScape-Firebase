@@ -220,13 +220,9 @@ function MindMapPageContent() {
         return;
       }
 
-      // Guard against double-invocation (React Strict Mode + Navigation)
-      if (hasFetchedRef.current) return;
-
-      // Additional guard for params equality
-      if (lastFetchedParamsRef.current === currentParamsKey && isLoading) return;
+      // Guard for params equality - only skip if we are already loading something for these exact params
+      if (lastFetchedParamsRef.current === currentParamsKey && isLoading && mindMaps.length === 0) return;
       lastFetchedParamsRef.current = currentParamsKey;
-      hasFetchedRef.current = true;
 
       setIsLoading(true);
       setError(null);
@@ -254,9 +250,43 @@ function MindMapPageContent() {
               return;
             }
             if (savedMindMap) {
-              result.data = { ...savedMindMap, id: mapId };
+              // Validate that the map has required fields
+              console.log('🔍 Loading saved map:', {
+                id: mapId,
+                hasTopic: !!savedMindMap?.topic,
+                hasSubTopics: Array.isArray(savedMindMap?.subTopics),
+                subTopicsCount: savedMindMap?.subTopics?.length || 0,
+                hasIcon: !!savedMindMap?.icon,
+                keys: Object.keys(savedMindMap || {})
+              });
+
+              if (!savedMindMap.topic) {
+                result.error = 'The saved mind map is missing a topic. The data may be corrupted.';
+                console.error('❌ Saved map validation failed: missing topic', savedMindMap);
+              } else if (!Array.isArray(savedMindMap.subTopics)) {
+                result.error = 'The saved mind map has invalid structure. Expected subTopics array.';
+                console.error('❌ Saved map validation failed: invalid subTopics', savedMindMap);
+              } else {
+                // Data is valid, use it
+                result.data = {
+                  ...savedMindMap,
+                  id: mapId,
+                  // Ensure subTopics is always an array (even if empty)
+                  subTopics: savedMindMap.subTopics || [],
+                  // Ensure icon exists
+                  icon: savedMindMap.icon || 'brain-circuit'
+                };
+                console.log('✅ Saved map loaded successfully:', result.data.topic);
+              }
             } else if (!isFetchingSavedMap && !savedMindMap) {
-              result.error = 'Could not find the saved mind map or you do not have permission to view it.';
+              // Only report "not found" if we have a valid docPath and it's definitely not there
+              if (docPath) {
+                result.error = 'Could not find the saved mind map or you do not have permission to view it.';
+                console.error('❌ Saved map not found:', { mapId, userId: user?.uid });
+              } else {
+                // If docPath is null, we might still be waiting for user auth
+                return;
+              }
             }
           }
         } else if (singleTopic) {
@@ -366,7 +396,7 @@ function MindMapPageContent() {
     };
 
     fetchMindMapData();
-  }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex]);
+  }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, handleSaveMap, toast, firestore]);
 
   // Track study time every 5 minutes
   useEffect(() => {
@@ -760,7 +790,10 @@ function MindMapPageContent() {
       </button>
       <ChatPanel
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        onClose={() => {
+          setIsChatOpen(false);
+          setChatInitialMessage(undefined);
+        }}
         topic={mindMap?.topic || 'Mind Map Details'}
         initialMessage={chatInitialMessage}
       />
@@ -774,8 +807,10 @@ function MindMapPageContent() {
  */
 export default function MindMapPage() {
   return (
-    <Suspense fallback={<GenerationLoading />}>
-      <MindMapPageContent />
-    </Suspense>
+    <TooltipProvider delayDuration={300}>
+      <Suspense fallback={<GenerationLoading />}>
+        <MindMapPageContent />
+      </Suspense>
+    </TooltipProvider>
   );
 }

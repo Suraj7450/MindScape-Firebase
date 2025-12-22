@@ -41,30 +41,52 @@ export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
+// Simplified to always use client-dispatcher
 export async function generateQuiz(
   input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateQuizOutput> {
-  if (input.provider === 'pollinations' || input.apiKey) {
-    const mindMapDataString = JSON.stringify(input.mindMapData, null, 2);
-    const systemPrompt = `You are an expert in creating educational quizzes.
+  const { provider, apiKey, mindMapData } = input;
+  const mindMapDataString = JSON.stringify(mindMapData, null, 2);
+  const systemPrompt = `You are an expert in creating educational quizzes.
   
     Based on the provided mind map data, generate a challenging and informative multiple-choice quiz with 5 to 10 questions.
     Each question should have exactly 4 options.
     For each question, provide the correct answer's index and a brief explanation for why it's correct.
   
+    The output MUST be a valid JSON object with the following structure:
+    {
+      "questions": [
+        {
+          "question": "The question text",
+          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "correctAnswerIndex": 0,
+          "explanation": "Why this is correct"
+        }
+      ]
+    }
+  
     Mind Map Data:
     ${mindMapDataString}`;
 
-    const userPrompt = "Generate the quiz JSON.";
+  const userPrompt = "Generate the quiz JSON.";
 
-    return generateContent({
-      provider: input.provider,
-      apiKey: input.apiKey,
-      systemPrompt,
-      userPrompt
-    });
+  const rawResult = await generateContent({
+    provider,
+    apiKey,
+    systemPrompt,
+    userPrompt
+  });
+
+  try {
+    const validated = GenerateQuizOutputSchema.parse(rawResult);
+    return validated;
+  } catch (e: any) {
+    console.error("Schema validation failed:", e);
+    if (rawResult && Array.isArray(rawResult.questions)) {
+      return rawResult as GenerateQuizOutput;
+    }
+    throw new Error(`Quiz generation failed validation: ${e.message}`);
   }
-  return generateQuizFlow(input);
 }
 
 const prompt = ai.definePrompt({
