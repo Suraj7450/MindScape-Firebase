@@ -207,3 +207,16 @@ export function formatShortDistanceToNow(date: Date): string {
   const years = Math.floor(days / 365);
   return `${years}y`;
 }
+
+/**
+ * Converts a string to PascalCase.
+ * @param {string} str - The string to convert.
+ * @returns {string} The PascalCase version of the string.
+ */
+export function toPascalCase(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/(?:^\w|[A-Z]|\b\w)/g, (word) => word.toUpperCase())
+    .replace(/\s+/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '');
+}

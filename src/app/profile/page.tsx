@@ -34,7 +34,8 @@ interface UserProfile {
         totalQuizQuestions: number;
     };
     apiSettings?: {
-        provider?: 'gemini' | 'pollinations';
+        provider?: 'gemini' | 'pollinations' | 'bytez';
+        imageProvider?: 'pollinations' | 'bytez';
     };
 }
 
@@ -175,11 +176,18 @@ export default function ProfilePage() {
     }, [user, firestore, toast]);
 
     // Derived state for provider mode
-    const getActiveMode = (): 'default' | 'pollinations' => {
+    const getActiveMode = (): 'default' | 'pollinations' | 'bytez' => {
         if (profile?.apiSettings?.provider === 'pollinations') return 'pollinations';
+        if (profile?.apiSettings?.provider === 'bytez') return 'bytez';
         return 'default';
     };
     const activeMode = getActiveMode();
+
+    const getActiveImageMode = (): 'pollinations' | 'bytez' => {
+        if (profile?.apiSettings?.imageProvider === 'bytez') return 'bytez';
+        return 'pollinations';
+    };
+    const activeImageMode = getActiveImageMode();
 
     const setAIConfig = async (mode: 'default' | 'pollinations') => {
         if (!user || !firestore) return;
@@ -192,11 +200,32 @@ export default function ProfilePage() {
                 await setDoc(doc(firestore, 'users', user.uid), {
                     apiSettings: { provider: 'pollinations' }
                 }, { merge: true });
+            } else if (mode === 'bytez') {
+                await setDoc(doc(firestore, 'users', user.uid), {
+                    apiSettings: { provider: 'bytez' }
+                }, { merge: true });
             }
 
             toast({
                 title: 'Updated',
-                description: `AI Provider set to ${mode === 'default' ? 'MindScape Default' : 'Pollinations'}`
+                description: `AI Provider set to ${mode === 'default' ? 'MindScape Default' : mode === 'pollinations' ? 'Pollinations' : 'Bytez'}`
+            });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update settings' });
+        }
+    };
+
+    const setImageConfig = async (mode: 'pollinations' | 'bytez') => {
+        if (!user || !firestore) return;
+        try {
+            await setDoc(doc(firestore, 'users', user.uid), {
+                apiSettings: { imageProvider: mode }
+            }, { merge: true });
+
+            toast({
+                title: 'Updated',
+                description: `AI Image Engine set to ${mode === 'pollinations' ? 'Pollinations' : 'Bytez'}`
             });
         } catch (error) {
             console.error(error);
@@ -492,6 +521,46 @@ export default function ProfilePage() {
                                             <div className="flex flex-col">
                                                 <span className="font-medium">Pollinations.ai</span>
                                                 <span className="text-[10px] text-zinc-400">Free Open Source Models • No Key</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="bytez">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Bytez API</span>
+                                                <span className="text-[10px] text-zinc-400">High-Performance Open Source Models</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="flex flex-col gap-3 py-2.5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 rounded-md bg-blue-500/10">
+                                        <Globe className="h-3.5 w-3.5 text-blue-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-zinc-300">Image Engine</span>
+                                        <span className="text-[10px] text-zinc-500">
+                                            Choose your visual generation engine
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <Select value={activeImageMode} onValueChange={(v: any) => setImageConfig(v)}>
+                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="pollinations">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Pollinations (Default)</span>
+                                                <span className="text-[10px] text-zinc-400">High Speed • Flux & SD Models</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="bytez">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Bytez Image API</span>
+                                                <span className="text-[10px] text-zinc-400">Stable Diffusion v1.5 • Premium Infrastructure</span>
                                             </div>
                                         </SelectItem>
                                     </SelectContent>

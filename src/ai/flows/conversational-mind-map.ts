@@ -56,13 +56,28 @@ export async function conversationalMindMap(
 
     const userPrompt = input.message === "FINALIZE_MIND_MAP" ? "FINALIZE_MIND_MAP" : "Reply to the user.";
 
-    return generateContent({
+    const rawResult = await generateContent({
       provider: provider,
       apiKey: apiKey,
       systemPrompt,
       userPrompt,
       strict
     });
+
+    // Normalize
+    const normalized = {
+      response: rawResult?.response || "I'm processing your request...",
+      suggestions: Array.isArray(rawResult?.suggestions) ? rawResult.suggestions : [],
+      isFinal: !!rawResult?.isFinal,
+      mindMap: rawResult?.mindMap
+    };
+
+    try {
+      return ConversationalMindMapOutputSchema.parse(normalized);
+    } catch (e: any) {
+      console.error("Conversational validation failed:", e);
+      return normalized as ConversationalMindMapOutput;
+    }
   }
   return conversationalMindMapFlow(input);
 }

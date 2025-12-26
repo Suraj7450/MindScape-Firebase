@@ -60,11 +60,7 @@ import {
   EnhanceImagePromptInput,
   EnhanceImagePromptOutput,
 } from '@/ai/flows/enhance-image-prompt';
-import {
-  summarizeMindMap,
-  SummarizeMindMapInput,
-  SummarizeMindMapOutput,
-} from '@/ai/flows/summarize-mind-map';
+
 import {
   expandNode,
   ExpandNodeInput,
@@ -382,28 +378,7 @@ export async function enhanceImagePromptAction(
   }
 }
 
-/**
- * Server action to summarize a mind map into a short description.
- * @param {SummarizeMindMapInput} input - The mind map data to summarize.
- * @returns {Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }>} The generated summary or an error.
- */
-export async function summarizeMindMapAction(
-  input: SummarizeMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
-): Promise<{ summary: SummarizeMindMapOutput | null; error: string | null }> {
-  try {
-    const result = await summarizeMindMap({ ...input, ...options });
-    return { summary: result, error: null };
-  } catch (error) {
-    console.error('Error in summarizeMindMapAction:', error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      summary: null,
-      error: `Failed to summarize mind map. ${errorMessage}`,
-    };
-  }
-}
+
 
 /**
  * Server action to expand a specific node with nested sub-categories.

@@ -27,19 +27,21 @@ import {
 } from '@/components/ui/select';
 import { languages } from '@/lib/languages';
 import { useToast } from '@/hooks/use-toast';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf';
-import { ChatPanel } from '@/components/chat-panel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mod.ChatPanel), {
+  ssr: false,
+  loading: () => null
+});
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 
 
@@ -520,6 +522,8 @@ export default function Home() {
           });
         } else if (file.type === 'application/pdf') {
           sessionType = 'pdf';
+          const pdfjs = await import('pdfjs-dist/legacy/build/pdf');
+          pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjs.getDocument(arrayBuffer).promise;
           let textContent = '';

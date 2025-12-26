@@ -51,7 +51,7 @@ export async function generateMindMapFromText(
     - Provide a balanced and well-structured overview of the provided text.
     - Use clear, professional, yet accessible language.
     - Ensure comprehensive coverage of all key points in the text.
-    - Keep descriptions highly focused and under 2 sentences.`;
+    - Keep descriptions highly focused and exactly one sentence.`;
   }
 
   const contextInstruction = context
@@ -83,7 +83,7 @@ export async function generateMindMapFromText(
     - Categories: For each sub-topic, a list of 3-4 categories.
       - Icon: A relevant lucide-react icon for each category.
     - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-      - Description: A concise description (max 1-2 sentences) of each sub-category, using data from the text.
+      - Description: A concise statement (exactly one sentence) of each sub-category, using data from the text.
       - Icon: A relevant lucide-react icon for each sub-category.
       - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
   
@@ -99,12 +99,19 @@ export async function generateMindMapFromText(
     strict
   });
 
+  // Normalize and sanitize
+  const normalized = {
+    topic: rawResult?.topic || (context?.substring(0, 50) || "Text Analysis"),
+    shortTitle: rawResult?.shortTitle || rawResult?.topic || "Analysis",
+    icon: rawResult?.icon || 'file-text',
+    subTopics: rawResult?.subTopics || [],
+  };
+
   try {
-    const validated = GenerateMindMapFromTextOutputSchema.parse(rawResult);
+    const validated = GenerateMindMapFromTextOutputSchema.parse(normalized);
     return validated;
   } catch (e: any) {
-    console.error("Schema validation failed:", e);
-    if (rawResult && rawResult.topic) return rawResult as GenerateMindMapFromTextOutput;
-    throw new Error(`Generated mind map from text was invalid: ${e.message}`);
+    console.error("Schema validation failed for text-to-map:", e);
+    return normalized as GenerateMindMapFromTextOutput;
   }
 }

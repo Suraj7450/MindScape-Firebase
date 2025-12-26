@@ -6,6 +6,19 @@ import { cn } from '@/lib/utils';
 import { Navbar } from '@/components/navbar';
 import { FirebaseClientProvider } from '@/firebase';
 import { Icons } from '@/components/icons';
+import { Inter, Orbitron } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const orbitron = Orbitron({
+  subsets: ['latin'],
+  variable: '--font-orbitron',
+  display: 'swap',
+});
 
 /**
  * Metadata for the application, including the title and description.
@@ -38,19 +51,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={cn('dark', inter.variable, orbitron.variable)} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/MindScape-Logo.png" sizes="any" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Orbitron:wght@400..900&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body className={cn('min-h-screen w-full overflow-x-hidden', 'bg-[#0D0D0D] text-[#EAEAEA]')} suppressHydrationWarning>
         <FirebaseClientProvider>

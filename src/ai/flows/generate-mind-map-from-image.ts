@@ -77,7 +77,7 @@ export async function generateMindMapFromImage(
       - Provide a balanced and well-structured analysis of the image.
       - Use clear, professional, yet accessible language.
       - Ensure comprehensive coverage of all visible details.
-      - Keep descriptions highly focused and under 2 sentences.`;
+      - Keep descriptions highly focused and exactly one sentence.`;
     }
 
     const systemPrompt = `You are an expert in analyzing images and creating structured, comprehensive mind maps from them.
@@ -151,7 +151,7 @@ const prompt = ai.definePrompt({
   - Categories: For each sub-topic, a list of 3-4 categories.
     - Icon: A relevant lucide-react icon for each category.
   - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-    - Description: A concise description (max 1-2 sentences) of each sub-category, using data from the image.
+    - Description: A concise statement (exactly one sentence) of each sub-category, derived from the image or its context.
     - Icon: A relevant lucide-react icon for each sub-category.
     - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
 

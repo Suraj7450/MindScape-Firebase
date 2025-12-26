@@ -74,7 +74,7 @@ export async function generateComparisonMap(
       - Provide a balanced and well-structured comparison.
       - Use clear, professional, yet accessible language.
       - Ensure comprehensive coverage of all major comparison points.
-      - Keep descriptions highly focused and under 2 sentences.`;
+      - Keep descriptions highly focused and exactly one sentence.`;
     }
 
     const systemPrompt = `You are an expert in creating detailed and comprehensive comparative mind maps.
@@ -90,16 +90,16 @@ export async function generateComparisonMap(
       - Sub-Topics: The map must include at least two sub-topics:
         1.  **"Similarities"**:
             - Categories should represent 4-5 shared concepts, features, or principles.
-            - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly 1-2 sentences.
+            - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one sentence.
         2.  **"Differences"**:
             - This sub-topic should contain exactly two categories: one for "${input.topic1}" and one for "${input.topic2}".
             - The sub-categories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "${input.topic1}" and a corresponding sub-category under "${input.topic2}". 
             - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
             - Create 4-5 of these parallel comparison points.
-            - Each description MUST be concise and clearly explain the distinction in exactly 1-2 sentences.
+            - Each description MUST be concise and clearly explain the distinction in exactly one sentence.
         3.  **"Contextual Links / Overlap"**:
             - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to 1-2 sentences.
+            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to one sentence.
     
       Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
       Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.
@@ -107,13 +107,27 @@ export async function generateComparisonMap(
 
     const userPrompt = `Generate a structured mind map comparing and contrasting "${input.topic1}" and "${input.topic2}".`;
 
-    return generateContent({
+    const rawResult = await generateContent({
       provider: provider,
       apiKey: apiKey,
       systemPrompt,
       userPrompt,
       strict
     });
+
+    const normalized = {
+      topic: rawResult?.topic || `${input.topic1} vs ${input.topic2}`,
+      shortTitle: rawResult?.shortTitle || rawResult?.topic || 'Comparison',
+      icon: rawResult?.icon || 'scale',
+      subTopics: rawResult?.subTopics || []
+    };
+
+    try {
+      return GenerateComparisonMapOutputSchema.parse(normalized);
+    } catch (e) {
+      console.error("Comparison map validation failed:", e);
+      return normalized as GenerateComparisonMapOutput;
+    }
   }
   return generateComparisonMapFlow(input);
 }
@@ -138,16 +152,16 @@ const prompt = ai.definePrompt({
   - Sub-Topics: The map must include at least two sub-topics:
     1.  **"Similarities"**:
         - Categories should represent 4-5 shared concepts, features, or principles.
-        - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly 1-2 sentences.
+        - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one statement.
     2.  **"Differences"**:
         - This sub-topic should contain exactly two categories: one for "{{{topic1}}}" and one for "{{{topic2}}}".
         - The sub-categories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "{{{topic1}}}" and a corresponding sub-category under "{{{topic2}}}". 
         - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
         - Create 4-5 of these parallel comparison points.
-        - Each description MUST be concise and clearly explain the distinction in exactly 1-2 sentences.
+        - Each description MUST be concise and clearly explain the distinction in exactly one statement.
     3.  **"Contextual Links / Overlap"**:
         - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-        - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to 1-2 sentences.
+        - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to one statement.
 
 
   Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.

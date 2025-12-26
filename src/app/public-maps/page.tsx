@@ -33,7 +33,6 @@ import { Button } from '@/components/ui/button';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { SummaryDialog } from '@/components/summary-dialog';
 
 type PublicMindMap = GenerateMindMapOutput & {
   id: string;
@@ -59,7 +58,7 @@ export default function PublicMapsPage() {
   const [mapFilter, setMapFilter] = useState<MapFilter>('all');
   const [mapToUnpublish, setMapToUnpublish] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [summaryInfo, setSummaryInfo] = useState<{ title: string, summary: string } | null>(null);
+
 
 
   const publicMapsQuery = useMemoFirebase(() => {
@@ -229,19 +228,7 @@ export default function PublicMapsPage() {
           )}
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-gray-400 hover:text-white"
-                  onClick={() => setSummaryInfo({ title: map.topic, summary: map.summary })}
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Summarize</p></TooltipContent>
-            </Tooltip>
+
             {isMyMap ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -383,12 +370,7 @@ export default function PublicMapsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <SummaryDialog
-        isOpen={!!summaryInfo}
-        onClose={() => setSummaryInfo(null)}
-        title={summaryInfo?.title || ''}
-        summary={summaryInfo?.summary || ''}
-      />
+
     </TooltipProvider>
   );
 }

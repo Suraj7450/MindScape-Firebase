@@ -23,6 +23,7 @@ interface ImageGalleryDialogProps {
   images: GeneratedImage[];
   onDownload: (url: string, name: string) => void;
   onRegenerate: (subCategory: { name: string; description: string }) => void;
+  onDelete: (id: string) => void;
 }
 
 export function ImageGalleryDialog({
@@ -31,6 +32,7 @@ export function ImageGalleryDialog({
   images,
   onDownload,
   onRegenerate,
+  onDelete,
 }: ImageGalleryDialogProps) {
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
 
@@ -50,6 +52,14 @@ export function ImageGalleryDialog({
   ) => {
     e.stopPropagation();
     onRegenerate({ name: image.name, description: image.description });
+  };
+
+  const handleDeleteClick = (
+    e: React.MouseEvent,
+    image: GeneratedImage
+  ) => {
+    e.stopPropagation();
+    onDelete(image.id);
   };
 
   const GalleryItem = ({ image }: { image: GeneratedImage }) => {
@@ -88,23 +98,36 @@ export function ImageGalleryDialog({
             {image.name}
           </p>
         </div>
-        {image.status === 'completed' && (
+        {(image.status === 'completed' || image.status === 'failed') && (
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
             <Button
               size="icon"
               variant="secondary"
-              className="h-8 w-8"
+              className="h-8 w-8 hover:bg-purple-500 hover:text-white transition-colors"
               onClick={(e) => handleRegenerateClick(e, image)}
+              title="Regenerate"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
+            {image.status === 'completed' && (
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 hover:bg-emerald-500 hover:text-white transition-colors"
+                onClick={(e) => handleDownloadClick(e, image)}
+                title="Download"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               size="icon"
               variant="secondary"
-              className="h-8 w-8"
-              onClick={(e) => handleDownloadClick(e, image)}
+              className="h-8 w-8 hover:bg-red-500 hover:text-white transition-colors"
+              onClick={(e) => handleDeleteClick(e, image)}
+              title="Delete"
             >
-              <Download className="h-4 w-4" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         )}

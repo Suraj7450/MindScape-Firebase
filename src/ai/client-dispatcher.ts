@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateContentWithPollinations } from './pollinations-client';
+import { generateContentWithBytez } from './bytez-client';
 
-export type AIProvider = 'gemini' | 'pollinations';
+export type AIProvider = 'gemini' | 'pollinations' | 'bytez';
 
 interface GenerateContentOptions {
     provider?: AIProvider;
@@ -15,24 +16,26 @@ interface GenerateContentOptions {
 /**
  * Helper to retry a function with exponential backoff
  */
-async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 800): Promise<T> {
+async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
     let lastError: any;
     for (let i = 0; i < retries; i++) {
         try {
             return await fn();
         } catch (err: any) {
             lastError = err;
-            // Immediate retry for 502/503/504
-            const isNetworkError = err.message && (
-                err.message.includes('502') ||
-                err.message.includes('503') ||
-                err.message.includes('504') ||
-                err.message.includes('fetch failed')
-            );
+
+            const errorMessage = err.message || "";
+            const isConcurrencyError = errorMessage.toLowerCase().includes('concurrency') ||
+                errorMessage.toLowerCase().includes('rate limit');
 
             if (i < retries - 1) {
-                const waitTime = delayMs * Math.pow(2, i);
-                console.warn(`Attempt ${i + 1} failed, retrying in ${waitTime}ms...`, err.message);
+                // For concurrency errors, we wait much longer and add significant jitter
+                const jitter = Math.random() * 2000;
+                const waitTime = isConcurrencyError
+                    ? (3000 * (i + 1)) + jitter  // Wait 3s, 6s, 9s... + jitter
+                    : delayMs * Math.pow(2, i) + jitter;
+
+                console.warn(`Attempt ${i + 1} failed (${isConcurrencyError ? 'Concurrency/Rate' : 'Error'}), retrying in ${Math.round(waitTime)}ms...`, errorMessage);
                 await new Promise(res => setTimeout(res, waitTime));
             }
         }
@@ -60,6 +63,8 @@ function disablePollinations(minutes = 10) {
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
     let { provider = 'pollinations' } = options;
     const { apiKey, systemPrompt, userPrompt, images, strict } = options;
+
+    console.log('🔌 AI Provider selected:', provider);
 
     // 1. Try Pollinations (if selected AND available)
     if (provider === 'pollinations') {
@@ -89,7 +94,24 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         }
     }
 
-    // 2. Gemini (Selected OR Fallback)
+    // 2. Bytez (if selected)
+    if (provider === 'bytez') {
+        const effectiveApiKey = apiKey || process.env.BYTEZ_API_KEY || "d5caaa723585c02422e1b4990d15e6e0";
+        if (!effectiveApiKey) {
+            throw new Error("Bytez provider requires an API Key.");
+        }
+        try {
+            return await retry(() => generateContentWithBytez(systemPrompt, userPrompt, effectiveApiKey));
+        } catch (error: any) {
+            console.warn("⚠️ Bytez failed.", error.message);
+            if (strict) {
+                throw new Error(`Bytez failed and strict mode is enabled: ${error.message}`);
+            }
+            provider = 'gemini'; // Fallback to Gemini
+        }
+    }
+
+    // 3. Gemini (Selected OR Fallback)
     if (provider === 'gemini') {
         // Resolve API key: provided key > environment key
         const effectiveApiKey = apiKey || process.env.GOOGLE_GENAI_API_KEY;
@@ -100,10 +122,9 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
-            // Using gemini-1.5-flash for better stability and higher rate limits (less 429s)
-            // Users often refer to the high-performance lite models as "flash"
+            // Using gemini-1.5-flash-latest for better resilience against 404s on specific API versions
             const model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-1.5-flash-latest',
                 generationConfig: {
                     responseMimeType: 'application/json'
                 }
@@ -127,7 +148,11 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                 throw new Error(safety ? `Gemini blocked content: ${safety}` : "Empty response from Gemini");
             }
 
-            return JSON.parse(text);
+            console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
+            const parsed = JSON.parse(text);
+            console.log('🎯 Parsed JSON keys:', Object.keys(parsed));
+
+            return parsed;
         } catch (error: any) {
             console.error("Gemini AI Error:", error);
             throw error;

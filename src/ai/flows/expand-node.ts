@@ -162,16 +162,19 @@ Return a JSON object with:
     userPrompt: manualPrompt
   });
 
+  // Normalize
+  const normalized = {
+    topic: rawResult?.topic || nodeName,
+    icon: rawResult?.icon || 'network',
+    subCategories: Array.isArray(rawResult?.subCategories) ? rawResult.subCategories : []
+  };
+
   try {
-    const validated = NestedExpansionOutputSchema.parse(rawResult);
+    const validated = NestedExpansionOutputSchema.parse(normalized);
     return validated;
   }
   catch (e: any) {
-    console.error("Schema validation failed:", e);
-    // Best effort return
-    if (rawResult && rawResult.topic && Array.isArray(rawResult.subCategories)) {
-      return rawResult as ExpandNodeOutput;
-    }
-    throw new Error(`Expansion generation failed validation: ${e.message}`);
+    console.error("Schema validation failed for expansion:", e);
+    return normalized as ExpandNodeOutput;
   }
 }

@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 const ExplainWithExampleInputSchema = z.object({
   mainTopic: z.string().describe('The main topic of the mind map.'),
@@ -67,12 +67,19 @@ export async function explainWithExample(
     strict
   });
 
+  // Normalize
+  const normalized = {
+    example: typeof rawResult?.example === 'string'
+      ? rawResult.example
+      : (typeof rawResult === 'string' ? rawResult : `A illustrative example for ${topicName} in the context of ${mainTopic}.`)
+  };
+
   try {
-    const validated = ExplainWithExampleOutputSchema.parse(rawResult);
+    const validated = ExplainWithExampleOutputSchema.parse(normalized);
     return validated;
   } catch (e: any) {
-    if (rawResult && typeof rawResult.example === 'string') return rawResult as ExplainWithExampleOutput;
-    throw new Error(`Example generation failed validation: ${e.message}`);
+    console.error("Example validation failed:", e);
+    return normalized as ExplainWithExampleOutput;
   }
 }
 

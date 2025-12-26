@@ -20,12 +20,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import { Icons } from '@/components/icons';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { SummaryDialog } from '@/components/summary-dialog';
 
 
 type SavedMindMap = GenerateMindMapOutput & {
@@ -63,7 +62,7 @@ export default function DashboardPage() {
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
   const [mapToPublish, setMapToPublish] = useState<SavedMindMap | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [summaryInfo, setSummaryInfo] = useState<{ title: string, summary: string } | null>(null);
+
 
 
   const mindMapsQuery = useMemoFirebase(() => {
@@ -74,7 +73,14 @@ export default function DashboardPage() {
   const { data: savedMaps, isLoading: isMindMapsLoading } = useCollection<SavedMindMap>(mindMapsQuery);
 
   const filteredAndSortedMaps = useMemo(() => {
-    let maps = savedMaps || [];
+    // Filter out sub-maps: either explicitly marked OR has a parentMapId
+    let maps = (savedMaps || []).filter(map => {
+      // Exclude if explicitly marked as sub-map
+      if (map.isSubMap === true) return false;
+      // Exclude if it has a parentMapId (legacy sub-maps)
+      if ((map as any).parentMapId) return false;
+      return true;
+    });
 
     if (searchQuery) {
       maps = maps.filter((map) => map.topic.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -218,21 +224,7 @@ export default function DashboardPage() {
                       </p>
                     )}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-white"
-                            onClick={() => setSummaryInfo({ title: map.topic, summary: map.summary })}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Summarize</p>
-                        </TooltipContent>
-                      </Tooltip>
+
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -317,12 +309,7 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <SummaryDialog
-        isOpen={!!summaryInfo}
-        onClose={() => setSummaryInfo(null)}
-        title={summaryInfo?.title || ''}
-        summary={summaryInfo?.summary || ''}
-      />
+
     </TooltipProvider>
   );
 }

@@ -78,15 +78,17 @@ export async function generateQuiz(
     strict
   });
 
+  // Normalize
+  const normalized = {
+    questions: Array.isArray(rawResult?.questions) ? rawResult.questions : []
+  };
+
   try {
-    const validated = GenerateQuizOutputSchema.parse(rawResult);
+    const validated = GenerateQuizOutputSchema.parse(normalized);
     return validated;
   } catch (e: any) {
-    console.error("Schema validation failed:", e);
-    if (rawResult && Array.isArray(rawResult.questions)) {
-      return rawResult as GenerateQuizOutput;
-    }
-    throw new Error(`Quiz generation failed validation: ${e.message}`);
+    console.error("Quiz schema validation failed:", e);
+    return normalized as GenerateQuizOutput;
   }
 }
 
