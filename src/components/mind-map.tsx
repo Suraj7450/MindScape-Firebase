@@ -744,7 +744,7 @@ export const MindMap = ({
   const [isExampleLoading, setIsExampleLoading] = useState(false);
   const [activeExplainableNode, setActiveExplainableNode] = useState<any>(null);
 
-  const [heroImages, setHeroImages] = useState<{ left: string; right: string } | null>(data.heroImages || null);
+  const [heroImages, setHeroImages] = useState<{ left: string; right: string } | undefined>(data.heroImages || undefined);
   const [mounted, setMounted] = useState(false);
   const [languageUI, setLanguageUI] = useState(selectedLanguage);
   const [personaUI, setPersonaUI] = useState(aiPersona);
