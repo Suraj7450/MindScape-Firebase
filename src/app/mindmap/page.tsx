@@ -192,6 +192,7 @@ function MindMapPageContent() {
         params.delete('topic1');
         params.delete('topic2');
         params.delete('sessionId');
+        params.delete('_r');
         router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
 
         // Track activity ONLY for new maps
@@ -505,6 +506,14 @@ function MindMapPageContent() {
       } finally {
         setIsLoading(false);
         setGeneratingNodeId(null);
+
+        // CLEANUP: If we were regenerating, remove the flag from URL to prevent loops on re-renders
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('_r')) {
+          params.delete('_r');
+          const newSearch = params.toString();
+          router.replace(`${window.location.pathname}${newSearch ? '?' + newSearch : ''}`, { scroll: false });
+        }
       }
     };
 
@@ -809,7 +818,7 @@ function MindMapPageContent() {
   const handleRegenerate = useCallback(() => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('_r', Date.now().toString()); // Add a random param to force re-fetch
-    router.push(`/mindmap?${newParams.toString()}`);
+    router.replace(`/mindmap?${newParams.toString()}`);
   }, [searchParams, router]);
 
   const handleBreadcrumbSelect = useCallback((index: number) => {
@@ -926,8 +935,8 @@ function MindMapPageContent() {
 
   return (
     <>
-      <div className="flex flex-col items-center px-4 sm:px-8 pt-4 sm:pt-6 pb-8">
-        <div className="w-full max-w-6xl mx-auto -mt-[60px]">
+      <div className="flex flex-col items-center px-4 sm:px-8 pb-8">
+        <div className="w-full max-w-6xl mx-auto">
           <MindMap
             key={activeMindMapIndex} // Force re-mount to reset internal state
             data={mindMap}

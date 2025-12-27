@@ -160,16 +160,38 @@
     @apply bg-card/95 backdrop-blur-xl border border-white/10 shadow-lg;
   }
 
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  .neumorphic-glass {
+    @apply bg-zinc-900/40 backdrop-blur-3xl border border-white/5;
+    box-shadow:
+      inset 4px 4px 8px rgba(255, 255, 255, 0.03),
+      inset -4px -4px 8px rgba(0, 0, 0, 0.2),
+      0 10px 40px rgba(0, 0, 0, 0.4);
   }
 
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
+  .glass-inner-glow {
+    @apply relative overflow-hidden;
   }
+
+  .glass-inner-glow::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+  }
+
+  .soft-glass-card {
+    @apply rounded-2xl bg-zinc-950/40 backdrop-blur-3xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/10;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* Custom Animations for Chat Panel */

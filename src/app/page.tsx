@@ -126,13 +126,7 @@ function Hero({
   };
 
   return (
-    <section className="relative mx-auto max-w-7xl px-6 pt-20 pb-24 overflow-hidden">
-      {/* Dynamic Background Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full animate-heartbeat-pulse-grow" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full animate-heartbeat-pulse-grow" />
-      </div>
-
+    <section className="relative mx-auto max-w-7xl px-6 pt-8 pb-24 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -146,7 +140,7 @@ function Hero({
 
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
           Everything starts with <br />
-          <span className="text-primary text-shadow-glow">a thought.</span>
+          <span className="text-primary">a thought.</span>
         </h1>
 
         <p className="text-zinc-400 text-lg md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed">

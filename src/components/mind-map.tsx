@@ -57,10 +57,22 @@ import {
   X,
   Info,
   GraduationCap,
-  Zap,
   Palette,
   Link2,
   UploadCloud,
+  Cloud,
+  ZapOff,
+  Search,
+  Target,
+  Brain,
+  Eye,
+  Settings,
+  Shield,
+  Zap,
+  Circle,
+  HelpCircle,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 const LucideIcons = {
   Library,
@@ -101,6 +113,18 @@ const LucideIcons = {
   Palette,
   Link2,
   UploadCloud,
+  Cloud,
+  ZapOff,
+  Search,
+  Target,
+  Brain,
+  Eye,
+  Settings,
+  Shield,
+  Circle,
+  HelpCircle,
+  Clock,
+  ExternalLink,
 };
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import {
@@ -401,7 +425,6 @@ const LeafNodeCard = memo(function LeafNodeCard({
               {node.name}
             </h4>
             <div className="flex items-center mt-1 gap-2">
-              <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-white/10 text-zinc-500 font-medium bg-white/5">Concept</Badge>
               {existingExpansion && <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-emerald-500/30 text-emerald-400 font-medium bg-emerald-500/5">Expanded</Badge>}
             </div>
           </div>
@@ -432,10 +455,10 @@ const LeafNodeCard = memo(function LeafNodeCard({
                     }}
                     disabled={isGeneratingMap}
                   >
-                    {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-4 w-4" />}
+                    {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>{existingExpansion ? "Open Detailed Map" : "Generate Sub-Map"}</p></TooltipContent>
+                <TooltipContent className="glassmorphism"><p>Generate Sub-Map</p></TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -1307,18 +1330,18 @@ export const MindMap = ({
   };
 
   return (
-    <div className="min-h-screen pb-20 relative bg-background" ref={mindMapRef}>
+    <div className="min-h-screen pb-20 relative" ref={mindMapRef}>
       {/* Floating Toolbar */}
-      <div className="sticky top-6 z-50 px-4 mb-10 w-full flex justify-center pointer-events-none">
-        <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-zinc-900/40 backdrop-blur-3xl border border-white/10 shadow-3xl pointer-events-auto ring-1 ring-white/5">
+      <div className="fixed top-[84px] left-0 z-50 px-4 w-full flex justify-center pointer-events-none">
+        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl ring-1 ring-white/5 pointer-events-auto">
           {/* Main Controls Group */}
-          <div className="flex items-center gap-1.5 px-2 pr-4 border-r border-white/10">
+          <div className="flex items-center gap-1.5 px-1.5 pr-3 border-r border-white/10">
             <Select value={languageUI} onValueChange={handleLanguageChangeInternal} disabled={isTranslating}>
-              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition">
-                <Languages className="w-3.5 h-3.5 mr-2 text-primary" />
+              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200">
+                <Languages className="w-4 h-4 mr-2 text-primary" />
                 <SelectValue placeholder="Lang" />
               </SelectTrigger>
-              <SelectContent className="glassmorphism max-h-[300px]">
+              <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
                 {languages.map(l => (
                   <SelectItem key={l.code} value={l.code} className="text-xs">{l.name}</SelectItem>
                 ))}
@@ -1326,174 +1349,188 @@ export const MindMap = ({
             </Select>
 
             <Select value={personaUI} onValueChange={handlePersonaChangeInternal}>
-              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition">
-                <Zap className="w-3.5 h-3.5 mr-2 text-amber-400" />
+              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200">
+                <Zap className="w-4 h-4 mr-2 text-amber-400" />
                 <SelectValue placeholder="Mode" />
               </SelectTrigger>
-              <SelectContent className="glassmorphism">
-                <SelectItem value="Standard" className="text-xs">Standard</SelectItem>
-                <SelectItem value="Teacher" className="text-xs">Teacher</SelectItem>
-                <SelectItem value="Concise" className="text-xs">Concise</SelectItem>
-                <SelectItem value="Creative" className="text-xs">Creative</SelectItem>
+              <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
+                {['Standard', 'Teacher', 'Concise', 'Creative'].map(p => (
+                  <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Action Group */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 px-1">
             <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={isAllExpanded ? collapseAll : expandAll}
-                    className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition"
-                  >
-                    {isAllExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>{isAllExpanded ? 'Collapse' : 'Expand'} All</p></TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={isAllExpanded ? collapseAll : expandAll}
+                  className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
+                >
+                  {isAllExpanded ? (
+                    <>
+                      <Minimize2 className="h-4 w-4" />
+                      Collapse All
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="h-4 w-4" />
+                      Expand All
+                    </>
+                  )}
+                </Button>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={copyToClipboard}
-                    className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition"
-                  >
-                    {isCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>Share Map</p></TooltipContent>
-              </Tooltip>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyToClipboard}
+                  className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
+                >
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4 text-emerald-400" />
+                      Shared
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </>
+                  )}
+                </Button>
+              </div>
             </TooltipProvider>
 
-            <Separator orientation="vertical" className="h-6 bg-white/10 mx-1" />
+            <div className="h-5 w-px bg-white/10 mx-1.5" />
 
-            <Button
-              onClick={onSaveMap}
-              disabled={isSaved}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all",
-                isSaved
-                  ? "text-emerald-400 bg-emerald-500/10 cursor-default"
-                  : "text-zinc-200 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <Save className="w-4 h-4" />
-              {isSaved ? 'Saved' : 'Save'}
-            </Button>
-
-            {!isPublic && (
+            <div className="flex items-center gap-1.5">
               <Button
-                onClick={handlePublishMap}
-                disabled={isPublishing || isPublished}
+                onClick={onSaveMap}
+                disabled={isSaved}
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all",
-                  isPublished
-                    ? "text-blue-400 bg-blue-500/10 cursor-default"
-                    : "text-zinc-200 hover:text-white hover:bg-white/5"
+                  "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all bg-white/5",
+                  isSaved
+                    ? "text-emerald-400 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)] cursor-default"
+                    : "text-zinc-200 hover:text-white hover:bg-white/10 hover:scale-105"
                 )}
               >
-                <UploadCloud className="w-4 h-4" />
-                {isPublished ? 'Live' : 'Publish'}
+                <Save className="w-4 h-4" />
+                {isSaved ? 'Saved' : 'Save'}
               </Button>
-            )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRegenerate}
-              disabled={!canRegenerate || isRegenerating}
-              className="h-9 gap-2 text-xs font-bold px-4 rounded-xl text-primary hover:bg-primary/10 transition"
-            >
-              {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Re-Sync
-            </Button>
+              {!isPublic && (
+                <Button
+                  onClick={handlePublishMap}
+                  disabled={isPublishing || isPublished}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all bg-white/5",
+                    isPublished
+                      ? "text-blue-400 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)] cursor-default"
+                      : "text-zinc-200 hover:text-white hover:bg-white/10 hover:scale-105"
+                  )}
+                >
+                  <Cloud className="w-4 h-4" />
+                  {isPublished ? 'Live' : 'Publish'}
+                </Button>
+              )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRegenerate}
+                disabled={!canRegenerate || isRegenerating}
+                className="h-9 gap-2 text-xs font-bold px-4 rounded-xl text-white bg-primary/20 hover:bg-primary/30 hover:scale-105 transition-all shadow-[0_0_30px_rgba(139,92,246,0.15)]"
+              >
+                {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Re-Sync
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container max-w-6xl mx-auto px-4 space-y-16">
+      <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
         {/* Main Topic Hero */}
-        <div className="relative group perspective-1000">
-          <div className="absolute -inset-2 bg-gradient-to-r from-primary via-accent to-primary rounded-[3rem] blur-3xl opacity-10 group-hover:opacity-20 transition duration-1000" />
+        <div className="relative group perspective-2000">
+          {/* Depth Shadow Layer */}
+          <div className="absolute -inset-4 rounded-2xl bg-black/40 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-1000" />
 
-          <div className="relative rounded-[3rem] border border-white/5 bg-zinc-950/40 backdrop-blur-3xl p-12 md:p-20 text-center overflow-hidden shadow-2xl">
+          {/* Animated Glow Border */}
+          <div className="absolute -inset-1 bg-gradient-to-br from-primary/30 via-accent/30 to-primary/30 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition duration-1000" />
+
+          <div className="relative soft-glass-card glass-inner-glow px-8 py-8 md:px-16 md:py-12 text-center overflow-hidden">
             {/* Background Visualization Layer */}
-            <div className="absolute inset-0 -z-10 pointer-events-none">
+            <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden rounded-2xl">
               {heroImages && (
-                <div className="flex w-full h-full opacity-40 mix-blend-screen">
+                <div className="flex w-full h-full opacity-30 mix-blend-screen scale-110 group-hover:scale-100 transition-transform duration-[3s]">
                   <div className="w-1/2 relative">
-                    <Image src={heroImages.left} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 0% 50%, black 0%, transparent 80%)' }} />
+                    <Image src={heroImages.left} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 10% 50%, black 0%, transparent 85%)' }} />
                   </div>
                   <div className="w-1/2 relative">
-                    <Image src={heroImages.right} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 100% 50%, black 0%, transparent 80%)' }} />
+                    <Image src={heroImages.right} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 90% 50%, black 0%, transparent 85%)' }} />
                   </div>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/40 to-background" />
+              {/* Complex Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-zinc-950/20 to-zinc-950" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.1),transparent_70%)]" />
             </div>
 
-            <div className="flex flex-col items-center relative z-10 w-full">
+            <div className="flex flex-col items-center relative z-10 w-full max-w-4xl mx-auto">
               {mindMapStack.length > 1 && onStackSelect && (
-                <div className="mb-10">
+                <div className="mb-8 animate-in slide-in-from-top-4 duration-700">
                   <BreadcrumbNavigation
                     maps={mindMapStack}
                     activeIndex={activeStackIndex}
                     onSelect={onStackSelect}
-                    className="bg-zinc-900/50 backdrop-blur-xl rounded-full px-5 py-2 border border-white/5"
+                    className="bg-white/5 backdrop-blur-3xl rounded-xl px-6 py-2 border border-white/10 shadow-2xl"
                   />
                 </div>
               )}
 
-              <Badge variant="outline" className="mb-6 py-1 px-4 border-primary/30 bg-primary/10 text-primary-foreground font-bold tracking-widest text-[10px] uppercase animate-in fade-in zoom-in duration-1000">
-                Knowledge Sphere
-              </Badge>
-
-              <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40 leading-[1.1] drop-shadow-2xl">
+              <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/40 leading-[0.95] filter drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                 {(mindMap as any).shortTitle || mindMap.topic}
               </h1>
 
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <Button
-                  onClick={() => setIsAiContentDialogOpen(true)}
-                  className="rounded-full bg-primary/20 hover:bg-primary/30 border border-primary/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Sparkles className="w-5 h-5 mr-3 text-primary" />
-                  AI Insights
-                </Button>
-                <Button
-                  onClick={handleQuizClick}
-                  disabled={isQuizLoading}
-                  className="rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
-                >
-                  {isQuizLoading ? <Loader2 className="w-5 h-5 mr-3 animate-spin" /> : <TestTube2 className="w-5 h-5 mr-3 text-blue-400" />}
-                  Test Skills
-                </Button>
-                <Button
-                  onClick={() => setIsGalleryOpen(true)}
-                  className="rounded-full bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Images className="w-5 h-5 mr-3 text-pink-400" />
-                  Visuals
-                </Button>
-                {nestedExpansions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-5">
+                {[
+                  { icon: Sparkles, label: 'AI Insights', color: 'primary', onClick: () => setIsAiContentDialogOpen(true) },
+                  { icon: TestTube2, label: 'Test Skills', color: 'blue', onClick: handleQuizClick, isLoading: isQuizLoading },
+                  { icon: Images, label: 'Visuals', color: 'pink', onClick: () => setIsGalleryOpen(true) },
+                  { icon: Network, label: `Depth Layer (${nestedExpansions.length})`, color: 'emerald', onClick: () => setIsNestedMapsDialogOpen(true), visible: nestedExpansions.length > 0 }
+                ].filter(b => b.visible !== false).map((btn, i) => (
                   <Button
-                    onClick={() => setIsNestedMapsDialogOpen(true)}
-                    className="rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
+                    key={i}
+                    onClick={btn.onClick}
+                    disabled={(btn as any).isLoading}
+                    className={cn(
+                      "rounded-2xl h-12 px-8 font-bold border-2 transition-all duration-500 hover:scale-105 active:scale-95 group/btn overflow-hidden relative",
+                      btn.color === 'primary' && "bg-primary/20 border-primary/30 text-white hover:bg-primary/40 hover:shadow-[0_0_40px_rgba(139,92,246,0.3)]",
+                      btn.color === 'blue' && "bg-blue-500/20 border-blue-500/30 text-white hover:bg-blue-500/40 hover:shadow-[0_0_40px_rgba(59,130,246,0.3)]",
+                      btn.color === 'pink' && "bg-pink-500/20 border-pink-500/30 text-white hover:bg-pink-500/40 hover:shadow-[0_0_40px_rgba(236,72,153,0.3)]",
+                      btn.color === 'emerald' && "bg-emerald-500/20 border-emerald-500/30 text-white hover:bg-emerald-500/40 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)]",
+                    )}
                   >
-                    <Network className="w-5 h-5 mr-3 text-emerald-400" />
-                    Depth Layer ({nestedExpansions.length})
+                    {/* Animated Button Glow */}
+                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                    <div className="relative z-10 flex items-center">
+                      {(btn as any).isLoading ? (
+                        <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                      ) : (
+                        <btn.icon className={cn("w-5 h-5 mr-3 transition-transform group-hover/btn:scale-110", `text-${btn.color}-400`)} />
+                      )}
+                      {btn.label}
+                    </div>
                   </Button>
-                )}
+                ))}
               </div>
             </div>
           </div>
@@ -1504,7 +1541,7 @@ export const MindMap = ({
           type="multiple"
           value={openSubTopics}
           onValueChange={setOpenSubTopics}
-          className="space-y-10"
+          className="space-y-4"
         >
           {mindMap.subTopics?.map((subTopic: any, index: number) => {
             const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
@@ -1514,10 +1551,10 @@ export const MindMap = ({
               <AccordionItem
                 key={index}
                 value={subTopicId}
-                className="border-none rounded-[2.5rem] bg-zinc-900/20 backdrop-blur-3xl shadow-3xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-primary/30 transition-all duration-700"
+                className="border-none rounded-2xl bg-zinc-900/20 backdrop-blur-3xl shadow-3xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-primary/30 transition-all duration-700"
               >
                 <div
-                  className="group/subtopic px-8 py-6 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                  className="group/subtopic px-8 py-5 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
                   onClick={() => {
                     setOpenSubTopics(prev => prev.includes(subTopicId) ? prev.filter(x => x !== subTopicId) : [...prev, subTopicId]);
                   }}
@@ -1528,7 +1565,6 @@ export const MindMap = ({
                     </div>
                     <div className="flex flex-col">
                       <h3 className="text-2xl font-black text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">{subTopic.name}</h3>
-                      <p className="text-zinc-500 text-sm font-medium">Major Knowledge Node</p>
                     </div>
                     <ChevronDown className={`w-6 h-6 text-zinc-600 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
                   </div>
@@ -1541,7 +1577,7 @@ export const MindMap = ({
                             <Network className="h-5 w-5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Exapnd Layer</p></TooltipContent>
+                        <TooltipContent><p>Generate Sub-Map</p></TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1549,20 +1585,20 @@ export const MindMap = ({
                             <MessageCircle className="h-5 w-5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Chat with AI</p></TooltipContent>
+                        <TooltipContent><p>AI Chat Assistant</p></TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
                 </div>
 
-                <AccordionContent className="px-8 pb-10 pt-4">
-                  <div className="space-y-8">
+                <AccordionContent className="px-8 pb-8 pt-2">
+                  <div className="space-y-3">
                     {subTopic.categories.map((category: any, catIndex: number) => {
                       const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
                       const catId = `cat-${index}-${catIndex}`;
 
                       return (
-                        <div key={catIndex} className="rounded-3xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
+                        <div key={catIndex} className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
                           <div
                             className="group/cat px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors cursor-pointer"
                             onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
@@ -1576,12 +1612,24 @@ export const MindMap = ({
                             </div>
 
                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`)}>
-                                <Network className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
-                                <MessageCircle className="h-4 w-4" />
-                              </Button>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`)}>
+                                      <Network className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Generate Sub-Map</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
+                                      <MessageCircle className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>AI Chat Assistant</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           </div>
 
@@ -1692,6 +1740,10 @@ export const MindMap = ({
         onOpenMap={(mapData, id) => {
           setIsNestedMapsDialogOpen(false);
           if (onOpenNestedMap) onOpenNestedMap(mapData, id);
+        }}
+        onExpandFurther={(name, desc, parentId) => {
+          setIsNestedMapsDialogOpen(false);
+          onGenerateNewMap(name, desc, parentId);
         }}
       />
     </div>
