@@ -46,6 +46,7 @@ import {
 
 
 // ---------- HERO ----------
+// ---------- HERO ----------
 function Hero({
   onGenerate,
   lang,
@@ -125,41 +126,67 @@ function Hero({
   };
 
   return (
-    <section className="relative mx-auto max-w-6xl px-4 pb-16">
+    <section className="relative mx-auto max-w-7xl px-6 pt-20 pb-24 overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full animate-heartbeat-pulse-grow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full animate-heartbeat-pulse-grow" />
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="flex flex-col items-center text-center"
       >
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-10 items-center gap-8">
-          <div className="md:col-span-6">
-            <h1 className="text-4xl font-extrabold leading-tight md:text-6xl text-center whitespace-nowrap mb-4">
-              Visualize Smarter.
-              <br />
-              <span className="text-purple-400">Think Faster.</span>
-            </h1>
+        <Badge variant="outline" className="mb-6 px-4 py-1.5 border-primary/30 bg-primary/5 text-primary-foreground animate-fade-in backdrop-blur-md">
+          <Sparkles className="w-3.5 h-3.5 mr-2" />
+          Next-Gen AI Mind Mapping
+        </Badge>
 
-            <p className="text-zinc-400 text-lg md:text-xl text-center mb-10 max-w-lg mx-auto">
-              Turn curiosity into structured knowledge using AI-powered mind maps.
-            </p>
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+          Everything starts with <br />
+          <span className="text-primary text-shadow-glow">a thought.</span>
+        </h1>
 
-            <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/5 bg-zinc-900/60 backdrop-blur-xl p-4 shadow-xl">
-              <div className="flex justify-center">
+        <p className="text-zinc-400 text-lg md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed">
+          MindScape transforms your unstructured ideas into clear, explorable knowledge through intelligent AI-powered visualization.
+        </p>
+
+        <div className="w-full max-w-3xl mx-auto relative group">
+          {/* Input Glow Effect */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+
+          <div className="relative rounded-3xl border border-white/10 bg-zinc-900/80 backdrop-blur-2xl p-2 shadow-2xl">
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center px-4 pt-2">
                 <ToggleTabs mode={mode} setMode={setMode} />
+                <Select value={lang} onValueChange={setLang}>
+                  <SelectTrigger
+                    ref={languageSelectRef}
+                    className="w-[140px] h-9 border-none bg-white/5 text-xs text-zinc-300 rounded-full hover:bg-white/10 transition"
+                  >
+                    <Globe className="w-3.5 h-3.5 mr-2" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent className="glassmorphism border-white/10">
+                    {languages.map((language) => (
+                      <SelectItem key={language.code} value={language.code} className="text-xs">
+                        {language.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="mt-4">
+              <div className="p-2">
                 {mode === 'single' ? (
-                  <div className="rounded-xl bg-zinc-950/50 p-2 ring-1 ring-white/5 flex items-center gap-2 pr-2 shadow-[inset_0_0_8px_rgba(168,85,247,0.2)]">
+                  <div className="relative group/input">
                     <input
-                      placeholder={
-                        uploadedFile
-                          ? 'Add context for your document...'
-                          : 'What sparks your curiosity?'
-                      }
+                      placeholder={uploadedFile ? 'Add context for your document...' : 'What sparks your curiosity?'}
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
-                      className="w-full rounded-lg bg-transparent px-4 py-3 text-zinc-200 outline-none placeholder:text-zinc-500 focus:ring-0"
+                      className="w-full h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all text-lg"
                       disabled={isGenerating}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -167,119 +194,76 @@ function Hero({
                         }
                       }}
                     />
-                    {uploadedFile && (
-                      <Badge variant="secondary" className="flex-shrink-0">
-                        {uploadedFile.name}
-                        <button
-                          onClick={handleRemoveFile}
-                          className="ml-2 rounded-full hover:bg-white/20 p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    )}
-
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleFileIconClick}
-                      disabled={isGenerating}
-                      className="flex-shrink-0 text-zinc-400 hover:text-zinc-200"
-                    >
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      accept="image/*,application/pdf,.txt,.md"
-                      disabled={isGenerating}
-                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      {uploadedFile && (
+                        <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30">
+                          {uploadedFile.name}
+                          <button onClick={handleRemoveFile} className="ml-2 hover:text-white transition">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleFileIconClick}
+                        disabled={isGenerating}
+                        className="rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        onClick={handleInternalSubmit}
+                        disabled={isGenerating || !!uploadedFile}
+                        className="h-10 px-6 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold shadow-lg shadow-primary/20"
+                      >
+                        {isGenerating ? '...' : <ArrowRight className="w-5 h-5" />}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 rounded-xl bg-zinc-950/50 p-2 ring-1 ring-white/5 shadow-[inset_0_0_8px_rgba(168,85,247,0.2)]">
-                      <input
-                        placeholder="First concept"
-                        value={topic}
-                        onChange={(e) => setTopic(e.target.value)}
-                        className="w-full rounded-lg bg-transparent px-4 py-3 text-zinc-200 outline-none placeholder:text-zinc-500 focus:ring-0"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleInternalSubmit();
-                          }
-                        }}
-                      />
-                    </div>
-                    <span className="font-semibold text-zinc-400">VS</span>
-                    <div className="flex-1 rounded-xl bg-zinc-950/50 p-2 ring-1 ring-white/5 shadow-[inset_0_0_8px_rgba(168,85,247,0.2)]">
-                      <input
-                        placeholder="Second concept"
-                        value={topic2}
-                        onChange={(e) => setTopic2(e.target.value)}
-                        className="w-full rounded-lg bg-transparent px-4 py-3 text-zinc-200 outline-none placeholder:text-zinc-500 focus:ring-0"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleInternalSubmit();
-                          }
-                        }}
-                      />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      placeholder="First concept"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      className="flex-1 h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleInternalSubmit();
+                        }
+                      }}
+                    />
+                    <div className="text-zinc-500 font-bold italic">VS</div>
+                    <input
+                      placeholder="Second concept"
+                      value={topic2}
+                      onChange={(e) => setTopic2(e.target.value)}
+                      className="flex-1 h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleInternalSubmit();
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={handleInternalSubmit}
+                      disabled={isGenerating}
+                      className="h-14 px-6 rounded-2xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold"
+                    >
+                      Compare
+                    </Button>
                   </div>
                 )}
               </div>
-
-
-
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                <Button
-                  onClick={handleInternalSubmit}
-                  disabled={isGenerating || !!uploadedFile}
-                  className="rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50"
-                >
-                  {isGenerating
-                    ? 'Generating...'
-                    : uploadedFile
-                      ? 'Processing File...'
-                      : mode === 'compare'
-                        ? 'Generate Comparison'
-                        : 'Generate Mind Map'}
-                </Button>
-                <div>
-                  <Select value={lang} onValueChange={setLang}>
-                    <SelectTrigger
-                      ref={languageSelectRef}
-                      className="w-[180px] rounded-xl bg-zinc-800/60 text-sm text-zinc-200 ring-1 ring-white/10 transition hover:bg-zinc-800 focus:ring-purple-500"
-                    >
-                      <SelectValue placeholder="Select language" />
-                    </SelectTrigger>
-                    <SelectContent className="glassmorphism">
-                      {languages.map((language) => (
-                        <SelectItem key={language.code} value={language.code}>
-                          {language.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </div>
-          </div>
-
-          <div className="hidden md:flex items-center justify-center md:col-span-4 relative">
-            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.15),transparent_60%)] blur-3xl animate-heartbeat-pulse-grow" />
-            <div className="relative w-full max-w-sm aspect-square">
-              <Image
-                src="/MindScape-Logo.png"
-                alt="MindScape Logo"
-                fill={true}
-                priority={true}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="drop-shadow-[0_0_70px_hsl(var(--primary)/0.5)]"
-              />
-            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileUpload}
+              accept="image/*,application/pdf,.txt,.md"
+            />
           </div>
         </div>
       </motion.div>
@@ -404,15 +388,17 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
 // ---------- TRANSITION SECTION ----------
 function TransitionSection() {
   return (
-    <section className="mt-24 text-center max-w-3xl mx-auto px-6">
-      <h2 className="text-3xl font-semibold text-white">
-        Everything starts with a <span className="text-purple-400">thought.</span>
-      </h2>
-
-      <p className="mt-4 text-zinc-400 leading-relaxed text-lg">
-        MindScape helps you turn unstructured ideas into clear,
-        explorable knowledge through intelligent visualization.
-      </p>
+    <section className="relative py-24 px-6 overflow-hidden">
+      <div className="max-w-4xl mx-auto text-center">
+        <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          Unleash the Power of <br />
+          <span className="text-primary">Visual Thinking</span>
+        </h2>
+        <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
+          Break through cognitive barriers. Our AI-driven engine maps out complex topics in seconds,
+          allowing you to see the big picture and the smallest details simultaneously.
+        </p>
+      </div>
     </section>
   );
 }
@@ -423,35 +409,43 @@ function CapabilityStrip() {
     {
       icon: Sparkles,
       title: "AI Generation",
-      desc: "Instant structured maps"
+      desc: "Deep-layered maps from simple prompts"
     },
     {
       icon: GitBranch,
       title: "Nested Exploration",
-      desc: "Unlimited depth"
+      desc: "Infinite depth for complex subjects"
     },
     {
       icon: ImageIcon,
-      title: "Visual Learning",
-      desc: "AI-generated imagery"
+      title: "Visual Assets",
+      desc: "AI-curated imagery for context"
     },
     {
       icon: Scan,
       title: "Vision Mode",
-      desc: "Docs → maps instantly"
+      desc: "Convert papers & images to maps"
     },
   ];
 
   return (
-    <div className="mt-16 mb-24 max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-32">
       {capabilities.map((cap, i) => (
-        <div key={i} className="flex flex-col items-center text-center p-4 rounded-xl hover:bg-white/5 transition-colors">
-          <div className="p-3 rounded-full bg-zinc-900 border border-white/10 shadow-[0_0_15px_rgba(168,85,247,0.15)] mb-3">
-            <cap.icon className="w-5 h-5 text-purple-400" />
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: i * 0.1 }}
+          className="group relative flex flex-col items-center text-center p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-primary/20 transition-all duration-500"
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]" />
+          <div className="relative z-10 w-16 h-16 flex items-center justify-center rounded-2xl bg-zinc-900 border border-white/10 mb-6 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300 shadow-xl">
+            <cap.icon className="w-6 h-6 text-primary" />
           </div>
-          <h3 className="font-semibold text-white mb-1">{cap.title}</h3>
-          <p className="text-sm text-zinc-500">{cap.desc}</p>
-        </div>
+          <h3 className="relative z-10 text-lg font-bold text-white mb-2">{cap.title}</h3>
+          <p className="relative z-10 text-sm text-zinc-500 leading-relaxed">{cap.desc}</p>
+        </motion.div>
       ))}
     </div>
   );

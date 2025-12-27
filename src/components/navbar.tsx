@@ -120,44 +120,67 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full">
-      <div className="flex h-16 w-full items-center justify-between bg-black/30 px-4 py-4 backdrop-blur-3xl sm:px-6 lg:px-8">
-        {/* Left Section */}
-        <div className="flex flex-1 items-center justify-start gap-3">
-          <Link href="/" className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5">
-            <Icons.logo className="h-8 w-8" />
-            <span className="text-xl font-bold tracking-tight text-shadow-glow">MindScape</span>
-          </Link>
-        </div>
+    <header className="sticky top-0 z-[100] w-full px-4 py-3 pointer-events-none">
+      <div className="mx-auto max-w-7xl w-full pointer-events-auto">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl ring-1 ring-white/5">
+          <div className="flex h-14 items-center justify-between px-4 sm:px-6">
+            {/* Left Section: Logo & Brand */}
+            <div className="flex flex-1 items-center justify-start">
+              <Link href="/" className="group flex items-center gap-3 transition-opacity">
+                {/* Refined Glass Icon with Soft Glow */}
+                <div className="relative">
+                  {/* External Aura Glow - Softened */}
+                  <div className="absolute inset-0 rounded-full bg-primary/0 blur-[20px] transition-all duration-500 group-hover:bg-primary/15" />
 
-        {/* Center Section */}
-        <div className="hidden flex-shrink-0 md:flex">
-          <nav className="flex items-center rounded-full bg-zinc-900/60 p-1 ring-1 ring-white/10">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="relative rounded-full px-4 py-1.5 text-sm font-medium text-zinc-300 outline-sky-400 transition focus-visible:outline-2"
-              >
-                {pathname === item.href && (
-                  <motion.span
-                    layoutId="navbar-pill"
-                    className="absolute inset-0 z-0 rounded-full bg-purple-600/30 backdrop-blur-sm border border-purple-500/50"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10">{item.label}</span>
+                  <div className="relative h-10 w-10 flex items-center justify-center rounded-2xl bg-zinc-900 border border-white/10 shadow-2xl transition-all duration-500 group-hover:border-primary/50 overflow-hidden">
+                    {/* Inner Content Tint */}
+                    <div className="absolute inset-0 bg-primary/0 transition-all duration-500 group-hover:bg-primary/5" />
+
+                    {/* Icon */}
+                    <div className="relative z-10 p-1.5">
+                      <Icons.logo className="h-6 w-6 transition-all duration-500 group-hover:drop-shadow-[0_0_10px_rgba(139,92,246,0.8)]" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Brand Name */}
+                <span className="text-xl font-black text-white tracking-tighter">
+                  Mind<span className="text-primary group-hover:text-accent transition-colors duration-500">Scape</span>
+                </span>
               </Link>
-            ))}
-          </nav>
-        </div>
+            </div>
 
-        {/* Right Section */}
-        <div className="flex flex-1 items-center justify-end">
-          {renderUserAuth()}
+            {/* Center Section: Navigation */}
+            <nav className="hidden md:flex items-center gap-1 rounded-xl bg-zinc-900/40 p-1 ring-1 ring-white/5">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="relative rounded-lg px-4 py-1.5 text-sm font-semibold text-zinc-400 transition-all hover:text-zinc-100"
+                >
+                  {pathname === item.href && (
+                    <motion.span
+                      layoutId="navbar-highlight"
+                      className="absolute inset-0 z-0 rounded-lg bg-white/5 backdrop-blur-md border border-white/10"
+                      transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{item.label}</span>
+                </Link>
+              ))}
+            </nav>
+
+            {/* Right Section: Auth & Profile */}
+            <div className="flex flex-1 items-center justify-end gap-3">
+              <div className="h-8 w-px bg-white/10 mx-2 hidden sm:block" />
+              {renderUserAuth()}
+            </div>
+          </div>
+
+          {/* Subtle Bottom Glow Strip */}
+          <div className="absolute bottom-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-50" />
         </div>
       </div>
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-purple-500/20 to-transparent" />
     </header>
   );
 }

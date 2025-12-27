@@ -386,93 +386,89 @@ const LeafNodeCard = memo(function LeafNodeCard({
 
   return (
     <Card
-      className="group/item relative h-full cursor-pointer rounded-2xl bg-[#1C1C1E]/50 p-5 border border-white/5 transition-all hover:bg-[#1C1C1E]/80 hover:border-purple-500/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] flex flex-col"
+      className="group/item relative h-full cursor-pointer rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-primary/40 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] transition-all duration-500 overflow-hidden flex flex-col"
       onClick={() => onSubCategoryClick(node)}
     >
-      <div className="flex items-start gap-3 mb-3">
-        <div className="p-2 rounded-xl bg-purple-600 text-white ring-1 ring-white/10 group-hover/item:bg-purple-500 transition-all duration-300">
-          <Icon className="h-4 w-4" />
-        </div>
-        <h4 className="text-base font-bold text-zinc-100 leading-tight flex-1 pt-1 group-hover/item:translate-x-1 transition-transform duration-300">
-          {node.name}
-        </h4>
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
 
-      <p className="text-sm text-zinc-400 leading-relaxed min-h-[48px] flex-grow">
-        {node.description}
-      </p>
-
-      <div className="mt-4 pt-4 flex justify-between items-center border-t border-white/5">
-        <div
-          className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${existingExpansion ? 'text-emerald-400' : 'text-zinc-500 hover:text-purple-400'}`}
-                onClick={(e) => {
-                  if (existingExpansion?.fullData && onOpenMap) {
-                    onOpenMap(existingExpansion.fullData, existingExpansion.id);
-                  } else {
-                    handleExpandClick(e);
-                  }
-                }}
-                disabled={isGeneratingMap}
-              >
-                {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>{existingExpansion ? "Open Map" : "Expand"}</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-purple-400" onClick={handleImageClick}>
-                <ImageIcon className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Visual</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500 hover:text-purple-400" onClick={handleChatClick}>
-                <MessageCircle className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Explain</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-zinc-500 hover:text-purple-400"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(`${node.name}\n${node.description}`);
-                }}
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Copy</p></TooltipContent>
-          </Tooltip>
+      <div className="relative z-10 p-5 flex flex-col h-full">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary group-hover/item:scale-110 group-hover/item:bg-primary group-hover/item:text-white transition-all duration-500">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-base font-bold text-zinc-100 leading-snug truncate group-hover/item:text-white transition-colors">
+              {node.name}
+            </h4>
+            <div className="flex items-center mt-1 gap-2">
+              <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-white/10 text-zinc-500 font-medium bg-white/5">Concept</Badge>
+              {existingExpansion && <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-emerald-500/30 text-emerald-400 font-medium bg-emerald-500/5">Expanded</Badge>}
+            </div>
+          </div>
         </div>
 
-        <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSubCategoryClick(node);
-          }}
-          className="h-8 py-1.5 px-4 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-full transition-all shadow-sm flex items-center gap-1.5 border-none"
-        >
-          Read More <ArrowRight className="w-3.5 h-3.5" />
-        </Button>
+        <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3 mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
+          {node.description}
+        </p>
+
+        <div className="flex items-center justify-between gap-2 mt-auto pt-4 border-t border-white/5">
+          <div className="flex items-center gap-0.5">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-8 w-8 rounded-lg transition-all",
+                      existingExpansion ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 hover:text-primary hover:bg-primary/10'
+                    )}
+                    onClick={(e) => {
+                      if (existingExpansion?.fullData && onOpenMap) {
+                        onOpenMap(existingExpansion.fullData, existingExpansion.id);
+                      } else {
+                        handleExpandClick(e);
+                      }
+                    }}
+                    disabled={isGeneratingMap}
+                  >
+                    {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glassmorphism"><p>{existingExpansion ? "Open Detailed Map" : "Generate Sub-Map"}</p></TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-pink-400 hover:bg-pink-400/10 transition-all" onClick={handleImageClick}>
+                    <ImageIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glassmorphism"><p>Visual Insight</p></TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all" onClick={handleChatClick}>
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubCategoryClick(node);
+            }}
+            variant="ghost"
+            className="h-8 py-0 px-3 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 rounded-full group-hover/item:bg-primary/20 group-hover/item:text-primary transition-all flex items-center gap-1"
+          >
+            Details <ArrowRight className="w-3 h-3 group-hover/item:translate-x-1 transition-transform" />
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -517,7 +513,7 @@ const ComparisonView = ({
   );
 
   const handleCardClick = (row: (typeof comparisonRows)[0]) => {
-    const combinedDescription = `For ${topic1}: ${row.topic1Content}\n\nFor ${topic2}: ${row.topic2Content}`;
+    const combinedDescription = `**${topic1}**:\n${row.topic1Content}\n\n---\n\n**${topic2}**:\n${row.topic2Content}`;
     onSubCategoryClick({
       name: row.name,
       description: combinedDescription,
@@ -525,128 +521,84 @@ const ComparisonView = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-6">
       {comparisonRows?.map((row: any, index: number) => {
-        const RowIcon =
-          (LucideIcons as any)[toPascalCase(row.icon)] || FolderOpen;
+        const RowIcon = (LucideIcons as any)[toPascalCase(row.icon)] || FolderOpen;
         const isGenerating = generatingNode === row.nodeId;
-
-        const handleGenerateClick = (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onGenerateNewMap(row.name, row.nodeId, contextPath);
-        };
-
-        const handleExampleClick = (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onExplainWithExample({ name: row.name, type: 'category' });
-        };
-
-        const handleChatClick = (e: React.MouseEvent) => {
-          e.stopPropagation();
-          onExplainInChat(
-            `Compare and contrast "${row.name}" for ${topic1} vs ${topic2}.`
-          );
-        };
 
         return (
           <Card
             key={index}
-            className="bg-card/50 overflow-hidden transition-all hover:shadow-[0_0_40px_rgba(168,85,247,0.25)] hover:-translate-y-1 cursor-pointer group"
+            className="relative group overflow-hidden bg-zinc-900/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] transition-all duration-500 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer"
             onClick={() => handleCardClick(row)}
           >
-            <CardHeader className="p-4 pt-5 border-b border-white/10">
-              <div className="flex items-center justify-start gap-3">
-                <div className="p-2 rounded-full bg-accent/10 text-accent ring-1 ring-accent/30 shadow-glow">
-                  <RowIcon className="h-5 w-5" />
+            <CardHeader className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02]">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zinc-800 border border-white/10 group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                    <RowIcon className="h-6 w-6" />
+                  </div>
+                  <CardTitle className="text-xl font-bold text-zinc-100 tracking-tight group-hover:translate-x-1 transition-all duration-300">
+                    {row.name}
+                  </CardTitle>
                 </div>
-                <CardTitle className="text-lg flex-1">{row.name}</CardTitle>
-                <div
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={handleGenerateClick}
-                        disabled={isGenerating}
-                      >
-                        {isGenerating ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <GitBranch className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipPortal>
-                      <TooltipContent>
-                        <p>Expand further</p>
-                      </TooltipContent>
-                    </TooltipPortal>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={handleExampleClick}
-                      >
-                        <Lightbulb className="h-4 w-4 text-amber-400" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipPortal>
-                      <TooltipContent>
-                        <p>Give me examples</p>
-                      </TooltipContent>
-                    </TooltipPortal>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={handleChatClick}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipPortal>
-                      <TooltipContent>
-                        <p>Explain in Chat</p>
-                      </TooltipContent>
-                    </TooltipPortal>
-                  </Tooltip>
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-x-2 group-hover:translate-x-0" onClick={e => e.stopPropagation()}>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl" onClick={() => onGenerateNewMap(row.name, row.nodeId, contextPath)}>
+                          {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-5 w-5" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Explore Concept</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-xl" onClick={() => onExplainWithExample({ name: row.name, type: 'category' })}>
+                          <Lightbulb className="h-5 w-5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Get Examples</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Compare and contrast "${row.name}" for ${topic1} vs ${topic2}.`)}>
+                          <MessageCircle className="h-5 w-5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Contrast with AI</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 md:grid-cols-2">
-                <div className="p-4 border-b md:border-r md:border-b-0 border-white/10">
-                  <div className="flex items-center mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-400 bg-blue-900/50 px-2 py-0.5 rounded-full">
-                      {topic1}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed">
+
+            <CardContent className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/5 hidden md:block" />
+
+                <div className="space-y-4">
+                  <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary-foreground text-[10px] uppercase font-bold tracking-widest px-3 py-1">
+                    {topic1}
+                  </Badge>
+                  <p className="text-zinc-400 text-sm leading-relaxed font-medium">
                     {row.topic1Content}
                   </p>
                 </div>
-                <div className="p-4">
-                  <div className="flex items-center mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-pink-400 bg-pink-900/50 px-2 py-0.5 rounded-full">
-                      {topic2}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed">
+
+                <div className="space-y-4">
+                  <Badge variant="outline" className="border-accent/20 bg-accent/5 text-accent-foreground text-[10px] uppercase font-bold tracking-widest px-3 py-1">
+                    {topic2}
+                  </Badge>
+                  <p className="text-zinc-400 text-sm leading-relaxed font-medium">
                     {row.topic2Content}
                   </p>
                 </div>
               </div>
             </CardContent>
+
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </Card>
         );
       })}
@@ -1355,361 +1307,287 @@ export const MindMap = ({
   };
 
   return (
-    <div className="min-h-screen pb-20 relative" ref={mindMapRef}>
-      {/* Header / Toolbar */}
-      <div className="sticky top-[58px] z-30 w-full mb-8 pointer-events-none">
-        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3 flex flex-col md:flex-row justify-between items-center gap-4 pointer-events-auto ring-1 ring-white/5">
-            {/* Left Side: Navigation & Utilities */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              {/* Language Selector */}
-              <div className="flex items-center bg-zinc-900/50 rounded-xl px-2 py-1 border border-white/5 ring-1 ring-white/5">
-                <Select value={languageUI} onValueChange={handleLanguageChangeInternal} disabled={isTranslating}>
-                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[120px] text-xs font-medium">
-                    <LucideIcons.Languages className="w-3.5 h-3.5 mr-2 text-zinc-400" />
-                    <SelectValue placeholder="Language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languages.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code} className="text-xs">
-                        {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isTranslating && <Loader2 className="w-3 h-3 animate-spin ml-2 text-purple-400" />}
-              </div>
+    <div className="min-h-screen pb-20 relative bg-background" ref={mindMapRef}>
+      {/* Floating Toolbar */}
+      <div className="sticky top-6 z-50 px-4 mb-10 w-full flex justify-center pointer-events-none">
+        <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-zinc-900/40 backdrop-blur-3xl border border-white/10 shadow-3xl pointer-events-auto ring-1 ring-white/5">
+          {/* Main Controls Group */}
+          <div className="flex items-center gap-1.5 px-2 pr-4 border-r border-white/10">
+            <Select value={languageUI} onValueChange={handleLanguageChangeInternal} disabled={isTranslating}>
+              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition">
+                <Languages className="w-3.5 h-3.5 mr-2 text-primary" />
+                <SelectValue placeholder="Lang" />
+              </SelectTrigger>
+              <SelectContent className="glassmorphism max-h-[300px]">
+                {languages.map(l => (
+                  <SelectItem key={l.code} value={l.code} className="text-xs">{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              {/* AI Persona Selector */}
-              <div className="flex items-center bg-zinc-900/50 rounded-xl px-2 py-1 border border-white/5 ring-1 ring-white/5">
-                <Select value={personaUI} onValueChange={handlePersonaChangeInternal} disabled={isRegenerating}>
-                  <SelectTrigger className="h-8 border-0 bg-transparent focus:ring-0 w-[110px] text-xs font-medium">
-                    {aiPersona === 'Teacher' && <LucideIcons.GraduationCap className="w-3.5 h-3.5 mr-2 text-yellow-500" />}
-                    {aiPersona === 'Concise' && <LucideIcons.Zap className="w-3.5 h-3.5 mr-2 text-orange-500" />}
-                    {aiPersona === 'Creative' && <LucideIcons.Palette className="w-3.5 h-3.5 mr-2 text-pink-500" />}
-                    {(aiPersona === 'Standard' || !aiPersona) && <LucideIcons.Sparkles className="w-3.5 h-3.5 mr-2 text-blue-500" />}
-                    <SelectValue placeholder="Style" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
-                    <SelectItem value="Standard" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
-                      <div className="flex items-center gap-2">
-                        <LucideIcons.Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Standard</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="Teacher" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
-                      <div className="flex items-center gap-2">
-                        <LucideIcons.GraduationCap className="w-3.5 h-3.5 text-yellow-500" />
-                        <span>Teacher</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="Concise" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
-                      <div className="flex items-center gap-2">
-                        <LucideIcons.Zap className="w-3.5 h-3.5 text-orange-500" />
-                        <span>Concise</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="Creative" className="text-xs focus:bg-white/5 rounded-lg my-0.5">
-                      <div className="flex items-center gap-2">
-                        <LucideIcons.Palette className="w-3.5 h-3.5 text-pink-500" />
-                        <span>Creative</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Select value={personaUI} onValueChange={handlePersonaChangeInternal}>
+              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition">
+                <Zap className="w-3.5 h-3.5 mr-2 text-amber-400" />
+                <SelectValue placeholder="Mode" />
+              </SelectTrigger>
+              <SelectContent className="glassmorphism">
+                <SelectItem value="Standard" className="text-xs">Standard</SelectItem>
+                <SelectItem value="Teacher" className="text-xs">Teacher</SelectItem>
+                <SelectItem value="Concise" className="text-xs">Concise</SelectItem>
+                <SelectItem value="Creative" className="text-xs">Creative</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <Separator orientation="vertical" className="h-6 bg-white/10 mx-1 hidden md:block" />
+          {/* Action Group */}
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={isAllExpanded ? collapseAll : expandAll}
+                    className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition"
+                  >
+                    {isAllExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glassmorphism"><p>{isAllExpanded ? 'Collapse' : 'Expand'} All</p></TooltipContent>
+              </Tooltip>
 
-              {/* Expand/Collapse with Text */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={isAllExpanded ? collapseAll : expandAll}
-                className="h-9 px-3 gap-2 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-all rounded-xl"
-              >
-                {isAllExpanded ? (
-                  <>
-                    <Minimize2 className="h-4 w-4" />
-                    <span>Collapse All</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="h-4 w-4" />
-                    <span>Expand All</span>
-                  </>
-                )}
-              </Button>
-            </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={copyToClipboard}
+                    className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition"
+                  >
+                    {isCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glassmorphism"><p>Share Map</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            {/* Right Side: Actions */}
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              {/* Share/Link Icon */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={copyToClipboard}
-                      className="h-9 w-9 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all ring-1 ring-white/5"
-                    >
-                      {isCopied ? <Check className="h-4 w-4 text-green-400" /> : <Link2 className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Copy Map Link</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <Separator orientation="vertical" className="h-6 bg-white/10 mx-1" />
 
-              <Separator orientation="vertical" className="h-6 bg-white/10 mx-1" />
-
-              {/* Save Button (Always visible, status-aware) */}
-              <Button
-                onClick={onSaveMap}
-                disabled={isSaved}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 focus:ring-purple-500/50",
-                  isSaved
-                    ? "text-emerald-400 ring-emerald-500/20 bg-emerald-500/5 cursor-default"
-                    : "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 ring-purple-500/20"
-                )}
-              >
-                {isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {isSaved ? 'Saved' : 'Save Map'}
-              </Button>
-
-              {/* Publish Button */}
-              {!isPublic && (
-                <Button
-                  onClick={handlePublishMap}
-                  disabled={isPublishing || isPublished}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 focus:ring-purple-500/50",
-                    isPublished
-                      ? "text-emerald-400 ring-emerald-500/20 bg-emerald-500/5 cursor-default"
-                      : "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 ring-blue-500/20"
-                  )}
-                >
-                  {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : isPublished ? <Check className="w-4 h-4" /> : <UploadCloud className="w-4 h-4" />}
-                  {isPublished ? 'Published' : 'Publish'}
-                </Button>
+            <Button
+              onClick={onSaveMap}
+              disabled={isSaved}
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all",
+                isSaved
+                  ? "text-emerald-400 bg-emerald-500/10 cursor-default"
+                  : "text-zinc-200 hover:text-white hover:bg-white/5"
               )}
+            >
+              <Save className="w-4 h-4" />
+              {isSaved ? 'Saved' : 'Save'}
+            </Button>
 
-              {/* Regenerate Button */}
+            {!isPublic && (
               <Button
+                onClick={handlePublishMap}
+                disabled={isPublishing || isPublished}
                 variant="ghost"
                 size="sm"
-                onClick={onRegenerate}
-                disabled={!canRegenerate || isRegenerating}
                 className={cn(
-                  "h-9 gap-2 text-xs font-semibold px-4 rounded-xl transition-all ring-1 ring-indigo-500/20 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10",
-                  (!canRegenerate || isRegenerating) && "opacity-50"
+                  "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all",
+                  isPublished
+                    ? "text-blue-400 bg-blue-500/10 cursor-default"
+                    : "text-zinc-200 hover:text-white hover:bg-white/5"
                 )}
               >
-                {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Regenerate
+                <UploadCloud className="w-4 h-4" />
+                {isPublished ? 'Live' : 'Publish'}
               </Button>
-            </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRegenerate}
+              disabled={!canRegenerate || isRegenerating}
+              className="h-9 gap-2 text-xs font-bold px-4 rounded-xl text-primary hover:bg-primary/10 transition"
+            >
+              {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Re-Sync
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="container max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="container max-w-6xl mx-auto px-4 space-y-16">
         {/* Main Topic Hero */}
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-          <div className="relative rounded-3xl border border-white/10 bg-zinc-950/60 backdrop-blur-xl p-8 md:p-12 text-center overflow-hidden">
-            {/* Topic-related background images (Seamless Faded Edges) */}
-            <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="relative group perspective-1000">
+          <div className="absolute -inset-2 bg-gradient-to-r from-primary via-accent to-primary rounded-[3rem] blur-3xl opacity-10 group-hover:opacity-20 transition duration-1000" />
+
+          <div className="relative rounded-[3rem] border border-white/5 bg-zinc-950/40 backdrop-blur-3xl p-12 md:p-20 text-center overflow-hidden shadow-2xl">
+            {/* Background Visualization Layer */}
+            <div className="absolute inset-0 -z-10 pointer-events-none">
               {heroImages && (
-                <>
-                  {/* Left Image */}
-                  <div className="absolute inset-y-0 left-0 w-1/2 opacity-50">
-                    <img
-                      src={heroImages.left}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ maskImage: 'linear-gradient(to right, black 20%, transparent 80%)', WebkitMaskImage: 'linear-gradient(to right, black 20%, transparent 80%)' }}
-                    />
+                <div className="flex w-full h-full opacity-40 mix-blend-screen">
+                  <div className="w-1/2 relative">
+                    <Image src={heroImages.left} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 0% 50%, black 0%, transparent 80%)' }} />
                   </div>
-                  {/* Right Image */}
-                  <div className="absolute inset-y-0 right-0 w-1/2 opacity-50">
-                    <img
-                      src={heroImages.right}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ maskImage: 'linear-gradient(to left, black 20%, transparent 80%)', WebkitMaskImage: 'linear-gradient(to left, black 20%, transparent 80%)' }}
-                    />
+                  <div className="w-1/2 relative">
+                    <Image src={heroImages.right} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 100% 50%, black 0%, transparent 80%)' }} />
                   </div>
-                </>
+                </div>
               )}
-              {/* Global Overlays for seamless blending */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-zinc-950"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/40 to-background" />
             </div>
 
-
-
-            <div className="absolute inset-x-0 top-6 flex justify-center z-20">
+            <div className="flex flex-col items-center relative z-10 w-full">
               {mindMapStack.length > 1 && onStackSelect && (
-                <BreadcrumbNavigation
-                  maps={mindMapStack}
-                  activeIndex={activeStackIndex}
-                  onSelect={onStackSelect}
-                  className="scale-90 opacity-80 hover:opacity-100 hover:scale-100 transition-all duration-500"
-                />
+                <div className="mb-10">
+                  <BreadcrumbNavigation
+                    maps={mindMapStack}
+                    activeIndex={activeStackIndex}
+                    onSelect={onStackSelect}
+                    className="bg-zinc-900/50 backdrop-blur-xl rounded-full px-5 py-2 border border-white/5"
+                  />
+                </div>
               )}
-            </div>
 
-            <h1 className="text-4xl font-black tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 drop-shadow-sm">
-              {(mindMap as any).shortTitle || mindMap.topic}
-            </h1>
+              <Badge variant="outline" className="mb-6 py-1 px-4 border-primary/30 bg-primary/10 text-primary-foreground font-bold tracking-widest text-[10px] uppercase animate-in fade-in zoom-in duration-1000">
+                Knowledge Sphere
+              </Badge>
 
+              <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40 leading-[1.1] drop-shadow-2xl">
+                {(mindMap as any).shortTitle || mindMap.topic}
+              </h1>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
-              <Button
-                variant="outline"
-                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-purple-500/50 transition-all"
-                onClick={() => setIsAiContentDialogOpen(true)}
-              >
-                <Sparkles className="w-4 h-4 mr-2 text-purple-400" />
-                AI Insights
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-blue-500/50 transition-all"
-                onClick={handleQuizClick}
-                disabled={isQuizLoading}
-              >
-                {isQuizLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TestTube2 className="w-4 h-4 mr-2 text-blue-400" />}
-                Take Quiz
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-pink-500/50 transition-all"
-                onClick={() => setIsGalleryOpen(true)}
-              >
-                <Images className="w-4 h-4 mr-2 text-pink-400" />
-                Image Gallery
-                {generatedImages.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
-                    {generatedImages.length}
-                  </Badge>
-                )}
-              </Button>
-              {nestedExpansions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-4">
                 <Button
-                  variant="outline"
-                  className="rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-emerald-500/50 transition-all"
-                  onClick={() => setIsNestedMapsDialogOpen(true)}
+                  onClick={() => setIsAiContentDialogOpen(true)}
+                  className="rounded-full bg-primary/20 hover:bg-primary/30 border border-primary/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
                 >
-                  <Network className="w-4 h-4 mr-2 text-emerald-400" />
-                  Related Maps
-                  <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
-                    {nestedExpansions.length}
-                  </Badge>
+                  <Sparkles className="w-5 h-5 mr-3 text-primary" />
+                  AI Insights
                 </Button>
-              )}
+                <Button
+                  onClick={handleQuizClick}
+                  disabled={isQuizLoading}
+                  className="rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
+                >
+                  {isQuizLoading ? <Loader2 className="w-5 h-5 mr-3 animate-spin" /> : <TestTube2 className="w-5 h-5 mr-3 text-blue-400" />}
+                  Test Skills
+                </Button>
+                <Button
+                  onClick={() => setIsGalleryOpen(true)}
+                  className="rounded-full bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Images className="w-5 h-5 mr-3 text-pink-400" />
+                  Visuals
+                </Button>
+                {nestedExpansions.length > 0 && (
+                  <Button
+                    onClick={() => setIsNestedMapsDialogOpen(true)}
+                    className="rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/20 text-white h-12 px-8 transition-all hover:scale-105 active:scale-95"
+                  >
+                    <Network className="w-5 h-5 mr-3 text-emerald-400" />
+                    Depth Layer ({nestedExpansions.length})
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* SubTopics Accordion */}
+        {/* Knowledge Layers (Accordions) */}
         <Accordion
           type="multiple"
           value={openSubTopics}
           onValueChange={setOpenSubTopics}
-          className="space-y-6"
+          className="space-y-10"
         >
           {mindMap.subTopics?.map((subTopic: any, index: number) => {
             const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
             const subTopicId = `topic-${index}`;
 
-            const handleToolAction = (e: React.MouseEvent, type: string) => {
-              e.stopPropagation();
-              if (type === 'expand') onGenerateNewMap(subTopic.name, subTopicId, mindMap.topic);
-              if (type === 'chat') onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`);
-            };
-
             return (
               <AccordionItem
                 key={index}
                 value={subTopicId}
-                className="border-none rounded-2xl bg-[#09090B]/40 backdrop-blur-md shadow-2xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-purple-500/20 transition-all duration-500"
+                className="border-none rounded-[2.5rem] bg-zinc-900/20 backdrop-blur-3xl shadow-3xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-primary/30 transition-all duration-700"
               >
                 <div
-                  className="group/subtopic px-5 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                  className="group/subtopic px-8 py-6 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
                   onClick={() => {
                     setOpenSubTopics(prev => prev.includes(subTopicId) ? prev.filter(x => x !== subTopicId) : [...prev, subTopicId]);
                   }}
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="p-2 rounded-xl bg-purple-600 text-white shadow-lg shadow-purple-900/20 ring-1 ring-white/10 group-hover/subtopic:bg-purple-500 transition-all duration-300">
-                      <SubTopicIcon className="h-4 w-4" />
+                  <div className="flex items-center gap-6 flex-1">
+                    <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-primary text-white shadow-[0_0_30px_rgba(139,92,246,0.3)] ring-1 ring-white/20 group-hover/subtopic:scale-110 transition-all duration-500">
+                      <SubTopicIcon className="h-6 w-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">{subTopic.name}</h3>
-                    <ChevronDown className={`w-5 h-5 text-zinc-500 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
+                    <div className="flex flex-col">
+                      <h3 className="text-2xl font-black text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">{subTopic.name}</h3>
+                      <p className="text-zinc-500 text-sm font-medium">Major Knowledge Node</p>
+                    </div>
+                    <ChevronDown className={`w-6 h-6 text-zinc-600 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
                   </div>
 
-                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-100" onClick={e => handleToolAction(e, 'expand')}>
-                      <Network className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-100" onClick={e => handleToolAction(e, 'chat')}>
-                      <MessageCircle className="h-4 w-4" />
-                    </Button>
+                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-primary hover:bg-primary/10 rounded-xl" onClick={() => onGenerateNewMap(subTopic.name, subTopicId, mindMap.topic)}>
+                            <Network className="h-5 w-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Exapnd Layer</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`)}>
+                            <MessageCircle className="h-5 w-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Chat with AI</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
 
-                <AccordionContent className="px-6 pb-6 pt-2">
-                  <Accordion
-                    type="multiple"
-                    value={openCategories}
-                    onValueChange={setOpenCategories}
-                    className="space-y-4"
-                  >
+                <AccordionContent className="px-8 pb-10 pt-4">
+                  <div className="space-y-8">
                     {subTopic.categories.map((category: any, catIndex: number) => {
                       const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
                       const catId = `cat-${index}-${catIndex}`;
 
-                      const handleCatTool = (e: React.MouseEvent, type: string) => {
-                        e.stopPropagation();
-                        if (type === 'expand') onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`);
-                        if (type === 'chat') onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`);
-                      };
-
                       return (
-                        <div key={catIndex} className="rounded-xl bg-[#1C1C1E]/40 border border-white/5 overflow-hidden">
+                        <div key={catIndex} className="rounded-3xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
                           <div
-                            className="group/cat px-5 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                            className="group/cat px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors cursor-pointer"
                             onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
                           >
-                            <div className="flex items-center gap-4 flex-1">
-                              <div className="p-2 rounded-xl bg-purple-600 text-white ring-1 ring-white/10 group-hover/cat:bg-purple-500 transition-all duration-300">
-                                <CategoryIcon className="h-4 w-4" />
+                            <div className="flex items-center gap-5 flex-1">
+                              <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 border border-white/10 group-hover/cat:bg-primary group-hover/cat:text-white transition-all duration-500">
+                                <CategoryIcon className="h-5 w-5" />
                               </div>
                               <h4 className="text-lg font-bold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
                               <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
                             </div>
 
                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-200" onClick={e => handleCatTool(e, 'expand')}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`)}>
                                 <Network className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-200" onClick={e => handleCatTool(e, 'chat')}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
                                 <MessageCircle className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
 
                           {openCategories.includes(catId) && (
-                            <div className="px-5 pb-5 pt-1">
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {category.subCategories.map((sub: any, subIndex: number) => (
                                   <LeafNodeCard
                                     key={subIndex}
@@ -1732,16 +1610,12 @@ export const MindMap = ({
                         </div>
                       );
                     })}
-                  </Accordion>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             );
           })}
         </Accordion>
-
-        {/* Comparison Section (Example of using ComparisonView if data allows - Logic to detect comparable items would go here) */}
-        {/* For now, we don't auto-detect comparisons, but we could add a manual "Compare" mode in future */}
-
       </div>
 
       {/* Dialogs */}
@@ -1783,7 +1657,6 @@ export const MindMap = ({
           if (activeExplainableNode) {
             setIsExampleLoading(true);
             setExampleContent('');
-            // Trigger re-fetch via useEffect
             setActiveExplainableNode({ ...activeExplainableNode });
           }
         }}
@@ -1808,15 +1681,10 @@ export const MindMap = ({
           path: item.path || ''
         }))}
         onDelete={(id) => {
-          // Handle deletion of nested map
           toast({ description: "Nested map deleted" });
         }}
         onRegenerate={(parentName, id) => {
-          // Handle regeneration
           toast({ description: `Regenerating ${parentName}...` });
-        }}
-        onExpandFurther={(nodeName, nodeDescription, parentId) => {
-          // Handle further expansion
         }}
         expandingId={null}
         onExplainInChat={onExplainInChat}
@@ -1826,7 +1694,6 @@ export const MindMap = ({
           if (onOpenNestedMap) onOpenNestedMap(mapData, id);
         }}
       />
-
-    </div >
+    </div>
   );
 };
