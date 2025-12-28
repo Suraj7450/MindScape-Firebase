@@ -7,6 +7,7 @@ import { Navbar } from '@/components/navbar';
 import { FirebaseClientProvider } from '@/firebase';
 import { Icons } from '@/components/icons';
 import { Inter, Orbitron } from 'next/font/google';
+import { AIConfigProvider } from '@/contexts/ai-config-context';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -56,11 +57,14 @@ export default function RootLayout({
         <link rel="icon" href="/MindScape-Logo.png" sizes="any" />
       </head>
       <body className={cn('min-h-screen w-full overflow-x-hidden', 'bg-[#0D0D0D] text-[#EAEAEA]')} suppressHydrationWarning>
+
         <FirebaseClientProvider>
-          <BackgroundGlow />
-          <Navbar />
-          <main className="h-full pt-16">{children}</main>
-          <Toaster />
+          <AIConfigProvider>
+            <BackgroundGlow />
+            <Navbar />
+            <main className="h-full pt-16">{children}</main>
+            <Toaster />
+          </AIConfigProvider>
         </FirebaseClientProvider>
       </body>
     </html>

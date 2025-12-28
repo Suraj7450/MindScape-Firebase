@@ -59,28 +59,30 @@ export async function explainWithExample(
 
   const userPrompt = "Generate the example.";
 
-  const rawResult = await generateContent({
-    provider,
-    apiKey,
-    systemPrompt,
-    userPrompt,
-    strict
-  });
+  const maxAttempts = 2;
+  let lastError = null;
 
-  // Normalize
-  const normalized = {
-    example: typeof rawResult?.example === 'string'
-      ? rawResult.example
-      : (typeof rawResult === 'string' ? rawResult : `A illustrative example for ${topicName} in the context of ${mainTopic}.`)
-  };
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await generateContent({
+        provider,
+        apiKey,
+        systemPrompt,
+        userPrompt,
+        schema: ExplainWithExampleOutputSchema,
+        strict
+      });
 
-  try {
-    const validated = ExplainWithExampleOutputSchema.parse(normalized);
-    return validated;
-  } catch (e: any) {
-    console.error("Example validation failed:", e);
-    return normalized as ExplainWithExampleOutput;
+      return result;
+    } catch (e: any) {
+      lastError = e;
+      console.error(`❌ Example generation attempt ${attempt} failed:`, e.message);
+      if (attempt === maxAttempts) throw e;
+      await new Promise(res => setTimeout(res, 1000));
+    }
   }
+
+  throw lastError || new Error('Example generation failed');
 }
 
 const prompt = ai.definePrompt({

@@ -35,6 +35,7 @@ interface QuizDialogProps {
   questions: QuizQuestion[];
   isLoading: boolean;
   onRestart: () => void;
+  isGlobalBusy?: boolean;
 }
 
 /**
@@ -50,7 +51,9 @@ export function QuizDialog({
   questions,
   isLoading,
   onRestart,
+  isGlobalBusy = false,
 }: QuizDialogProps) {
+  const isBusy = isLoading || isGlobalBusy;
   const { user, firestore } = useFirebase(); // Added hook
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -152,7 +155,7 @@ export function QuizDialog({
           <p className="text-5xl font-bold text-primary mb-6">
             {score} / {questions.length}
           </p>
-          <Button onClick={handleRestartQuiz}>
+          <Button onClick={handleRestartQuiz} disabled={isBusy}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Restart Quiz
           </Button>
@@ -192,7 +195,7 @@ export function QuizDialog({
                     'bg-red-500/20 border-red-500 hover:bg-red-500/30'
                   )}
                   onClick={() => handleAnswerSelect(index)}
-                  disabled={isAnswered}
+                  disabled={isAnswered || isBusy}
                 >
                   <span className="mr-3 font-bold">
                     {String.fromCharCode(65 + index)}.
@@ -236,7 +239,7 @@ export function QuizDialog({
 
         <DialogFooter>
           {isAnswered && !isQuizFinished && (
-            <Button onClick={handleNextQuestion}>
+            <Button onClick={handleNextQuestion} disabled={isBusy}>
               {currentQuestionIndex < questions.length - 1
                 ? 'Next Question'
                 : 'Finish Quiz'}

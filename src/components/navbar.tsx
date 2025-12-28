@@ -16,10 +16,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, BookOpen } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { motion } from 'framer-motion';
 import { Icons } from './icons';
+import { cn } from '@/lib/utils';
 
 export function Navbar() {
   const { user, isUserLoading } = useUser();
@@ -61,6 +62,28 @@ export function Navbar() {
     const auth = getAuth();
     await signOut(auth);
     router.push('/');
+  };
+
+  const [isStudyMode, setIsStudyMode] = useState(false);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme-mode');
+    if (savedTheme === 'study') {
+      setIsStudyMode(true);
+      document.documentElement.classList.add('theme-study');
+    }
+  }, []);
+
+  const toggleStudyMode = () => {
+    const nextMode = !isStudyMode;
+    setIsStudyMode(nextMode);
+    if (nextMode) {
+      document.documentElement.classList.add('theme-study');
+      localStorage.setItem('theme-mode', 'study');
+    } else {
+      document.documentElement.classList.remove('theme-study');
+      localStorage.setItem('theme-mode', 'dark');
+    }
   };
 
   const renderUserAuth = () => {
@@ -172,7 +195,19 @@ export function Navbar() {
 
             {/* Right Section: Auth & Profile */}
             <div className="flex flex-1 items-center justify-end gap-3">
-              <div className="h-8 w-px bg-white/10 mx-2 hidden sm:block" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleStudyMode}
+                className={cn(
+                  "rounded-xl gap-2 transition-all duration-500 border border-transparent",
+                  isStudyMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "text-zinc-400 hover:bg-white/5"
+                )}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline font-bold text-xs">{isStudyMode ? 'Study Mode' : 'Standard'}</span>
+              </Button>
+              <div className="h-8 w-px bg-white/10 mx-1 hidden sm:block" />
               {renderUserAuth()}
             </div>
           </div>

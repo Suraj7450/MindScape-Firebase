@@ -1,6 +1,7 @@
 
 'use server';
 import { AIProvider } from '@/ai/client-dispatcher';
+import { providerMonitor } from '@/ai/provider-monitor';
 import {
   generateMindMap,
   GenerateMindMapOutput,
@@ -402,4 +403,8 @@ export async function expandNodeAction(
       error: `Failed to expand node. ${errorMessage}`,
     };
   }
+}
+
+export async function getAIHealthReportAction() {
+  return providerMonitor.getReport();
 }

@@ -155,26 +155,14 @@ Return a JSON object with:
   ]
 }`;
 
-  const rawResult = await generateContent({
+  const result = await generateContent({
     provider,
     apiKey,
-    systemPrompt: "System: XML Schema compliant JSON generator",
-    userPrompt: manualPrompt
+    systemPrompt: "System: Mind map node expansion specialist. JSON ONLY.",
+    userPrompt: manualPrompt,
+    schema: NestedExpansionOutputSchema,
+    strict
   });
 
-  // Normalize
-  const normalized = {
-    topic: rawResult?.topic || nodeName,
-    icon: rawResult?.icon || 'network',
-    subCategories: Array.isArray(rawResult?.subCategories) ? rawResult.subCategories : []
-  };
-
-  try {
-    const validated = NestedExpansionOutputSchema.parse(normalized);
-    return validated;
-  }
-  catch (e: any) {
-    console.error("Schema validation failed for expansion:", e);
-    return normalized as ExpandNodeOutput;
-  }
+  return result;
 }

@@ -16,6 +16,7 @@ interface BreadcrumbNavigationProps {
   maps: GenerateMindMapOutput[];
   activeIndex: number;
   onSelect: (index: number) => void;
+  isBusy?: boolean;
   className?: string;
 }
 
@@ -23,6 +24,7 @@ export function BreadcrumbNavigation({
   maps,
   activeIndex,
   onSelect,
+  isBusy = false,
   className,
 }: BreadcrumbNavigationProps) {
   // Only show what's in our current navigation history
@@ -40,10 +42,11 @@ export function BreadcrumbNavigation({
       <div
         key={index}
         className={cn(
-          "relative flex items-center group cursor-pointer transition-all duration-300",
-          isActive ? "z-10" : "z-0"
+          "relative flex items-center group transition-all duration-300",
+          isActive ? "z-10" : "z-0",
+          isBusy ? "cursor-not-allowed opacity-50" : "cursor-pointer"
         )}
-        onClick={() => onSelect(index)}
+        onClick={() => !isBusy && onSelect(index)}
       >
         <div className={cn(
           "px-4 py-1.5 rounded-full flex items-center gap-2 text-sm backdrop-blur-md transition-all duration-500",
@@ -81,7 +84,10 @@ export function BreadcrumbNavigation({
                 {separator}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="h-8 w-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 text-zinc-500 transition-colors">
+                    <button
+                      disabled={isBusy}
+                      className="h-8 w-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 text-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>

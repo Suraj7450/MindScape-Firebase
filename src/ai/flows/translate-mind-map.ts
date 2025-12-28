@@ -46,26 +46,17 @@ export async function translateMindMap(
   
     Translate this into ${targetLang} and return only the translated JSON object.`;
 
-  const userPrompt = "Generate the translated JSON.";
-
-  const rawResult = await generateContent({
+  const userPrompt = "Translate the JSON.";
+  const result = await generateContent({
     provider,
     apiKey,
     systemPrompt,
-    userPrompt
+    userPrompt,
+    schema: TranslateMindMapOutputSchema,
+    strict
   });
 
-  try {
-    // Relaxed validation for translation since it should match input structure
-    const validated = TranslateMindMapOutputSchema.parse(rawResult);
-    return validated;
-  } catch (e: any) {
-    console.error("Schema validation failed:", e);
-    if (rawResult && rawResult.topic) {
-      return rawResult as TranslateMindMapOutput;
-    }
-    throw new Error(`Translation failed validation: ${e.message}`);
-  }
+  return result;
 }
 
 const prompt = ai.definePrompt({

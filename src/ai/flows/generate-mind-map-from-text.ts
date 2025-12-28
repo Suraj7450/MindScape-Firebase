@@ -99,19 +99,28 @@ export async function generateMindMapFromText(
     strict
   });
 
-  // Normalize and sanitize
-  const normalized = {
-    topic: rawResult?.topic || (context?.substring(0, 50) || "Text Analysis"),
-    shortTitle: rawResult?.shortTitle || rawResult?.topic || "Analysis",
-    icon: rawResult?.icon || 'file-text',
-    subTopics: rawResult?.subTopics || [],
-  };
+  const maxAttempts = 2;
+  let lastError = null;
 
-  try {
-    const validated = GenerateMindMapFromTextOutputSchema.parse(normalized);
-    return validated;
-  } catch (e: any) {
-    console.error("Schema validation failed for text-to-map:", e);
-    return normalized as GenerateMindMapFromTextOutput;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await generateContent({
+        provider,
+        apiKey,
+        systemPrompt,
+        userPrompt,
+        schema: GenerateMindMapFromTextOutputSchema,
+        strict
+      });
+
+      return result;
+    } catch (e: any) {
+      lastError = e;
+      console.error(`❌ Text-to-map generation attempt ${attempt} failed:`, e.message);
+      if (attempt === maxAttempts) throw e;
+      await new Promise(res => setTimeout(res, 1000));
+    }
   }
+
+  throw lastError || new Error('Text-to-map generation failed');
 }

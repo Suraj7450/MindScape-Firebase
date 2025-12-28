@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import type { ExplanationMode } from './mind-map';
+import { ExplanationMode } from '@/types/mind-map';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -42,6 +42,7 @@ interface ExampleDialogProps {
   explanationMode: ExplanationMode;
   onExplanationModeChange: (mode: ExplanationMode) => void;
   onRegenerate: () => void;
+  isGlobalBusy?: boolean;
 }
 
 /**
@@ -58,7 +59,9 @@ export function ExampleDialog({
   explanationMode,
   onExplanationModeChange,
   onRegenerate,
+  isGlobalBusy = false,
 }: ExampleDialogProps) {
+  const isBusy = isLoading || isGlobalBusy;
   const { toast } = useToast();
   const [isCopied, setIsCopied] = useState(false);
 
@@ -78,10 +81,10 @@ export function ExampleDialog({
       <DialogContent className="sm:max-w-xl rounded-2xl glassmorphism p-8 shadow-2xl shadow-purple-900/20" showCloseButton={false}>
         <DialogClose asChild>
           <Button variant="ghost" size="icon" className="rounded-full absolute top-4 right-4">
-              <X className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
         </DialogClose>
-        
+
         <DialogHeader className="text-center items-center">
           <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
             Example For: {title}
@@ -92,7 +95,7 @@ export function ExampleDialog({
           <div className="flex justify-center pt-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-full">
+                <Button variant="outline" size="sm" className="rounded-full" disabled={isBusy}>
                   {explanationMode}
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
@@ -123,14 +126,14 @@ export function ExampleDialog({
         </div>
 
         <div className="flex justify-center gap-3 pt-4">
-            <Button variant="outline" onClick={handleCopy} disabled={isLoading || isCopied}>
-                <Copy className="h-4 w-4 mr-2"/>
-                {isCopied ? 'Copied!' : 'Copy'}
-            </Button>
-            <Button variant="default" onClick={handleRegenerate} disabled={isLoading}>
-                <Wand2 className="h-4 w-4 mr-2" />
-                Regenerate
-            </Button>
+          <Button variant="outline" onClick={handleCopy} disabled={isBusy || isCopied}>
+            <Copy className="h-4 w-4 mr-2" />
+            {isCopied ? 'Copied!' : 'Copy'}
+          </Button>
+          <Button variant="default" onClick={handleRegenerate} disabled={isBusy}>
+            <Wand2 className="h-4 w-4 mr-2" />
+            Regenerate
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

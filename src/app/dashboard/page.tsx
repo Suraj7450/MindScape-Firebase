@@ -20,12 +20,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import { Icons } from '@/components/icons';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
+import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+
+import { Skeleton } from '@/components/ui/skeleton';
+
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="container mx-auto p-4 sm:p-8">
+      <div className="text-center mb-12">
+        <Skeleton className="h-10 w-1/2 mx-auto mb-4" />
+        <Skeleton className="h-5 w-3/4 mx-auto" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {[...Array(8)].map((_, i) => (
+          <Skeleton key={i} className="h-64 rounded-2xl glassmorphism" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type SavedMindMap = GenerateMindMapOutput & {
   id: string;
@@ -34,6 +52,7 @@ type SavedMindMap = GenerateMindMapOutput & {
   summary: string;
   thumbnailUrl?: string;
   thumbnailPrompt?: string;
+  isSubMap?: boolean;
 };
 type SortOption = 'recent' | 'alphabetical' | 'oldest';
 
@@ -62,12 +81,17 @@ export default function DashboardPage() {
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
   const [mapToPublish, setMapToPublish] = useState<SavedMindMap | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [deletingMapIds, setDeletingMapIds] = useState<Set<string>>(new Set());
 
 
 
   const mindMapsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(firestore, 'users', user.uid, 'mindmaps');
+    return query(
+      collection(firestore, 'users', user.uid, 'mindmaps'),
+      orderBy('updatedAt', 'desc'), // Default sort by recent
+      limit(50)
+    );
   }, [firestore, user]);
 
   const { data: savedMaps, isLoading: isMindMapsLoading } = useCollection<SavedMindMap>(mindMapsQuery);
@@ -98,8 +122,12 @@ export default function DashboardPage() {
         maps.sort((a, b) => (b.updatedAt?.toMillis() ?? 0) - (a.updatedAt?.toMillis() ?? 0));
         break;
     }
-    return maps;
-  }, [savedMaps, searchQuery, sortOption]);
+
+    // Strip heavy fields for dashboard metadata (Phase 1 Performance Improvement)
+    return maps
+      .filter(map => !deletingMapIds.has(map.id))
+      .map(({ nodes, edges, subTopics, ...meta }: any) => meta);
+  }, [savedMaps, searchQuery, sortOption, deletingMapIds]);
 
   const handleMindMapClick = (mapId: string) => {
     router.push(`/mindmap?mapId=${mapId}`);
@@ -107,12 +135,31 @@ export default function DashboardPage() {
 
   const handleDeleteMap = async () => {
     if (!user || !mapToDelete) return;
-    const docRef = doc(firestore, 'users', user.uid, 'mindmaps', mapToDelete);
-    deleteDoc(docRef).catch(async (serverError) => {
+
+    // Optimistic UI: tracking deleting maps locally
+    const idToRemove = mapToDelete;
+    setDeletingMapIds(prev => new Set(prev).add(idToRemove));
+    setMapToDelete(null);
+
+    const docRef = doc(firestore, 'users', user.uid, 'mindmaps', idToRemove);
+    try {
+      await deleteDoc(docRef);
+      // Successful delete will eventually be reflected by useCollection snapshot
+    } catch (serverError) {
       const permissionError = new FirestorePermissionError({ path: docRef.path, operation: 'delete' });
       errorEmitter.emit('permission-error', permissionError);
-    });
-    setMapToDelete(null);
+      // Revert optimistic UI on error
+      setDeletingMapIds(prev => {
+        const next = new Set(prev);
+        next.delete(idToRemove);
+        return next;
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: 'You do not have permission to delete this map or a network error occurred.'
+      });
+    }
   };
 
   const handleConfirmPublish = async () => {
@@ -149,8 +196,8 @@ export default function DashboardPage() {
     }
   };
 
-  if (isUserLoading || (user && isMindMapsLoading)) {
-    return null;
+  if (isUserLoading) {
+    return <DashboardLoadingSkeleton />;
   }
 
   if (!user) {
@@ -191,7 +238,13 @@ export default function DashboardPage() {
           </Select>
         </div>
 
-        {filteredAndSortedMaps.length > 0 ? (
+        {isMindMapsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-2xl glassmorphism" />
+            ))}
+          </div>
+        ) : filteredAndSortedMaps.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredAndSortedMaps.map((map) => {
               const updatedAt = map.updatedAt?.toDate();

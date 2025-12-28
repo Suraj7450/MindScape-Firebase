@@ -27,30 +27,12 @@ import {
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 
-interface NestedSubCategory {
-    name: string;
-    description: string;
-    icon: string;
-    tags: string[];
-}
-
-interface NestedExpansionData {
-    id: string;
-    parentName: string;
-    topic: string;
-    icon: string;
-    subCategories: NestedSubCategory[];
-    path: string; // Full hierarchical path
-    createdAt: number;
-    depth: number;
-    status?: 'generating' | 'completed' | 'failed';
-    fullData?: any; // The full mind map data for this sub-map
-}
+import { NestedExpansionItem } from '@/types/mind-map';
 
 interface NestedMapsDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    expansions: NestedExpansionData[];
+    expansions: NestedExpansionItem[];
     onDelete: (id: string) => void;
     onRegenerate: (parentName: string, id: string) => void;
     onExpandFurther: (nodeName: string, nodeDescription: string, parentId: string) => void;
@@ -58,6 +40,7 @@ interface NestedMapsDialogProps {
     onExplainInChat?: (message: string) => void;
     mainTopic: string;
     onOpenMap: (mapData: any, id: string) => void;
+    isGlobalBusy?: boolean;
 }
 
 const toPascalCase = (str: string) => {
@@ -80,10 +63,11 @@ export function NestedMapsDialog({
     onExplainInChat,
     mainTopic,
     onOpenMap,
+    isGlobalBusy = false,
 }: NestedMapsDialogProps) {
 
-    const handleOpenMap = (expansion: NestedExpansionData) => {
-        if (expansion.fullData) {
+    const handleOpenMap = (expansion: NestedExpansionItem) => {
+        if (!isGlobalBusy && (expansion.fullData || expansion.id)) {
             onOpenMap(expansion.fullData, expansion.id);
             onClose();
         }
@@ -134,8 +118,8 @@ export function NestedMapsDialog({
                                             'bg-zinc-900/50 backdrop-blur-xl',
                                             'ring-1 ring-purple-400/20',
                                             'transition-all duration-300',
-                                            'hover:bg-zinc-800/80 hover:ring-purple-400/40',
-                                            expansion.fullData ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
+                                            'transition-all duration-300',
+                                            (expansion.fullData || expansion.id) ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
                                         )}
                                         onClick={() => handleOpenMap(expansion)}
                                     >
@@ -177,7 +161,7 @@ export function NestedMapsDialog({
                                                                             e.stopPropagation();
                                                                             onRegenerate(expansion.parentName, expansion.id);
                                                                         }}
-                                                                        disabled={isExpanding}
+                                                                        disabled={isExpanding || isGlobalBusy}
                                                                     >
                                                                         {isExpanding ? (
                                                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,6 +188,7 @@ export function NestedMapsDialog({
                                                                         e.stopPropagation();
                                                                         onDelete(expansion.id);
                                                                     }}
+                                                                    disabled={isGlobalBusy}
                                                                 >
                                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                                 </Button>

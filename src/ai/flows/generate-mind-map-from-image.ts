@@ -115,14 +115,31 @@ export async function generateMindMapFromImage(
       images = [{ inlineData: { mimeType: matches[1], data: matches[2] } }];
     }
 
-    return generateContent({
-      provider: provider,
-      apiKey: apiKey,
-      systemPrompt,
-      userPrompt,
-      images,
-      strict
-    });
+    const maxAttempts = 2;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await generateContent({
+          provider,
+          apiKey,
+          systemPrompt,
+          userPrompt,
+          images,
+          schema: GenerateMindMapFromImageOutputSchema,
+          strict
+        });
+
+        return result;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`❌ Image-to-map generation attempt ${attempt} failed:`, e.message);
+        if (attempt === maxAttempts) throw e;
+        await new Promise(res => setTimeout(res, 1000));
+      }
+    }
+
+    throw lastError || new Error('Image-to-map generation failed');
   }
   return generateMindMapFromImageFlow(input);
 }

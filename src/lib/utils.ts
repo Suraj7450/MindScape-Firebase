@@ -29,7 +29,14 @@ export const formatText = (text: string): string => {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    let processedLine = line.trim();
+    // PREVENT XSS: Escape raw HTML tags from AI output
+    let processedLine = line
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;")
+      .trim();
 
     // Handle table rows
     if (processedLine.startsWith('|') && processedLine.endsWith('|')) {

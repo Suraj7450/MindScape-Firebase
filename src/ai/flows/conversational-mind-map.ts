@@ -56,28 +56,30 @@ export async function conversationalMindMap(
 
     const userPrompt = input.message === "FINALIZE_MIND_MAP" ? "FINALIZE_MIND_MAP" : "Reply to the user.";
 
-    const rawResult = await generateContent({
-      provider: provider,
-      apiKey: apiKey,
-      systemPrompt,
-      userPrompt,
-      strict
-    });
+    const maxAttempts = 2;
+    let lastError = null;
 
-    // Normalize
-    const normalized = {
-      response: rawResult?.response || "I'm processing your request...",
-      suggestions: Array.isArray(rawResult?.suggestions) ? rawResult.suggestions : [],
-      isFinal: !!rawResult?.isFinal,
-      mindMap: rawResult?.mindMap
-    };
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await generateContent({
+          provider: provider,
+          apiKey: apiKey,
+          systemPrompt,
+          userPrompt,
+          schema: ConversationalMindMapOutputSchema,
+          strict
+        });
 
-    try {
-      return ConversationalMindMapOutputSchema.parse(normalized);
-    } catch (e: any) {
-      console.error("Conversational validation failed:", e);
-      return normalized as ConversationalMindMapOutput;
+        return result;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`❌ Conversational turn attempt ${attempt} failed:`, e.message);
+        if (attempt === maxAttempts) throw e;
+        await new Promise(res => setTimeout(res, 1000));
+      }
     }
+
+    throw lastError || new Error('Conversational turn failed');
   }
   return conversationalMindMapFlow(input);
 }

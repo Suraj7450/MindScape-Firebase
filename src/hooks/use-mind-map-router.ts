@@ -1,0 +1,77 @@
+
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useCallback, useMemo } from 'react';
+
+/**
+ * Custom hook to manage URL search parameters and navigation logic for the mind map page.
+ */
+export function useMindMapRouter() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const params = useMemo(() => ({
+        topic: searchParams.get('topic'),
+        topic1: searchParams.get('topic1'),
+        topic2: searchParams.get('topic2'),
+        sessionId: searchParams.get('sessionId'),
+        mapId: searchParams.get('mapId'),
+        lang: searchParams.get('lang') || 'en',
+        parent: searchParams.get('parent'),
+        isPublic: searchParams.get('public') === 'true',
+        isSelfReference: searchParams.get('selfReference') === 'true',
+        isRegenerating: !!searchParams.get('_r'),
+    }), [searchParams]);
+
+    const navigateToMap = useCallback((id: string, topic?: string) => {
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.set('mapId', id);
+        if (topic) newParams.delete('topic'); // Use ID as primary
+        newParams.delete('_r');
+        router.replace(`${window.location.pathname}?${newParams.toString()}`, { scroll: false });
+    }, [router, searchParams]);
+
+    const changeLanguage = useCallback((langCode: string) => {
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.set('lang', langCode);
+        router.push(`/mindmap?${newParams.toString()}`);
+    }, [router, searchParams]);
+
+    const regenerate = useCallback(() => {
+        const newParams = new URLSearchParams(searchParams.toString());
+        newParams.set('_r', Date.now().toString());
+        router.replace(`/mindmap?${newParams.toString()}`);
+    }, [router, searchParams]);
+
+    const clearRegenFlag = useCallback(() => {
+        if (searchParams.has('_r')) {
+            const newParams = new URLSearchParams(searchParams.toString());
+            newParams.delete('_r');
+            const search = newParams.toString();
+            router.replace(`${window.location.pathname}${search ? '?' + search : ''}`, { scroll: false });
+        }
+    }, [router, searchParams]);
+
+    const getParamKey = useCallback(() => {
+        return JSON.stringify({
+            topic: params.topic,
+            topic1: params.topic1,
+            topic2: params.topic2,
+            sessionId: params.sessionId,
+            mapId: params.mapId,
+            lang: params.lang,
+            isPublic: params.isPublic,
+            isSelfReference: params.isSelfReference,
+            isRegenerating: params.isRegenerating
+        });
+    }, [params]);
+
+    return {
+        params,
+        navigateToMap,
+        changeLanguage,
+        regenerate,
+        clearRegenFlag,
+        getParamKey,
+        router
+    };
+}

@@ -70,6 +70,18 @@
     --input: 240 5% 12%;
     --ring: 263.4 70% 50.4%;
   }
+
+  .theme-study {
+    --background: 230 15% 7%;
+    /* Soft Charcoal Navy */
+    --foreground: 210 20% 90%;
+    /* Softer foreground */
+    --card: 230 15% 9%;
+    --border: 230 10% 15%;
+    --primary: 263.4 60% 65%;
+    /* Slightly desaturated primary */
+    --muted-foreground: 230 10% 45%;
+  }
 }
 
 @layer base {
@@ -78,8 +90,9 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased transition-colors duration-500;
     font-family: var(--font-inter), sans-serif;
+    font-weight: 400;
     background-image:
       radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.08), transparent 45%),
       radial-gradient(circle at 100% 100%, hsl(var(--accent) / 0.05), transparent 35%);
@@ -179,7 +192,7 @@
   }
 
   .soft-glass-card {
-    @apply rounded-2xl bg-zinc-950/40 backdrop-blur-3xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/10;
+    @apply rounded-2xl bg-zinc-950/40 backdrop-blur-3xl border border-white/5 shadow-[0_20px_50px_rgba(0, 0, 0, 0.5)] ring-1 ring-white/10;
   }
 }
 

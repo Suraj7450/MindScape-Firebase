@@ -7,6 +7,7 @@ import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
  */
 export const mindscapeMap: GenerateMindMapOutput = {
     topic: "MindScape",
+    shortTitle: "MindScape Explorer",
     icon: "brain-circuit",
     subTopics: [
         {

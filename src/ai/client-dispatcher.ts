@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateContentWithPollinations } from './pollinations-client';
 import { generateContentWithBytez } from './bytez-client';
+import { providerMonitor } from './provider-monitor';
 
 export type AIProvider = 'gemini' | 'pollinations' | 'bytez';
 
@@ -11,6 +12,14 @@ interface GenerateContentOptions {
     userPrompt: string;
     images?: { inlineData: { mimeType: string, data: string } }[];
     strict?: boolean; // If true, do not fall back to other providers
+    schema?: any; // Zod schema for validation
+}
+
+export class StructuredOutputError extends Error {
+    constructor(message: string, public rawOutput: string, public zodError?: any) {
+        super(message);
+        this.name = 'StructuredOutputError';
+    }
 }
 
 /**
@@ -25,18 +34,24 @@ async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Prom
             lastError = err;
 
             const errorMessage = err.message || "";
-            const isConcurrencyError = errorMessage.toLowerCase().includes('concurrency') ||
-                errorMessage.toLowerCase().includes('rate limit');
+            const statusCode = err.status || (err.response && err.response.status);
 
-            if (i < retries - 1) {
-                // For concurrency errors, we wait much longer and add significant jitter
+            const isRateLimit = statusCode === 429 || errorMessage.toLowerCase().includes('rate limit');
+            const isTimeout = statusCode === 408 || errorMessage.toLowerCase().includes('timeout');
+            const isRetryableServerErr = statusCode >= 500 || [502, 503, 504].includes(statusCode);
+
+            if (i < retries - 1 && (isRateLimit || isTimeout || isRetryableServerErr)) {
+                // For rate limits, we wait longer and add significant jitter
                 const jitter = Math.random() * 2000;
-                const waitTime = isConcurrencyError
-                    ? (3000 * (i + 1)) + jitter  // Wait 3s, 6s, 9s... + jitter
+                const waitTime = isRateLimit
+                    ? (5000 * (i + 1)) + jitter  // Wait 5s, 10s, 15s... + jitter
                     : delayMs * Math.pow(2, i) + jitter;
 
-                console.warn(`Attempt ${i + 1} failed (${isConcurrencyError ? 'Concurrency/Rate' : 'Error'}), retrying in ${Math.round(waitTime)}ms...`, errorMessage);
+                console.warn(`Attempt ${i + 1} failed (${isRateLimit ? 'Rate Limit' : 'Retryable Error'}), retrying in ${Math.round(waitTime)}ms...`, errorMessage);
                 await new Promise(res => setTimeout(res, waitTime));
+            } else {
+                // Non-retryable error or out of retries
+                throw err;
             }
         }
     }
@@ -62,7 +77,26 @@ function disablePollinations(minutes = 10) {
  */
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
     let { provider = 'pollinations' } = options;
-    const { apiKey, systemPrompt, userPrompt, images, strict } = options;
+    const { apiKey, systemPrompt, userPrompt, images, strict, schema } = options;
+
+    // Self-Healing: Check if preferred provider is degraded
+    if (!strict) {
+        const status = providerMonitor.getStatus(provider);
+        if (status !== 'healthy') {
+            console.warn(`🔄 Preferred provider ${provider} is ${status}. Attempting auto-fallback.`);
+            // Choose a fallback
+            if (provider === 'pollinations' || provider === 'bytez') {
+                provider = 'gemini';
+            } else if (provider === 'gemini') {
+                provider = 'pollinations';
+            }
+        }
+    }
+
+    // Inject JSON-only instruction into system prompt if schema is provided
+    const effectiveSystemPrompt = schema
+        ? `${systemPrompt}\n\nSTRICT JSON ENFORCEMENT: You must respond ONLY with a valid JSON object matching the requested schema. No prose, no conversation, no markdown markers like \`\`\`json.`
+        : systemPrompt;
 
     console.log('🔌 AI Provider selected:', provider);
 
@@ -70,8 +104,12 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     if (provider === 'pollinations') {
         if (isPollinationsAvailable()) {
             try {
-                return await retry(() => generateContentWithPollinations(systemPrompt, userPrompt, images));
+                const raw = await retry(() => generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images));
+                const result = validateAndParse(raw, schema);
+                providerMonitor.recordSuccess('pollinations');
+                return result;
             } catch (error: any) {
+                providerMonitor.recordFailure('pollinations');
                 console.warn("⚠️ Pollinations failed.", error.message);
 
                 if (strict) {
@@ -96,13 +134,17 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
     // 2. Bytez (if selected)
     if (provider === 'bytez') {
-        const effectiveApiKey = apiKey || process.env.BYTEZ_API_KEY || "d5caaa723585c02422e1b4990d15e6e0";
+        const effectiveApiKey = apiKey || process.env.BYTEZ_API_KEY;
         if (!effectiveApiKey) {
             throw new Error("Bytez provider requires an API Key.");
         }
         try {
-            return await retry(() => generateContentWithBytez(systemPrompt, userPrompt, effectiveApiKey));
+            const raw = await retry(() => generateContentWithBytez(effectiveSystemPrompt, userPrompt, effectiveApiKey));
+            const result = validateAndParse(raw, schema);
+            providerMonitor.recordSuccess('bytez');
+            return result;
         } catch (error: any) {
+            providerMonitor.recordFailure('bytez');
             console.warn("⚠️ Bytez failed.", error.message);
             if (strict) {
                 throw new Error(`Bytez failed and strict mode is enabled: ${error.message}`);
@@ -136,8 +178,8 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                 parts.push(...images);
             }
 
-            const result = await model.generateContent(parts);
-            const response = await result.response;
+            const aiResult = await model.generateContent(parts);
+            const response = await aiResult.response;
 
             if (!response) throw new Error("No response received from Gemini");
 
@@ -149,16 +191,59 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             }
 
             console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
-            const parsed = JSON.parse(text);
-            console.log('🎯 Parsed JSON keys:', Object.keys(parsed));
 
-            return parsed;
+            const result = validateAndParse(text, schema);
+            providerMonitor.recordSuccess('gemini');
+            return result;
         } catch (error: any) {
+            providerMonitor.recordFailure('gemini');
             console.error("Gemini AI Error:", error);
             throw error;
         }
     }
 
     throw new Error(`Unsupported AI Provider: ${provider}`);
+}
+
+/**
+ * Validates and parses the AI response text.
+ * Handles markdown stripping and schema validation.
+ */
+function validateAndParse(raw: any, schema?: any): any {
+    if (typeof raw !== 'string') {
+        // If it's already an object (from some internal parsers), validate it
+        if (schema) {
+            const result = schema.safeParse(raw);
+            if (!result.success) {
+                throw new StructuredOutputError("Schema validation failed", JSON.stringify(raw), result.error);
+            }
+            return result.data;
+        }
+        return raw;
+    }
+
+    // Clean markdown code blocks if present
+    let cleaned = raw.trim();
+    if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```[a-z]*\n([\s\S]*)\n```$/g, '$1');
+        // Handle variations without newlines
+        cleaned = cleaned.replace(/^```[a-z]*\s?([\s\S]*?)```$/g, '$1');
+    }
+
+    try {
+        const parsed = JSON.parse(cleaned);
+        if (schema) {
+            const result = schema.safeParse(parsed);
+            if (!result.success) {
+                console.error("❌ Schema Validation Error:", result.error);
+                throw new StructuredOutputError("AI response did not match the required schema structure.", cleaned, result.error);
+            }
+            return result.data;
+        }
+        return parsed;
+    } catch (e: any) {
+        if (e instanceof StructuredOutputError) throw e;
+        throw new StructuredOutputError(`Failed to parse AI response as JSON: ${e.message}`, cleaned);
+    }
 }
 

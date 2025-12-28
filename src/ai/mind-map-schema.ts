@@ -65,6 +65,7 @@ const CategorySchema = z.object({
     ),
   subCategories: z
     .array(SubCategorySchema)
+    .min(3)
     .describe('A list of detailed sub-categories.'),
 });
 
@@ -75,7 +76,33 @@ const SubTopicSchema = z.object({
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "flag").'
     ),
-  categories: z.array(CategorySchema).describe('A list of categories.'),
+  categories: z.array(CategorySchema).min(3).describe('A list of categories.'),
+});
+
+export const GeneratedImageSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  name: z.string(),
+  description: z.string(),
+  status: z.enum(['generating', 'completed', 'failed']),
+});
+
+export const NestedExpansionItemSchema = z.object({
+  id: z.string(),
+  parentName: z.string(),
+  topic: z.string(),
+  icon: z.string(),
+  subCategories: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    icon: z.string(),
+    tags: z.array(z.string()),
+  })),
+  createdAt: z.number(),
+  depth: z.number(),
+  path: z.string().optional(),
+  status: z.enum(['generating', 'completed', 'failed']).optional(),
+  fullData: z.any().optional(), // Self-reference limit
 });
 
 export const MindMapSchema = z.object({
@@ -86,13 +113,17 @@ export const MindMapSchema = z.object({
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").'
     ),
-  subTopics: z.array(SubTopicSchema).describe('A list of main sub-topics.'),
+  subTopics: z.array(SubTopicSchema).min(3).describe('A list of main sub-topics.'),
   heroImages: z.object({
     left: z.string(),
     right: z.string()
   }).optional().describe('Saved hero section background images'),
   isSubMap: z.boolean().optional().describe('Whether this map is a nested sub-map'),
-  parentMapId: z.string().optional().describe('The ID of the parent mind map')
+  parentMapId: z.string().optional().describe('The ID of the parent mind map'),
+  id: z.string().optional(),
+  nestedExpansions: z.array(NestedExpansionItemSchema).optional(),
+  savedImages: z.array(GeneratedImageSchema).optional(),
+  thumbnailUrl: z.string().optional(),
 });
 
 /**
@@ -108,7 +139,7 @@ export const NestedExpansionOutputSchema = z.object({
       icon: z.string(),
       tags: z.array(z.string()),
     })
-  ).describe('4-6 sub-categories for the expanded node'),
+  ).min(4).describe('4-6 sub-categories for the expanded node'),
 });
 
 export type NestedExpansionOutput = z.infer<typeof NestedExpansionOutputSchema>;

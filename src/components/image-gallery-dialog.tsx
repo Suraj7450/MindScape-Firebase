@@ -14,7 +14,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Download, Expand, X, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
-import type { GeneratedImage } from '@/components/mind-map';
+import { GeneratedImage } from '@/types/mind-map';
 import { cn } from '@/lib/utils';
 
 interface ImageGalleryDialogProps {

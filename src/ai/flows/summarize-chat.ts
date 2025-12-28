@@ -33,15 +33,31 @@ export async function summarizeChat(
   
     Generate a concise topic title for this conversation. Return valid JSON { "topic": "Title" }`;
 
-    const userPrompt = "Summarize the chat.";
+    const userPrompt = "Summarize the chat history into a JSON { topic: 'Title' } object.";
+    const maxAttempts = 2;
+    let lastError = null;
 
-    return generateContent({
-      provider: provider,
-      apiKey: apiKey,
-      systemPrompt,
-      userPrompt,
-      strict
-    });
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await generateContent({
+          provider: provider,
+          apiKey: apiKey,
+          systemPrompt,
+          userPrompt,
+          schema: SummarizeChatOutputSchema,
+          strict
+        });
+
+        return result;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`❌ Chat summarization attempt ${attempt} failed:`, e.message);
+        if (attempt === maxAttempts) throw e;
+        await new Promise(res => setTimeout(res, 1000));
+      }
+    }
+
+    throw lastError || new Error('Chat summarization failed');
   }
   return summarizeChatFlow(input);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, memo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   Accordion,
@@ -126,7 +127,6 @@ const LucideIcons = {
   Clock,
   ExternalLink,
 };
-import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import {
   explainNodeAction,
   generateQuizAction,
@@ -135,6 +135,23 @@ import {
   expandNodeAction,
   enhanceImagePromptAction,
 } from '@/app/actions';
+import {
+  MindMapData,
+  NestedExpansionItem,
+  GeneratedImage,
+  MindMapWithId,
+  SubCategoryInfo,
+  ExplainableNode,
+  ExplanationMode
+} from '@/types/mind-map';
+import { MindMapStatus } from '@/hooks/use-mind-map-stack';
+import { LeafNodeCard } from './mind-map/leaf-node-card';
+import { ExplanationDialog } from './mind-map/explanation-dialog';
+import { MindMapToolbar } from './mind-map/mind-map-toolbar';
+import { HeroSection } from './mind-map/hero-section';
+import { MindMapRadialView } from './mind-map/mind-map-radial-view';
+import { cn } from '@/lib/utils';
+import { MindMapAccordion } from './mind-map/mind-map-accordion';
 import { BreadcrumbNavigation } from './breadcrumb-navigation';
 import { NestedMapsDialog } from './nested-maps-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -143,6 +160,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { QuizDialog } from './quiz-dialog';
 import type { QuizQuestion } from '@/ai/flows/generate-quiz';
+import { useAIConfig } from '@/contexts/ai-config-context';
 import {
   Tooltip,
   TooltipContent,
@@ -151,7 +169,6 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 import { formatText } from '@/lib/utils';
-import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -176,45 +193,10 @@ import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/li
 import { useStudyTimeTracker } from '@/hooks/use-study-time-tracker';
 
 
-/**
- * Defines the possible levels of detail for an explanation.
- */
-export type ExplanationMode = 'Beginner' | 'Intermediate' | 'Expert';
-
-/**
- * Represents a generated image with its associated metadata.
- */
-export interface GeneratedImage {
-  id: string;
-  url: string;
-  name: string;
-  description: string;
-  status: 'generating' | 'completed' | 'failed';
-}
-
-export interface NestedExpansionItem {
-  id: string;
-  parentName: string;
-  topic: string;
-  icon: string;
-  subCategories: Array<{ name: string; description: string; icon: string; tags: string[] }>;
-  createdAt: number;
-  depth: number;
-  path?: string;
-  status?: 'generating' | 'completed' | 'failed';
-  fullData?: any; // The full mind map data for opening this nested map
-}
-
-type MindMapData = GenerateMindMapOutput & {
-  thumbnailUrl?: string;
-  id?: string;
-  nestedExpansions?: NestedExpansionItem[];
-  savedImages?: GeneratedImage[];
-};
 
 
 /**
- * Props for the main MindMap component.
+ * Props for the main data component.
  */
 interface MindMapProps {
   data: MindMapData;
@@ -222,7 +204,7 @@ interface MindMapProps {
   isPublic: boolean;
   onSaveMap: () => void;
   onExplainInChat: (message: string) => void;
-  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
+  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string, mode?: 'foreground' | 'background') => void;
   onOpenNestedMap?: (mapData: any, expansionId: string) => void;
   generatingNode: string | null;
   selectedLanguage: string;
@@ -233,10 +215,12 @@ interface MindMapProps {
   isRegenerating: boolean;
   canRegenerate: boolean;
   nestedExpansions?: NestedExpansionItem[];
-  mindMapStack?: GenerateMindMapOutput[];
+  mindMapStack?: MindMapData[];
   activeStackIndex?: number;
   onStackSelect?: (index: number) => void;
   onUpdate?: (updatedData: Partial<MindMapData>) => void;
+  status: MindMapStatus;
+  aiHealth?: { name: string, status: string }[];
 }
 
 /**
@@ -253,381 +237,7 @@ interface ExplanationDialogProps {
   onExplanationModeChange: (mode: ExplanationMode) => void;
 }
 
-/**
- * A dialog component that displays a detailed, AI-generated explanation for a mind map node.
- */
-function ExplanationDialog({
-  isOpen,
-  onClose,
-  title,
-  content,
-  isLoading,
-  onExplainInChat,
-  explanationMode,
-  onExplanationModeChange,
-}: ExplanationDialogProps) {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl glassmorphism">
-        <DialogHeader className="flex-row justify-between items-center">
-          <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
-            <Sparkles className="h-6 w-6 text-primary" />
-            {title}
-          </DialogTitle>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-auto mr-4">
-                {explanationMode}
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => onExplanationModeChange('Beginner')}
-              >
-                Beginner
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onExplanationModeChange('Intermediate')}
-              >
-                Intermediate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onExplanationModeChange('Expert')}
-              >
-                Expert
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : Array.isArray(content) && content.length > 0 ? (
-            <div className="space-y-3">
-              {content.map((point, index) => (
-                <Card key={index} className="bg-secondary/30 group relative">
-                  <CardContent className="p-4 pr-10 flex items-start gap-3">
-                    <Lightbulb className="h-5 w-5 text-accent flex-shrink-0 mt-1" />
-                    <div
-                      className="prose prose-sm max-w-none flex-1"
-                      dangerouslySetInnerHTML={{ __html: formatText(point) }}
-                    />
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onExplainInChat(
-                                `Can you elaborate on this point: "${point}" in the context of ${title}?`
-                              );
-                            }}
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipPortal>
-                          <TooltipContent side="top" align="center">
-                            <p>Explain in Chat</p>
-                          </TooltipContent>
-                        </TooltipPortal>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              No explanation available yet.
-            </p>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
-type SubCategoryInfo = {
-  name: string;
-  description: string;
-};
-
-type ExplainableNode = {
-  name: string;
-  type: 'subTopic' | 'category';
-};
-
-
-
-const LeafNodeCard = memo(function LeafNodeCard({
-  node,
-  onSubCategoryClick,
-  onGenerateImage,
-  onExplainInChat,
-  onGenerateNewMap,
-  isGeneratingMap,
-  mainTopic,
-  nodeId,
-  contextPath,
-  existingExpansion,
-  onOpenMap,
-}: {
-  node: any;
-  onSubCategoryClick: (subCategory: any) => void;
-  onGenerateImage: (subCategory: any) => void;
-  onExplainInChat: (message: string) => void;
-  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
-  isGeneratingMap: boolean;
-  mainTopic: string;
-  nodeId: string;
-  contextPath: string;
-  existingExpansion?: any;
-  onOpenMap?: (mapData: any, id: string) => void;
-}) {
-  const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
-
-  const handleExpandClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onGenerateNewMap(node.name, nodeId, contextPath);
-  };
-
-  const handleChatClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onExplainInChat(`Explain "${node.name}" in the context of ${mainTopic}.`);
-  };
-
-  const handleImageClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onGenerateImage(node);
-  };
-
-  return (
-    <Card
-      className="group/item relative h-full cursor-pointer rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-primary/40 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] transition-all duration-500 overflow-hidden flex flex-col"
-      onClick={() => onSubCategoryClick(node)}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
-
-      <div className="relative z-10 p-5 flex flex-col h-full">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary group-hover/item:scale-110 group-hover/item:bg-primary group-hover/item:text-white transition-all duration-500">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-base font-bold text-zinc-100 leading-snug truncate group-hover/item:text-white transition-colors">
-              {node.name}
-            </h4>
-            <div className="flex items-center mt-1 gap-2">
-              {existingExpansion && <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-emerald-500/30 text-emerald-400 font-medium bg-emerald-500/5">Expanded</Badge>}
-            </div>
-          </div>
-        </div>
-
-        <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3 mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
-          {node.description}
-        </p>
-
-        <div className="flex items-center justify-between gap-2 mt-auto pt-4 border-t border-white/5">
-          <div className="flex items-center gap-0.5">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "h-8 w-8 rounded-lg transition-all",
-                      existingExpansion ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 hover:text-primary hover:bg-primary/10'
-                    )}
-                    onClick={(e) => {
-                      if (existingExpansion?.fullData && onOpenMap) {
-                        onOpenMap(existingExpansion.fullData, existingExpansion.id);
-                      } else {
-                        handleExpandClick(e);
-                      }
-                    }}
-                    disabled={isGeneratingMap}
-                  >
-                    {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>Generate Sub-Map</p></TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-pink-400 hover:bg-pink-400/10 transition-all" onClick={handleImageClick}>
-                    <ImageIcon className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>Visual Insight</p></TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all" onClick={handleChatClick}>
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSubCategoryClick(node);
-            }}
-            variant="ghost"
-            className="h-8 py-0 px-3 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 rounded-full group-hover/item:bg-primary/20 group-hover/item:text-primary transition-all flex items-center gap-1"
-          >
-            Details <ArrowRight className="w-3 h-3 group-hover/item:translate-x-1 transition-transform" />
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-});
-
-
-// New Component for Side-by-Side Comparison
-const ComparisonView = ({
-  categories,
-  onSubCategoryClick,
-  onGenerateNewMap,
-  generatingNode,
-  onExplainWithExample,
-  onExplainInChat,
-  mainTopic,
-  contextPath,
-}: {
-  categories: any[];
-  onSubCategoryClick: (subCategory: SubCategoryInfo) => void;
-  onGenerateNewMap: (topic: string, nodeId: string, contextPath: string) => void;
-  generatingNode: string | null;
-  onExplainWithExample: (node: ExplainableNode) => void;
-  onExplainInChat: (message: string) => void;
-  mainTopic: string;
-  contextPath: string;
-}) => {
-  if (!categories || categories.length !== 2) {
-    return null; // or some fallback UI
-  }
-
-  const topic1 = categories[0]?.name;
-  const topic2 = categories[1]?.name;
-
-  const comparisonRows = categories[0]?.subCategories.map(
-    (sc: any, index: number) => ({
-      name: sc.name,
-      icon: sc.icon,
-      topic1Content: sc.description,
-      topic2Content: categories[1]?.subCategories[index]?.description,
-      nodeId: `diff-${index}`
-    })
-  );
-
-  const handleCardClick = (row: (typeof comparisonRows)[0]) => {
-    const combinedDescription = `**${topic1}**:\n${row.topic1Content}\n\n---\n\n**${topic2}**:\n${row.topic2Content}`;
-    onSubCategoryClick({
-      name: row.name,
-      description: combinedDescription,
-    });
-  };
-
-  return (
-    <div className="grid grid-cols-1 gap-6">
-      {comparisonRows?.map((row: any, index: number) => {
-        const RowIcon = (LucideIcons as any)[toPascalCase(row.icon)] || FolderOpen;
-        const isGenerating = generatingNode === row.nodeId;
-
-        return (
-          <Card
-            key={index}
-            className="relative group overflow-hidden bg-zinc-900/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] transition-all duration-500 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer"
-            onClick={() => handleCardClick(row)}
-          >
-            <CardHeader className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02]">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-zinc-800 border border-white/10 group-hover:bg-primary group-hover:text-white transition-all duration-500">
-                    <RowIcon className="h-6 w-6" />
-                  </div>
-                  <CardTitle className="text-xl font-bold text-zinc-100 tracking-tight group-hover:translate-x-1 transition-all duration-300">
-                    {row.name}
-                  </CardTitle>
-                </div>
-
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-x-2 group-hover:translate-x-0" onClick={e => e.stopPropagation()}>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-xl" onClick={() => onGenerateNewMap(row.name, row.nodeId, contextPath)}>
-                          {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-5 w-5" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Explore Concept</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-xl" onClick={() => onExplainWithExample({ name: row.name, type: 'category' })}>
-                          <Lightbulb className="h-5 w-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Get Examples</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Compare and contrast "${row.name}" for ${topic1} vs ${topic2}.`)}>
-                          <MessageCircle className="h-5 w-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Contrast with AI</p></TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
-                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/5 hidden md:block" />
-
-                <div className="space-y-4">
-                  <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary-foreground text-[10px] uppercase font-bold tracking-widest px-3 py-1">
-                    {topic1}
-                  </Badge>
-                  <p className="text-zinc-400 text-sm leading-relaxed font-medium">
-                    {row.topic1Content}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <Badge variant="outline" className="border-accent/20 bg-accent/5 text-accent-foreground text-[10px] uppercase font-bold tracking-widest px-3 py-1">
-                    {topic2}
-                  </Badge>
-                  <p className="text-zinc-400 text-sm leading-relaxed font-medium">
-                    {row.topic2Content}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-          </Card>
-        );
-      })}
-    </div>
-  );
-};
 /**
  * The main component for displaying and interacting with a mind map.
  */
@@ -652,7 +262,16 @@ export const MindMap = ({
   activeStackIndex = 0,
   onStackSelect,
   onUpdate,
+  status,
+  aiHealth
 }: MindMapProps) => {
+  const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
+  const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMountNode(document.body);
+  }, []);
+
   const mindMapRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -661,35 +280,23 @@ export const MindMap = ({
   // Track study time
   useStudyTimeTracker(firestore, user?.uid, true);
 
-  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' | 'bytez'; strict?: boolean } | undefined>(undefined);
-  const [imageProviderOptions, setImageProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'bytez' } | undefined>(undefined);
-
-  useEffect(() => {
-    const fetchProvider = async () => {
-      if (!user || !firestore) return;
-      try {
-        const snap = await getDoc(doc(firestore, 'users', user.uid));
-        if (snap.exists()) {
-          const p = snap.data().apiSettings?.provider;
-          const ip = snap.data().apiSettings?.imageProvider || 'pollinations';
-
-          if (p === 'pollinations') setProviderOptions({ provider: 'pollinations', strict: true });
-          else if (p === 'bytez') setProviderOptions({ provider: 'bytez', apiKey: snap.data().apiSettings?.apiKey, strict: true });
-          else setProviderOptions({ provider: 'gemini', strict: true });
-
-          setImageProviderOptions({ provider: ip, apiKey: snap.data().apiSettings?.apiKey });
-        }
-      } catch (e) { console.error(e); }
-    };
-    fetchProvider();
-  }, [user, firestore]);
+  const { config } = useAIConfig();
+  const providerOptions = {
+    provider: config.provider,
+    apiKey: config.apiKey,
+    strict: true
+  };
+  const imageProviderOptions = {
+    provider: config.provider === 'gemini' ? 'pollinations' : config.provider as 'pollinations' | 'bytez',
+    apiKey: config.apiKey
+  };
 
 
 
 
 
 
-  const [mindMap, setMindMap] = useState(data);
+  // localMindMap state is removed. We use 'data' prop directly.
   const [isTranslating, setIsTranslating] = useState(false);
 
   const [isExplanationDialogOpen, setIsExplanationDialogOpen] = useState(false);
@@ -755,15 +362,15 @@ export const MindMap = ({
   useEffect(() => {
     const fetchEnhancedHeroImages = async () => {
       // If we already have heroImages (from data or generated), don't refetch
-      if (!mounted || !mindMap?.topic || heroImages) return;
+      if (!mounted || !data?.topic || heroImages) return;
 
       try {
         const result = await enhanceImagePromptAction({
-          prompt: `A cinematic, high-quality artistic conceptual representation of the topic: ${mindMap.topic}. futuristic, abstract, high resolution, soft lighting.`
+          prompt: `A cinematic, high-quality artistic conceptual representation of the topic: ${data.topic}. futuristic, abstract, high resolution, soft lighting.`
         }, providerOptions);
 
         // Robust extraction of the enhanced prompt
-        const enhancedPart = result.enhancedPrompt?.enhancedPrompt || mindMap.topic;
+        const enhancedPart = result.enhancedPrompt?.enhancedPrompt || data.topic;
         const seedLeft = Math.floor(Math.random() * 10000);
         const seedRight = Math.floor(Math.random() * 10000);
 
@@ -775,8 +382,8 @@ export const MindMap = ({
         console.error("Hero image enhancement failed:", e);
         // Fallback to basic topic
         setHeroImages({
-          left: `https://image.pollinations.ai/prompt/${encodeURIComponent(mindMap.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=42`,
-          right: `https://image.pollinations.ai/prompt/${encodeURIComponent(mindMap.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=1337`
+          left: `https://image.pollinations.ai/prompt/${encodeURIComponent(data.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=42`,
+          right: `https://image.pollinations.ai/prompt/${encodeURIComponent(data.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=1337`
         });
       }
     };
@@ -786,9 +393,8 @@ export const MindMap = ({
     }, 1500); // 1.5s delay
 
     return () => clearTimeout(timer);
-  }, [mindMap.topic, mounted, heroImages, providerOptions]);
+  }, [data.topic, mounted, heroImages, providerOptions]);
 
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
@@ -797,49 +403,28 @@ export const MindMap = ({
 
   // Nested expansion state - load from saved data if available
   const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
-  const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(
-    propNestedExpansions || data.nestedExpansions || []
-  );
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
 
 
+  // State for images and expansions is initialized from data prop
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(data.savedImages || []);
+  const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(propNestedExpansions || data.nestedExpansions || []);
+
   useEffect(() => {
-    if (JSON.stringify(data) !== JSON.stringify(mindMap)) {
-      setMindMap(data);
-    }
-
-    // Also update nestedExpansions and generatedImages from data
-    if (propNestedExpansions) {
-      if (JSON.stringify(propNestedExpansions) !== JSON.stringify(nestedExpansions)) {
-        setNestedExpansions(propNestedExpansions);
-      }
-    } else if (data.nestedExpansions) {
-      setNestedExpansions(prev => {
-        // Preserve local generating items that aren't yet in the server data
-        const localGenerating = prev.filter(item => item.status === 'generating');
-        // Ensure data.nestedExpansions is treated as an array
-        const serverExpansions = data.nestedExpansions || [];
-        const serverIds = new Set(serverExpansions.map((e: any) => e.id));
-        const uniqueGenerating = localGenerating.filter(item => !serverIds.has(item.id));
-        const nextExpansions = [...serverExpansions, ...uniqueGenerating];
-
-        if (JSON.stringify(nextExpansions) === JSON.stringify(prev)) return prev;
-        return nextExpansions;
-      });
+    // Only sync if props change externally and differ from local state
+    if (propNestedExpansions && JSON.stringify(propNestedExpansions) !== JSON.stringify(nestedExpansions)) {
+      setNestedExpansions(propNestedExpansions);
+    } else if (data.nestedExpansions && JSON.stringify(data.nestedExpansions) !== JSON.stringify(nestedExpansions)) {
+      setNestedExpansions(data.nestedExpansions);
     }
 
     if (data.savedImages && JSON.stringify(data.savedImages) !== JSON.stringify(generatedImages)) {
       setGeneratedImages(data.savedImages);
     }
+  }, [data.nestedExpansions, data.savedImages, propNestedExpansions]);
 
-    if (data.heroImages && JSON.stringify(data.heroImages) !== JSON.stringify(heroImages)) {
-      setHeroImages(data.heroImages);
-    }
-  }, [data, propNestedExpansions]);
-
-  // Notify parent of local state changes - wrapped in a ref check to prevent loops
+  // Notify parent of updates
   const lastNotifiedRef = useRef<string>('');
-
   useEffect(() => {
     if (onUpdate) {
       const dataToNotify = {
@@ -848,7 +433,6 @@ export const MindMap = ({
         heroImages: heroImages
       };
       const stringified = JSON.stringify(dataToNotify);
-
       if (stringified !== lastNotifiedRef.current) {
         lastNotifiedRef.current = stringified;
         onUpdate(dataToNotify);
@@ -858,13 +442,13 @@ export const MindMap = ({
 
   useEffect(() => {
     const checkIfPublished = async () => {
-      if (!firestore || !mindMap.id || isPublic || !user?.uid) {
+      if (!firestore || !data.id || isPublic || !user?.uid) {
         setIsPublished(isPublic);
         return;
       }
       try {
         const publicMapsCollection = collection(firestore, 'publicMindmaps');
-        const q = query(publicMapsCollection, where('originalAuthorId', '==', user?.uid), where('topic', '==', mindMap.topic));
+        const q = query(publicMapsCollection, where('originalAuthorId', '==', user?.uid), where('topic', '==', data.topic));
         const querySnapshot = await getDocs(q);
 
         // This is a simplification. A more robust check might involve a unique ID from the original map.
@@ -876,15 +460,15 @@ export const MindMap = ({
     };
 
     checkIfPublished();
-  }, [mindMap, firestore, isPublic, user?.uid]);
+  }, [data.topic, firestore, isPublic, user?.uid]);
 
   // Auto-save nestedExpansions to Firestore when they change
   useEffect(() => {
     const saveNestedExpansions = async () => {
-      if (!firestore || !user || !mindMap.id || isPublic) return;
+      if (!firestore || !user || !data.id || isPublic) return;
 
       try {
-        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
 
         // Filter out generating items - they are ephemeral and shouldn't be persisted until complete
         const expansionsToSave = nestedExpansions.filter(e => e.status !== 'generating');
@@ -899,22 +483,22 @@ export const MindMap = ({
     };
 
     // Only save if there's an actual map ID (saved map)
-    if (mindMap.id && nestedExpansions.length >= 0) {
+    if (data.id && nestedExpansions.length >= 0) {
       saveNestedExpansions();
     }
-  }, [nestedExpansions, firestore, user, mindMap.id, isPublic]);
+  }, [nestedExpansions, firestore, user, data.id, isPublic]);
 
   // Auto-save generatedImages to Firestore when they change
   useEffect(() => {
     const saveGeneratedImages = async () => {
-      if (!firestore || !user || !mindMap.id || isPublic) return;
+      if (!firestore || !user || !data.id || isPublic) return;
 
       // Only save completed images
       const completedImages = generatedImages.filter(img => img.status === 'completed');
       if (completedImages.length === 0) return;
 
       try {
-        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', mindMap.id);
+        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
         await updateDoc(mapDocRef, {
           savedImages: completedImages,
           updatedAt: serverTimestamp(),
@@ -924,10 +508,10 @@ export const MindMap = ({
       }
     };
 
-    if (mindMap.id) {
+    if (data.id) {
       saveGeneratedImages();
     }
-  }, [generatedImages, firestore, user, mindMap.id, isPublic]);
+  }, [generatedImages, firestore, user, data.id, isPublic]);
 
 
   const handleDownloadImage = (url: string, name: string) => {
@@ -957,7 +541,7 @@ export const MindMap = ({
 
     try {
       // Use toPlainObject to sanitize Firestore data
-      const plainMindMapData = toPlainObject(mindMap);
+      const plainMindMapData = toPlainObject(data);
 
       const { translation, error } = await translateMindMapAction({
         mindMapData: plainMindMapData,
@@ -973,7 +557,7 @@ export const MindMap = ({
         // Revert UI if failed
         setLanguageUI(selectedLanguage);
       } else if (translation) {
-        setMindMap(translation);
+        if (onUpdate) onUpdate(translation);
         onLanguageChange(langCode);
       }
     } catch (err: any) {
@@ -988,7 +572,7 @@ export const MindMap = ({
     if (!activeSubCategory) return;
     setIsExplanationLoading(true);
     const { explanation, error } = await explainNodeAction({
-      mainTopic: mindMap.topic,
+      mainTopic: data.topic,
       subCategoryName: activeSubCategory.name,
       subCategoryDescription: activeSubCategory.description,
       explanationMode: explanationMode,
@@ -1018,7 +602,7 @@ export const MindMap = ({
     if (!activeExplainableNode) return;
     setIsExampleLoading(true);
     const { example, error } = await explainWithExampleAction({
-      mainTopic: mindMap.topic,
+      mainTopic: data.topic,
       topicName: activeExplainableNode.name,
       explanationMode,
     }, providerOptions);
@@ -1050,6 +634,12 @@ export const MindMap = ({
     setExplanationDialogContent([]);
   };
 
+  const handleExplainWithExample = (node: ExplainableNode) => {
+    setExampleContent('');
+    setActiveExplainableNode(node);
+    setIsExampleDialogOpen(true);
+  };
+
   const handleGenerateImageClick = async (subCategory: SubCategoryInfo) => {
     const generationId = `img-${Date.now()}`;
 
@@ -1071,7 +661,7 @@ export const MindMap = ({
     try {
       // 1. Enhance the prompt using main topic context
       update({ id: toastId, title: 'Enhancing Prompt...', description: 'AI is analyzing your topic for perfect visuals.' });
-      const promptToEnhance = `${subCategory.name} in the context of "${mindMap.topic}": ${subCategory.description}`;
+      const promptToEnhance = `${subCategory.name} in the context of "${data.topic}": ${subCategory.description}`;
 
       const { enhancedPrompt, error: enhanceError } = await enhanceImagePromptAction(
         { prompt: promptToEnhance, style: 'Photorealistic' },
@@ -1096,10 +686,10 @@ export const MindMap = ({
 
       if (!response.ok) throw new Error('Image generation failed at the server.');
 
-      const data = await response.json();
-      if (!data.images?.[0]) throw new Error('No image returned from server.');
+      const imageData = await response.json();
+      if (!imageData.images?.[0]) throw new Error('No image returned from server.');
 
-      const imageUrl = data.images[0];
+      const imageUrl = imageData.images[0];
 
       // 3. Update Gallery State
       const newImage: GeneratedImage = {
@@ -1161,7 +751,7 @@ export const MindMap = ({
     setIsQuizLoading(true);
 
     // Create a plain object for the server action to avoid serialization errors with Firestore timestamps
-    const plainMindMapData = toPlainObject(mindMap);
+    const plainMindMapData = toPlainObject(data);
 
     const { quiz, error } = await generateQuizAction({
       mindMapData: plainMindMapData,
@@ -1180,12 +770,12 @@ export const MindMap = ({
     setIsQuizLoading(false);
   };
   const handlePublishMap = async () => {
-    if (!mindMap.id) return;
+    if (!data.id) return;
     setIsPublishing(true);
 
     try {
       // 0. Ensure we have an ID before publishing
-      if (!mindMap.id) {
+      if (!data.id) {
         toast({ title: "Saving first...", description: "We need to save your map before it can be published." });
         onSaveMap();
         // Wait a bit for Firestore ID to propagate? 
@@ -1197,11 +787,11 @@ export const MindMap = ({
       }
 
       // 1. Use a default description
-      const summary = `A detailed mind map exploration of ${mindMap.topic}.`;
+      const summary = `A detailed mind map exploration of ${data.topic}.`;
 
       // 2. Publish to Firestore
       const publicMapData = {
-        ...mindMap,
+        ...data,
         originalAuthorId: user?.uid,
         publishedAt: serverTimestamp(),
         authorName: user?.displayName || 'Anonymous',
@@ -1235,7 +825,7 @@ export const MindMap = ({
   };
 
   const handleDuplicate = async () => {
-    if (!mindMap || isDuplicating) return;
+    if (!data || isDuplicating) return;
     setIsDuplicating(true);
 
     try {
@@ -1245,7 +835,7 @@ export const MindMap = ({
 
       // Create a new map object
       const newMapData = {
-        ...mindMap,
+        ...data,
         id: undefined, // Let Firestore generate a new ID
         userId: user.uid,
         createdAt: Date.now(),
@@ -1268,7 +858,7 @@ export const MindMap = ({
       });
 
       // Redirect to the new map?
-      router.push(`/mindmap?id=${docRef.id}`);
+      router.push(`/data?id=${docRef.id}`);
 
     } catch (error: any) {
       toast({
@@ -1282,9 +872,9 @@ export const MindMap = ({
   };
 
   const copyToClipboard = () => {
-    // Aggressively hunt for an ID: 1. data.id, 2. mindMap.id, 3. URL search params
+    // Aggressively hunt for an ID: 1. data.id, 2. data.id, 3. URL search params
     const sParams = new URLSearchParams(window.location.search);
-    const effectiveId = data.id || mindMap.id || sParams.get('mapId');
+    const effectiveId = data.id || data.id || sParams.get('mapId');
 
     let url = window.location.href;
 
@@ -1314,8 +904,8 @@ export const MindMap = ({
   };
 
   const expandAll = () => {
-    const allTopicIds = mindMap.subTopics.map((_, i) => `topic-${i}`);
-    const allCategoryIds = mindMap.subTopics.flatMap((t, i) =>
+    const allTopicIds = data.subTopics.map((_, i) => `topic-${i}`);
+    const allCategoryIds = data.subTopics.flatMap((t, i) =>
       t.categories.map((_, j) => `cat-${i}-${j}`)
     );
     setOpenSubTopics(allTopicIds);
@@ -1331,339 +921,92 @@ export const MindMap = ({
 
   return (
     <div className="min-h-screen pb-20 relative" ref={mindMapRef}>
-      {/* Floating Toolbar */}
-      <div className="fixed top-[84px] left-0 z-50 px-4 w-full flex justify-center pointer-events-none">
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl ring-1 ring-white/5 pointer-events-auto">
-          {/* Main Controls Group */}
-          <div className="flex items-center gap-1.5 px-1.5 pr-3 border-r border-white/10">
-            <Select value={languageUI} onValueChange={handleLanguageChangeInternal} disabled={isTranslating}>
-              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200">
-                <Languages className="w-4 h-4 mr-2 text-primary" />
-                <SelectValue placeholder="Lang" />
-              </SelectTrigger>
-              <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
-                {languages.map(l => (
-                  <SelectItem key={l.code} value={l.code} className="text-xs">{l.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={personaUI} onValueChange={handlePersonaChangeInternal}>
-              <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200">
-                <Zap className="w-4 h-4 mr-2 text-amber-400" />
-                <SelectValue placeholder="Mode" />
-              </SelectTrigger>
-              <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
-                {['Standard', 'Teacher', 'Concise', 'Creative'].map(p => (
-                  <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Action Group */}
-          <div className="flex items-center gap-1.5 px-1">
-            <TooltipProvider>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={isAllExpanded ? collapseAll : expandAll}
-                  className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  {isAllExpanded ? (
-                    <>
-                      <Minimize2 className="h-4 w-4" />
-                      Collapse All
-                    </>
-                  ) : (
-                    <>
-                      <Maximize2 className="h-4 w-4" />
-                      Expand All
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={copyToClipboard}
-                  className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  {isCopied ? (
-                    <>
-                      <Check className="h-4 w-4 text-emerald-400" />
-                      Shared
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </>
-                  )}
-                </Button>
-              </div>
-            </TooltipProvider>
-
-            <div className="h-5 w-px bg-white/10 mx-1.5" />
-
-            <div className="flex items-center gap-1.5">
-              <Button
-                onClick={onSaveMap}
-                disabled={isSaved}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all bg-white/5",
-                  isSaved
-                    ? "text-emerald-400 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.1)] cursor-default"
-                    : "text-zinc-200 hover:text-white hover:bg-white/10 hover:scale-105"
-                )}
-              >
-                <Save className="w-4 h-4" />
-                {isSaved ? 'Saved' : 'Save'}
-              </Button>
-
-              {!isPublic && (
-                <Button
-                  onClick={handlePublishMap}
-                  disabled={isPublishing || isPublished}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 gap-2 text-xs font-bold px-4 rounded-xl transition-all bg-white/5",
-                    isPublished
-                      ? "text-blue-400 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.1)] cursor-default"
-                      : "text-zinc-200 hover:text-white hover:bg-white/10 hover:scale-105"
-                  )}
-                >
-                  <Cloud className="w-4 h-4" />
-                  {isPublished ? 'Live' : 'Publish'}
-                </Button>
-              )}
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRegenerate}
-                disabled={!canRegenerate || isRegenerating}
-                className="h-9 gap-2 text-xs font-bold px-4 rounded-xl text-white bg-primary/20 hover:bg-primary/30 hover:scale-105 transition-all shadow-[0_0_30px_rgba(139,92,246,0.15)]"
-              >
-                {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Re-Sync
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MindMapToolbar
+        languageUI={languageUI}
+        onLanguageChange={handleLanguageChangeInternal}
+        isTranslating={isTranslating}
+        personaUI={personaUI}
+        onPersonaChange={handlePersonaChangeInternal}
+        isAllExpanded={isAllExpanded}
+        onToggleExpandAll={isAllExpanded ? collapseAll : expandAll}
+        isCopied={isCopied}
+        onCopyPath={copyToClipboard}
+        isSaved={isSaved}
+        onSave={onSaveMap}
+        isPublished={isPublished}
+        isPublishing={isPublishing}
+        onPublish={handlePublishMap}
+        onOpenAiContent={() => setIsAiContentDialogOpen(true)}
+        onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
+        onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenQuiz={handleQuizClick}
+        onDuplicate={handleDuplicate}
+        isDuplicating={isDuplicating}
+        onRegenerate={onRegenerate}
+        isRegenerating={isRegenerating}
+        canRegenerate={canRegenerate}
+        nestedExpansionsCount={nestedExpansions.length}
+        imagesCount={generatedImages.length}
+        status={status}
+        aiHealth={aiHealth}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
-        {/* Main Topic Hero */}
-        <div className="relative group perspective-2000">
-          {/* Depth Shadow Layer */}
-          <div className="absolute -inset-4 rounded-2xl bg-black/40 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-1000" />
+        {viewMode === 'accordion' ? (
+          <>
+            <HeroSection
+              mindMap={data}
+              heroImages={heroImages}
+              mindMapStack={mindMapStack}
+              activeStackIndex={activeStackIndex}
+              onStackSelect={onStackSelect}
+              onOpenAiContent={() => setIsAiContentDialogOpen(true)}
+              onOpenGallery={() => setIsGalleryOpen(true)}
+              onOpenQuiz={handleQuizClick}
+              onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
+              isQuizLoading={isQuizLoading}
+              nestedExpansionsCount={nestedExpansions.length}
+              status={status}
+            />
 
-          {/* Animated Glow Border */}
-          <div className="absolute -inset-1 bg-gradient-to-br from-primary/30 via-accent/30 to-primary/30 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition duration-1000" />
-
-          <div className="relative soft-glass-card glass-inner-glow px-8 py-8 md:px-16 md:py-12 text-center overflow-hidden">
-            {/* Background Visualization Layer */}
-            <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden rounded-2xl">
-              {heroImages && (
-                <div className="flex w-full h-full opacity-30 mix-blend-screen scale-110 group-hover:scale-100 transition-transform duration-[3s]">
-                  <div className="w-1/2 relative">
-                    <Image src={heroImages.left} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 10% 50%, black 0%, transparent 85%)' }} />
-                  </div>
-                  <div className="w-1/2 relative">
-                    <Image src={heroImages.right} alt="" fill className="object-cover" style={{ maskImage: 'radial-gradient(circle at 90% 50%, black 0%, transparent 85%)' }} />
-                  </div>
-                </div>
-              )}
-              {/* Complex Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-zinc-950/20 to-zinc-950" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.1),transparent_70%)]" />
-            </div>
-
-            <div className="flex flex-col items-center relative z-10 w-full max-w-4xl mx-auto">
-              {mindMapStack.length > 1 && onStackSelect && (
-                <div className="mb-8 animate-in slide-in-from-top-4 duration-700">
-                  <BreadcrumbNavigation
-                    maps={mindMapStack}
-                    activeIndex={activeStackIndex}
-                    onSelect={onStackSelect}
-                    className="bg-white/5 backdrop-blur-3xl rounded-xl px-6 py-2 border border-white/10 shadow-2xl"
-                  />
-                </div>
-              )}
-
-              <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/40 leading-[0.95] filter drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                {(mindMap as any).shortTitle || mindMap.topic}
-              </h1>
-
-              <div className="flex flex-wrap items-center justify-center gap-5">
-                {[
-                  { icon: Sparkles, label: 'AI Insights', color: 'primary', onClick: () => setIsAiContentDialogOpen(true) },
-                  { icon: TestTube2, label: 'Test Skills', color: 'blue', onClick: handleQuizClick, isLoading: isQuizLoading },
-                  { icon: Images, label: 'Visuals', color: 'pink', onClick: () => setIsGalleryOpen(true) },
-                  { icon: Network, label: `Depth Layer (${nestedExpansions.length})`, color: 'emerald', onClick: () => setIsNestedMapsDialogOpen(true), visible: nestedExpansions.length > 0 }
-                ].filter(b => b.visible !== false).map((btn, i) => (
-                  <Button
-                    key={i}
-                    onClick={btn.onClick}
-                    disabled={(btn as any).isLoading}
-                    className={cn(
-                      "rounded-2xl h-12 px-8 font-bold border-2 transition-all duration-500 hover:scale-105 active:scale-95 group/btn overflow-hidden relative",
-                      btn.color === 'primary' && "bg-primary/20 border-primary/30 text-white hover:bg-primary/40 hover:shadow-[0_0_40px_rgba(139,92,246,0.3)]",
-                      btn.color === 'blue' && "bg-blue-500/20 border-blue-500/30 text-white hover:bg-blue-500/40 hover:shadow-[0_0_40px_rgba(59,130,246,0.3)]",
-                      btn.color === 'pink' && "bg-pink-500/20 border-pink-500/30 text-white hover:bg-pink-500/40 hover:shadow-[0_0_40px_rgba(236,72,153,0.3)]",
-                      btn.color === 'emerald' && "bg-emerald-500/20 border-emerald-500/30 text-white hover:bg-emerald-500/40 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)]",
-                    )}
-                  >
-                    {/* Animated Button Glow */}
-                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-                    <div className="relative z-10 flex items-center">
-                      {(btn as any).isLoading ? (
-                        <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                      ) : (
-                        <btn.icon className={cn("w-5 h-5 mr-3 transition-transform group-hover/btn:scale-110", `text-${btn.color}-400`)} />
-                      )}
-                      {btn.label}
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Knowledge Layers (Accordions) */}
-        <Accordion
-          type="multiple"
-          value={openSubTopics}
-          onValueChange={setOpenSubTopics}
-          className="space-y-4"
-        >
-          {mindMap.subTopics?.map((subTopic: any, index: number) => {
-            const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
-            const subTopicId = `topic-${index}`;
-
-            return (
-              <AccordionItem
-                key={index}
-                value={subTopicId}
-                className="border-none rounded-2xl bg-zinc-900/20 backdrop-blur-3xl shadow-3xl ring-1 ring-white/5 overflow-hidden data-[state=open]:ring-primary/30 transition-all duration-700"
-              >
-                <div
-                  className="group/subtopic px-8 py-5 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setOpenSubTopics(prev => prev.includes(subTopicId) ? prev.filter(x => x !== subTopicId) : [...prev, subTopicId]);
-                  }}
-                >
-                  <div className="flex items-center gap-6 flex-1">
-                    <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-primary text-white shadow-[0_0_30px_rgba(139,92,246,0.3)] ring-1 ring-white/20 group-hover/subtopic:scale-110 transition-all duration-500">
-                      <SubTopicIcon className="h-6 w-6" />
-                    </div>
-                    <div className="flex flex-col">
-                      <h3 className="text-2xl font-black text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">{subTopic.name}</h3>
-                    </div>
-                    <ChevronDown className={`w-6 h-6 text-zinc-600 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
-                  </div>
-
-                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-primary hover:bg-primary/10 rounded-xl" onClick={() => onGenerateNewMap(subTopic.name, subTopicId, mindMap.topic)}>
-                            <Network className="h-5 w-5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Generate Sub-Map</p></TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`)}>
-                            <MessageCircle className="h-5 w-5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>AI Chat Assistant</p></TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-
-                <AccordionContent className="px-8 pb-8 pt-2">
-                  <div className="space-y-3">
-                    {subTopic.categories.map((category: any, catIndex: number) => {
-                      const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
-                      const catId = `cat-${index}-${catIndex}`;
-
-                      return (
-                        <div key={catIndex} className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
-                          <div
-                            className="group/cat px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors cursor-pointer"
-                            onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
-                          >
-                            <div className="flex items-center gap-5 flex-1">
-                              <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 border border-white/10 group-hover/cat:bg-primary group-hover/cat:text-white transition-all duration-500">
-                                <CategoryIcon className="h-5 w-5" />
-                              </div>
-                              <h4 className="text-lg font-bold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
-                              <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
-                            </div>
-
-                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`)}>
-                                      <Network className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Generate Sub-Map</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
-                                      <MessageCircle className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>AI Chat Assistant</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </div>
-
-                          {openCategories.includes(catId) && (
-                            <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {category.subCategories.map((sub: any, subIndex: number) => (
-                                  <LeafNodeCard
-                                    key={subIndex}
-                                    node={sub}
-                                    onSubCategoryClick={handleSubCategoryClick}
-                                    onGenerateImage={handleGenerateImageClick}
-                                    onExplainInChat={onExplainInChat}
-                                    onGenerateNewMap={onGenerateNewMap}
-                                    isGeneratingMap={generatingNode === `node-${index}-${catIndex}-${subIndex}`}
-                                    mainTopic={mindMap.topic}
-                                    nodeId={`node-${index}-${catIndex}-${subIndex}`}
-                                    contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name} > ${sub.name}`}
-                                    existingExpansion={nestedExpansions.find(e => e.topic === sub.name)}
-                                    onOpenMap={onOpenNestedMap}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+            <MindMapAccordion
+              mindMap={data}
+              openSubTopics={openSubTopics}
+              setOpenSubTopics={setOpenSubTopics}
+              openCategories={openCategories}
+              setOpenCategories={setOpenCategories}
+              onGenerateNewMap={onGenerateNewMap}
+              handleSubCategoryClick={handleSubCategoryClick}
+              handleGenerateImageClick={handleGenerateImageClick}
+              onExplainInChat={onExplainInChat}
+              nestedExpansions={nestedExpansions}
+              onOpenNestedMap={onOpenNestedMap}
+              generatingNode={generatingNode}
+              mainTopic={data.topic}
+              onExplainWithExample={handleExplainWithExample}
+              status={status}
+            />
+          </>
+        ) : (
+          // Map Mode - Full Screen Portal (NO CONTAINER)
+          mountNode && createPortal(
+            <div className="fixed inset-0 top-[72px] z-40 bg-black animate-in fade-in duration-300">
+              <MindMapRadialView
+                data={data}
+                onNodeClick={(node) => {
+                  if (node.type === 'subcategory') handleSubCategoryClick(node);
+                }}
+                onGenerateNewMap={(topic, id) => {
+                  onGenerateNewMap(topic, id || '', `${data.topic} > ${topic}`, 'background');
+                }}
+                generatingNode={generatingNode}
+              />
+            </div>,
+            mountNode
+          )
+        )}
       </div>
 
       {/* Dialogs */}
@@ -1676,6 +1019,7 @@ export const MindMap = ({
         onExplainInChat={onExplainInChat}
         explanationMode={explanationMode}
         onExplanationModeChange={setExplanationMode}
+        isGlobalBusy={status !== 'idle'}
       />
 
       <QuizDialog
@@ -1683,14 +1027,16 @@ export const MindMap = ({
         onClose={() => setIsQuizDialogOpen(false)}
         questions={quizQuestions}
         isLoading={isQuizLoading}
-        topic={mindMap.topic}
+        topic={data.topic}
         onRestart={handleQuizClick}
+        isGlobalBusy={status !== 'idle'}
       />
 
       <AiContentDialog
         isOpen={isAiContentDialogOpen}
         onClose={() => setIsAiContentDialogOpen(false)}
-        mindMap={mindMap}
+        mindMap={data}
+        isGlobalBusy={status !== 'idle'}
       />
 
       <ExampleDialog
@@ -1701,6 +1047,7 @@ export const MindMap = ({
         isLoading={isExampleLoading}
         explanationMode={explanationMode}
         onExplanationModeChange={setExplanationMode}
+        isGlobalBusy={status !== 'idle'}
         onRegenerate={() => {
           if (activeExplainableNode) {
             setIsExampleLoading(true);
@@ -1736,7 +1083,7 @@ export const MindMap = ({
         }}
         expandingId={null}
         onExplainInChat={onExplainInChat}
-        mainTopic={mindMap.topic}
+        mainTopic={data.topic}
         onOpenMap={(mapData, id) => {
           setIsNestedMapsDialogOpen(false);
           if (onOpenNestedMap) onOpenNestedMap(mapData, id);
@@ -1745,6 +1092,7 @@ export const MindMap = ({
           setIsNestedMapsDialogOpen(false);
           onGenerateNewMap(name, desc, parentId);
         }}
+        isGlobalBusy={status !== 'idle'}
       />
     </div>
   );

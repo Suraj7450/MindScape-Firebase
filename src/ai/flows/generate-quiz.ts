@@ -69,27 +69,16 @@ export async function generateQuiz(
     ${mindMapDataString}`;
 
   const userPrompt = "Generate the quiz JSON.";
-
-  const rawResult = await generateContent({
+  const result = await generateContent({
     provider,
     apiKey,
     systemPrompt,
     userPrompt,
+    schema: GenerateQuizOutputSchema,
     strict
   });
 
-  // Normalize
-  const normalized = {
-    questions: Array.isArray(rawResult?.questions) ? rawResult.questions : []
-  };
-
-  try {
-    const validated = GenerateQuizOutputSchema.parse(normalized);
-    return validated;
-  } catch (e: any) {
-    console.error("Quiz schema validation failed:", e);
-    return normalized as GenerateQuizOutput;
-  }
+  return result;
 }
 
 const prompt = ai.definePrompt({

@@ -208,20 +208,30 @@ IMPORTANT: Return ONLY the raw JSON object, no other text or explanation.`;
 
   const userPrompt = "Provide your response.";
 
-  const rawResult = await generateContent({
-    provider,
-    apiKey,
-    systemPrompt,
-    userPrompt
-  });
+  const maxAttempts = 2;
+  let lastError = null;
 
-  try {
-    const validated = ChatWithAssistantOutputSchema.parse(rawResult);
-    return validated;
-  } catch (e: any) {
-    if (rawResult && typeof rawResult.answer === 'string') return rawResult as ChatWithAssistantOutput;
-    throw new Error(`Chat response failed validation: ${e.message}`);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await generateContent({
+        provider,
+        apiKey,
+        systemPrompt,
+        userPrompt,
+        schema: ChatWithAssistantOutputSchema,
+        strict
+      });
+
+      return result;
+    } catch (e: any) {
+      lastError = e;
+      console.error(`❌ Chat attempt ${attempt} failed:`, e.message);
+      if (attempt === maxAttempts) throw e;
+      await new Promise(res => setTimeout(res, 1000));
+    }
   }
+
+  throw lastError || new Error('Chat generation failed');
 }
 
 

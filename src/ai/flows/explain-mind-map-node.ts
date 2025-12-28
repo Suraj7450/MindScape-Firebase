@@ -78,48 +78,28 @@ export async function explainMindMapNode(
 
   const userPrompt = "Generate the explanation JSON with 5-7 detailed points.";
 
-  const rawResult = await generateContent({
-    provider,
-    apiKey,
-    systemPrompt,
-    userPrompt
-  });
+  const maxAttempts = 2;
+  let lastError = null;
 
-  // Comprehensive Normalization
-  let points: string[] = [];
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await generateContent({
+        provider,
+        apiKey,
+        systemPrompt,
+        userPrompt,
+        schema: ExplainMindMapNodeOutputSchema,
+        strict
+      });
 
-  if (rawResult && Array.isArray(rawResult.explanationPoints)) {
-    points = rawResult.explanationPoints;
-  } else if (rawResult && typeof rawResult.explanation === 'string') {
-    points = [rawResult.explanation];
-  } else if (rawResult && typeof rawResult.message === 'string') {
-    points = [rawResult.message];
-  } else if (typeof rawResult === 'string') {
-    // Attempt to split if it's a long string with bullet points
-    points = rawResult.split('\n').filter(p => p.trim().length > 10).map(p => p.replace(/^[•\-\*\d\.]+\s*/, '').trim());
+      return result;
+    } catch (e: any) {
+      lastError = e;
+      console.error(`❌ Explanation attempt ${attempt} failed:`, e.message);
+      if (attempt === maxAttempts) throw e;
+      await new Promise(res => setTimeout(res, 1000));
+    }
   }
 
-  // Final fallback if still empty or too short
-  if (points.length <= 1) {
-    const fallbackPoints = [
-      subCategoryDescription,
-      `Understanding ${subCategoryName} is essential to grasping the broader context of ${mainTopic}.`,
-      `Key aspects of ${subCategoryName} include its specific implementation details and practical applications in the field.`,
-      `Further exploration reveals that ${subCategoryName} often interacts with related concepts to create a complete system.`,
-      `For a ${explanationMode} learner, focusing on the core principles of ${subCategoryName} will provide the most value.`
-    ];
-    points = points.length === 1 ? [points[0], ...fallbackPoints.slice(1)] : fallbackPoints;
-  }
-
-  const normalized = {
-    explanationPoints: points
-  };
-
-  try {
-    const validated = ExplainMindMapNodeOutputSchema.parse(normalized);
-    return validated;
-  } catch (e: any) {
-    console.error("Explanation validation failed:", e);
-    return normalized as ExplainMindMapNodeOutput;
-  }
+  throw lastError || new Error('Explanation generation failed');
 }

@@ -66,37 +66,30 @@ export async function enhanceImagePrompt(
 
     const userPrompt = `Enhance this prompt: "${input.prompt}"`;
 
-    const result = await generateContent({
-      provider: provider,
-      apiKey: apiKey,
-      systemPrompt,
-      userPrompt,
-      strict
-    });
+    const maxAttempts = 2;
+    let lastError = null;
 
-    // 1. If result is already the exact string we want
-    if (typeof result === 'string' && result.trim().length > 0) {
-      return { enhancedPrompt: result };
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await generateContent({
+          provider: provider,
+          apiKey: apiKey,
+          systemPrompt,
+          userPrompt,
+          schema: EnhanceImagePromptOutputSchema,
+          strict
+        });
+
+        return result;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`❌ Image prompt enhancement attempt ${attempt} failed:`, e.message);
+        if (attempt === maxAttempts) throw e;
+        await new Promise(res => setTimeout(res, 1000));
+      }
     }
 
-    // 2. If result is an object with the key
-    if (result && typeof result === 'object' && (result as any).enhancedPrompt) {
-      return { enhancedPrompt: String((result as any).enhancedPrompt) };
-    }
-
-    // 3. If result is an object with a nested key (common in some AI responses)
-    if (result && typeof result === 'object' && (result as any).output?.enhancedPrompt) {
-      return { enhancedPrompt: String((result as any).output.enhancedPrompt) };
-    }
-
-    // 4. If result is an object but completely different, stringify it or fallback to original
-    const stringified = JSON.stringify(result);
-    if (stringified && stringified !== '{}' && stringified !== 'null') {
-      return { enhancedPrompt: stringified };
-    }
-
-    // 5. Absolute fallback: the original user prompt
-    return { enhancedPrompt: input.prompt };
+    throw lastError || new Error('Image prompt enhancement failed');
   }
   return enhanceImagePromptFlow(input);
 }

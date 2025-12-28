@@ -1,12 +1,12 @@
 
 'use client';
 
-import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { MindMap, NestedExpansionItem } from '@/components/mind-map';
+import { MindMap } from '@/components/mind-map';
+import { MindMapData } from '@/types/mind-map';
 import { GenerationLoading } from '@/components/generation-loading';
-import { Badge } from '@/components/ui/badge';
 import dynamic from 'next/dynamic';
 
 const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mod.ChatPanel), {
@@ -14,35 +14,32 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   loading: () => null
 });
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Zap, Cloud, Brain, Eye, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import {
-  Tooltip,
-  TooltipContent,
+  RefreshCw, Sparkles, Loader2, ZapOff
+} from 'lucide-react';
+import {
   TooltipProvider,
-  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import {
   useUser,
   useFirestore,
-  useDoc,
-  useMemoFirebase,
-  errorEmitter,
-  FirestorePermissionError,
 } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs, limit, orderBy, addDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, limit } from 'firebase/firestore';
 import {
   generateComparisonMapAction,
   generateMindMapAction,
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
 } from '@/app/actions';
-import Image from 'next/image';
 import { mindscapeMap } from '@/lib/mindscape-data';
-import { trackMapCreated, trackStudyTime } from '@/lib/activity-tracker';
-import { toPlainObject } from '@/lib/serialize';
+import { useMindMapStack } from '@/hooks/use-mind-map-stack';
+import { useAIConfig } from '@/contexts/ai-config-context';
+import { useMindMapRouter } from '@/hooks/use-mind-map-router';
+import { useMindMapPersistence } from '@/hooks/use-mind-map-persistence';
+import { useAIHealth } from '@/hooks/use-ai-health';
 
-type MindMapWithId = GenerateMindMapOutput & { id?: string; thumbnailUrl?: string; thumbnailPrompt?: string, summary?: string };
+type MindMapWithId = MindMapData;
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -51,267 +48,102 @@ const EMPTY_ARRAY: any[] = [];
  * It handles fetching and displaying mind map data for all modes.
  */
 function MindMapPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const { params, navigateToMap, changeLanguage, regenerate, clearRegenFlag, getParamKey, router } = useMindMapRouter();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
+  const { config } = useAIConfig();
 
-  const [mindMaps, setMindMaps] = useState<MindMapWithId[]>([]);
-  const [activeMindMapIndex, setActiveMindMapIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [mode, setMode] = useState<string | null>(null);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInitialMessage, setChatInitialMessage] = useState<
-    string | undefined
-  >(undefined);
-  const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
-  const [aiPersona, setAiPersona] = useState<string>('Standard');
+  const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Load user's persona preference
-  useEffect(() => {
-    if (user && firestore) {
-      const userRef = doc(firestore, 'users', user.uid);
-      getDoc(userRef).then(snap => {
-        if (snap.exists()) {
-          const pref = snap.data().preferences?.defaultAIPersona;
-          if (pref) setAiPersona(pref);
-        }
-      });
-    }
-  }, [user, firestore]);
+  const aiHealth = useAIHealth();
+  const { aiPersona, updatePersona: handlePersonaChange, subscribeToMap, saveMap: handleSaveMap, setupAutoSave } = useMindMapPersistence({
+    onRemoteUpdate: (data) => handleUpdateCurrentMap(data)
+  });
 
-  const handlePersonaChange = useCallback(async (newPersona: string) => {
-    setAiPersona(newPersona);
-    if (user && firestore) {
-      try {
-        await updateDoc(doc(firestore, 'users', user.uid), {
-          'preferences.defaultAIPersona': newPersona
-        });
-      } catch (e) {
-        console.error("Failed to save persona preference:", e);
+  // 1. ADAPTERS
+  const expansionAdapter = useMemo(() => ({
+    generate: async (topic: string, parentTopic?: string) => {
+      const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+      const result = await generateMindMapAction({
+        topic,
+        parentTopic,
+        targetLang: params.lang,
+        persona: aiPersona,
+      }, aiOptions);
+      return result;
+    }
+  }), [aiPersona, params.lang, config]);
+
+  // 2. HOOK INITIALIZATION
+  const {
+    stack: mindMaps,
+    activeIndex: activeMindMapIndex,
+    currentMap: mindMap,
+    status: hookStatus,
+    error: hookError,
+    generatingNodeId,
+    push: expandNode,
+    navigate: setActiveMindMapIndex,
+    update: handleUpdateCurrentMap,
+    sync: handleSaveMapFromHook,
+    setStack: setMindMaps,
+    replace: handleReplaceCurrentMap,
+    generationScope
+  } = useMindMapStack({
+    expansionAdapter,
+    persistenceAdapter: {
+      persist: async (map, id, silent) => {
+        const finalId = await handleSaveMap(map, id, silent);
+        return finalId;
       }
     }
-  }, [user, firestore]);
+  });
 
-  const hasFetchedRef = useRef(false);
+  // Local state for initial fetch/regenerate only
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [initialError, setInitialError] = useState<string | null>(null);
+  const [localGeneratingNodeId, setLocalGeneratingNodeId] = useState<string | null>(null);
 
-  const mindMap = mindMaps[activeMindMapIndex];
+  const isLoading = (hookStatus === 'generating' && generationScope === 'foreground') || hookStatus === 'syncing' || isInitialLoading;
+  const error = hookError || initialError;
+  const activeGeneratingNodeId = generatingNodeId || localGeneratingNodeId;
+
+  const setIsLoading = setIsInitialLoading;
+  const setError = setInitialError;
+  const setGeneratingNodeId = setLocalGeneratingNodeId;
+
   const isSaved = !!(mindMap && (mindMap as any).id);
 
-  const mapId = searchParams.get('mapId');
-  const isPublic = searchParams.get('public') === 'true';
+  // Real-time sync listener (Phase 3.3)
+  useEffect(() => {
+    if (!mindMap?.id || hookStatus !== 'idle') return;
+    const unsubscribe = subscribeToMap(mindMap.id, mindMap, hookStatus === 'idle');
+    return () => unsubscribe();
+  }, [mindMap?.id, hookStatus, subscribeToMap, mindMap]);
 
-  const docPath = useMemoFirebase(() => {
-    if (!mapId) return null;
-    if (isPublic) {
-      return doc(firestore, 'publicMindmaps', mapId);
-    }
-    if (user) {
-      return doc(firestore, 'users', user.uid, 'mindmaps', mapId);
-    }
-    return null;
-  }, [firestore, user, mapId, isPublic]);
-
-  const {
-    data: savedMindMap,
-    isLoading: isFetchingSavedMap,
-    error: savedMapError
-  } = useDoc<MindMapWithId>(docPath);
+  // No manual persona change needed here - handled by hook
 
   /* Safe auto-save with race condition lock */
-  const isSavingRef = useRef(false);
-
-  const handleSaveMap = useCallback(async (mapToSave: MindMapWithId, existingId?: string, isSilent: boolean = false) => {
-    // Prevent double-writes
-    if (!mapToSave || !user || isSavingRef.current) {
-      return;
-    }
-
-    const targetId = existingId || mapToSave.id;
-
-    // FIX #3: Refuse to save empty maps (User request)
-    if (!mapToSave.subTopics || mapToSave.subTopics.length === 0) {
-      console.error('❌ Refusing to save empty mind map to Firestore', mapToSave);
-      return;
-    }
-
-    isSavingRef.current = true;
-    setIsSaving(true);
-    try {
-      let summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-
-      const { ...cleanMapData } = mapToSave;
-
-      const thumbnailPrompt = `A cinematic 3D render of ${mapToSave.topic}, in futuristic purple tones, mind-map theme, highly detailed`;
-      const thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=400&height=225&nologo=true`;
-
-      const mapData = {
-        ...cleanMapData,
-        summary: summary,
-        updatedAt: serverTimestamp(),
-        thumbnailUrl,
-        thumbnailPrompt,
-        uid: user.uid,
-        isSubMap: mapToSave.isSubMap || false,
-        parentMapId: mapToSave.parentMapId || null,
-      };
-
-      console.log('💾 Saving map to Firestore:', {
-        topic: mapData.topic,
-        isSubMap: mapData.isSubMap,
-        parentMapId: mapData.parentMapId,
-        id: targetId || 'new'
-      });
-
-      let finalId = targetId;
-      if (targetId) {
-        // Resilient update: use setDoc with merge to avoid 'No document to update' error
-        const docRef = doc(firestore, 'users', user.uid, 'mindmaps', targetId);
-        await setDoc(docRef, mapData, { merge: true });
-        console.log('✅ Map synced with ID:', targetId);
-      } else {
-        // Create new document
-        const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
-        const newMapWithTimestamp = {
-          ...mapData,
-          createdAt: serverTimestamp(),
-        };
-        const docRef = await addDoc(mindMapsCollection, newMapWithTimestamp);
-        finalId = docRef.id;
-        console.log('✅ New map created:', finalId);
-
-        // Update URL to use mapId and remove all variety of topic params
-        const params = new URLSearchParams(window.location.search);
-        params.set('mapId', finalId);
-        params.delete('topic');
-        params.delete('topic1');
-        params.delete('topic2');
-        params.delete('sessionId');
-        params.delete('_r');
-        router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
-
-        // Track activity ONLY for new maps
-        await trackMapCreated(firestore, user.uid);
-      }
-
-      const updatedMindMap = { ...mapData, id: finalId } as any;
-
-      setMindMaps(prevMaps => {
-        const newMaps = [...prevMaps];
-        // If we have an ID, update the match by ID. Otherwise match by topic.
-        const mapIndex = newMaps.findIndex(m => (finalId && m.id === finalId) || m.topic === mapToSave.topic);
-        if (mapIndex !== -1) {
-          newMaps[mapIndex] = updatedMindMap;
-        } else {
-          newMaps.push(updatedMindMap);
-        }
-        return newMaps;
-      });
-
-
-      if (!isSilent) {
-        toast({
-          title: targetId ? 'Map Updated!' : 'Map Auto-Saved!',
-          description: `Mind map "${mapToSave.topic}" has been ${targetId ? 'updated' : 'saved'}.`,
-        });
-      }
-      setHasUnsavedChanges(false);
-    } catch (err: any) {
-      console.error('🔥 Firestore save failed:', err);
-
-      // Check for actual permission error before emitting
-      if (err.code === 'permission-denied') {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${user.uid}/mindmaps`,
-          operation: 'create',
-          requestResourceData: { ...mapToSave },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      }
-
-      toast({
-        variant: 'destructive',
-        title: 'Auto-Save Failed',
-        description: err.message || 'An unknown error occurred.',
-      });
-    } finally {
-      setIsSaving(false);
-      isSavingRef.current = false;
-    }
-  }, [user, firestore, toast]);
-
   const lastFetchedParamsRef = useRef<string>('');
-
-  /**
-   * Check which AI provider the user has selected
-   * Returns options object for the action
-   */
-  const getProviderKey = async () => {
-    if (!user) return undefined;
-    try {
-      const userRef = doc(firestore, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const apiSettings = userData.apiSettings;
-        if (apiSettings?.provider === 'pollinations') {
-          return { provider: 'pollinations' as const, strict: true };
-        } else if (apiSettings?.provider === 'bytez') {
-          // Bytez can use the user's custom key or our default
-          return { provider: 'bytez' as const, apiKey: apiSettings.apiKey, strict: true };
-        }
-      }
-
-      // Default: use server-side Gemini API key (represented as 'gemini' provider without custom key, allowing fallthrough to genkit)
-      return { provider: 'gemini' as const, strict: true };
-    } catch (e) {
-      console.error("Error checking provider settings", e);
-      return undefined;
-    }
-  };
 
   useEffect(() => {
     const fetchMindMapData = async () => {
-      const singleTopic = searchParams.get('topic');
-      const topic1 = searchParams.get('topic1');
-      const topic2 = searchParams.get('topic2');
-      const sessionId = searchParams.get('sessionId');
-      const mapId = searchParams.get('mapId');
-      const lang = searchParams.get('lang');
-      const parentTopic = searchParams.get('parent');
-      const isPublic = searchParams.get('public') === 'true';
-      const isSelfReference = searchParams.get('selfReference') === 'true';
-      const isRegenerating = !!searchParams.get('_r');
-
-      const currentParamsKey = JSON.stringify({
-        singleTopic,
-        topic1,
-        topic2,
-        sessionId,
-        mapId,
-        lang,
-        parentTopic,
-        isPublic,
-        isSelfReference,
-        isRegenerating
-      });
+      const currentParamsKey = getParamKey();
 
       // If we already have this map in our state, just switch to it
       // BUT bypass this if we are specifically asked to regenerate (_r param)
       const existingMapIndex = mindMaps.findIndex(m => {
-        if (mapId && (m as any).id === mapId) return true;
-        if (singleTopic && m.topic === singleTopic) return true;
-        if (isSelfReference && m.topic === 'MindScape') return true;
+        if (params.mapId && (m as any).id === params.mapId) return true;
+        if (params.topic && m.topic === params.topic) return true;
+        if (params.isSelfReference && m.topic === 'MindScape') return true;
         return false;
       });
 
-      if (existingMapIndex !== -1 && !isRegenerating) {
+      if (existingMapIndex !== -1 && !params.isRegenerating) {
         if (activeMindMapIndex !== existingMapIndex) {
           setActiveMindMapIndex(existingMapIndex);
         }
@@ -330,94 +162,97 @@ function MindMapPageContent() {
       let currentMode = 'standard';
 
       try {
-        if (isSelfReference) {
+        if (params.isSelfReference) {
           currentMode = 'self-reference';
           result.data = mindscapeMap as GenerateMindMapOutput;
-        } else if (mapId && isRegenerating && !isPublic) {
+        } else if (params.mapId && params.isRegenerating && !params.isPublic) {
           currentMode = 'saved';
           // 1. Get topic from state or fetch it
-          let topicToRegen = singleTopic || savedMindMap?.topic;
-          if (!topicToRegen && docPath) {
-            const snap = await getDoc(docPath);
-            topicToRegen = snap.data()?.topic;
+          let topicToRegen = params.topic || (mindMaps.find(m => (m as any).id === params.mapId)?.topic);
+          if (!topicToRegen) {
+            // Fallback to fetching it if not in stack
+            if (user) {
+              const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
+              const snap = await getDoc(docRef);
+              topicToRegen = snap.data()?.topic;
+            }
           }
 
           if (!topicToRegen) throw new Error("Could not determine topic for regeneration.");
 
-          const aiOptions = await getProviderKey();
+          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
           result = await generateMindMapAction({
             topic: topicToRegen,
-            parentTopic: parentTopic || undefined,
-            targetLang: lang || undefined,
+            parentTopic: params.parent || undefined,
+            targetLang: params.lang,
             persona: aiPersona,
           }, aiOptions);
 
           if (result.data && user) {
             // Overwrite existing!
-            await handleSaveMap(result.data, mapId);
+            await handleSaveMap(result.data, params.mapId);
           }
-        } else if (mapId) {
-          currentMode = isPublic ? 'public-saved' : 'saved';
-          if (isPublic) {
-            const publicDocRef = doc(firestore, 'publicMindmaps', mapId);
+        } else if (params.mapId) {
+          currentMode = params.isPublic ? 'public-saved' : 'saved';
+          if (params.isPublic) {
+            const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
             const docSnap = await getDoc(publicDocRef);
             if (docSnap.exists()) {
               result.data = { ...(docSnap.data() as GenerateMindMapOutput), id: docSnap.id };
             } else {
               result.error = 'Could not find the public mind map.';
             }
-          } else {
-            // Handle actual hook errors (e.g. permission denied)
-            if (savedMapError) {
-              result.error = savedMapError.message;
-            } else if (isFetchingSavedMap) {
-              // Wait for saved map hook to finish
-              return;
-            } else if (savedMindMap) {
-              // Successfully retrieved from hook
-              result.data = {
-                ...savedMindMap,
-                id: mapId,
-                subTopics: savedMindMap.subTopics || [],
-                icon: savedMindMap.icon || 'brain-circuit'
-              };
-
-              // Backfill summary if missing for owned private maps
-              if (!savedMindMap.summary && !isPublic && user) {
-                handleSaveMap(result.data, mapId);
+          } else if (user) {
+            // Fetch from user's collection (Metadata + Conditional Content)
+            const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              const meta = docSnap.data();
+              if (meta.hasSplitContent) {
+                // Load the heavy tree from sub-collection
+                const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId, 'content', 'tree');
+                const contentSnap = await getDoc(contentRef);
+                if (contentSnap.exists()) {
+                  const content = contentSnap.data();
+                  result.data = { ...meta, ...content, id: docSnap.id } as any;
+                } else {
+                  result.data = { ...meta, id: docSnap.id } as any;
+                }
+              } else {
+                // Legacy: all data is in the main document
+                result.data = { ...(meta as GenerateMindMapOutput), id: docSnap.id };
               }
-            } else if (docPath) {
-              // At this point: !isLoading AND !data AND !error AND we have a docPath.
-              // This is a race-condition danger zone. 
-              // React sets isLoading=false briefly when docPath changes before effect starts.
-              // We'll wait one more cycle to be safe.
-              return;
+
+              // Backfill summary if missing
+              if (result.data && !result.data.summary) {
+                handleSaveMap(result.data, params.mapId, true);
+              }
             } else {
-              // No user or docPath available for this private mapId
-              return;
+              // If it doesn't exist yet, it might be being saved right now
+              // We'll let the initial loading handle it
             }
           }
-        } else if (singleTopic) {
+        } else if (params.topic) {
           currentMode = 'standard';
-          const aiOptions = await getProviderKey();
+          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
           result = await generateMindMapAction({
-            topic: singleTopic,
-            parentTopic: parentTopic || undefined,
-            targetLang: lang || undefined,
+            topic: params.topic,
+            parentTopic: params.parent || undefined,
+            targetLang: params.lang,
             persona: aiPersona,
           }, aiOptions);
-        } else if (topic1 && topic2) {
+        } else if (params.topic1 && params.topic2) {
           currentMode = 'compare';
-          const aiOptions = await getProviderKey();
+          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
           result = await generateComparisonMapAction({
-            topic1,
-            topic2,
-            targetLang: lang || undefined,
+            topic1: params.topic1,
+            topic2: params.topic2,
+            targetLang: params.lang,
             persona: aiPersona,
           }, aiOptions);
-        } else if (sessionId) {
-          const sessionType = sessionStorage.getItem(`session-type-${sessionId}`);
-          const sessionContent = sessionStorage.getItem(`session-content-${sessionId}`);
+        } else if (params.sessionId) {
+          const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
+          const sessionContent = sessionStorage.getItem(`session-content-${params.sessionId}`);
 
           if (sessionContent) {
             let fileContent, additionalText;
@@ -432,20 +267,19 @@ function MindMapPageContent() {
 
             if (sessionType === 'image') {
               currentMode = 'vision-image';
-              const aiOptions = await getProviderKey();
-              // fileContent is the data URI for the image
+              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
               result = await generateMindMapFromImageAction({
                 imageDataUri: fileContent,
-                targetLang: lang || undefined,
+                targetLang: params.lang,
                 persona: aiPersona,
               }, aiOptions);
             } else if (sessionType === 'text') {
               currentMode = 'vision-text';
-              const aiOptions = await getProviderKey();
+              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
               result = await generateMindMapFromTextAction({
                 text: fileContent,
                 context: additionalText,
-                targetLang: lang || undefined,
+                targetLang: params.lang,
                 persona: aiPersona,
               }, aiOptions);
             } else if (sessionType === 'mindgpt') {
@@ -456,13 +290,12 @@ function MindMapPageContent() {
                 result.error = 'Could not process the MindGPT result. It might be corrupted.';
               }
             }
-            sessionStorage.removeItem(`session-type-${sessionId}`);
-            sessionStorage.removeItem(`session-content-${sessionId}`);
+            sessionStorage.removeItem(`session-type-${params.sessionId}`);
+            sessionStorage.removeItem(`session-content-${params.sessionId}`);
           } else {
             result.error = 'Could not retrieve session data. Please try again.';
           }
         } else {
-          // No valid params, waits
           setIsLoading(false);
           return;
         }
@@ -475,13 +308,11 @@ function MindMapPageContent() {
 
         if (result.data) {
           setMindMaps(prevMaps => {
-            // Check duplication again before adding
             const exists = prevMaps.some(m => m.topic === result.data!.topic);
             if (exists) return prevMaps;
             return [...prevMaps, result.data!];
           });
 
-          // Set active index to the new last element
           setMindMaps(prev => {
             const newIndex = prev.findIndex(m => m.topic === result.data!.topic);
             if (newIndex !== -1) setActiveMindMapIndex(newIndex);
@@ -490,7 +321,6 @@ function MindMapPageContent() {
 
           const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user) {
-            // If we are regenerating, find if we already have an ID for this map in our state
             const existingMapWithId = mindMaps.find(m => m.topic === result.data!.topic && m.id);
             await handleSaveMap(result.data, existingMapWithId?.id);
           }
@@ -506,127 +336,32 @@ function MindMapPageContent() {
       } finally {
         setIsLoading(false);
         setGeneratingNodeId(null);
-
-        // CLEANUP: If we were regenerating, remove the flag from URL to prevent loops on re-renders
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('_r')) {
-          params.delete('_r');
-          const newSearch = params.toString();
-          router.replace(`${window.location.pathname}${newSearch ? '?' + newSearch : ''}`, { scroll: false });
-        }
+        clearRegenFlag();
       }
     };
 
     fetchMindMapData();
-  }, [mapId, searchParams, user, savedMindMap, isFetchingSavedMap, savedMapError, handleSaveMap, toast, firestore]);
+  }, [getParamKey, user, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
 
-  // Track study time every 5 minutes
+
+  // 4. Auto-Save Effect
+
   useEffect(() => {
-    if (!user || !firestore) return;
-
-    const TRACK_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
-    const MINUTES_PER_INTERVAL = 5;
-
-    const intervalId = setInterval(async () => {
-      try {
-        await trackStudyTime(firestore, user.uid, MINUTES_PER_INTERVAL);
-      } catch (error) {
-        console.error('Error tracking study time:', error);
-      }
-    }, TRACK_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, [user, firestore]);
-
-  const handleUpdateCurrentMap = useCallback((updatedData: Partial<MindMapWithId>) => {
-    setMindMaps(prev => {
-      const newMaps = [...prev];
-      if (newMaps[activeMindMapIndex]) {
-        // Only update if there's an actual change in stringified content to avoid infinite loops
-        const current = JSON.stringify(newMaps[activeMindMapIndex]);
-        const next = JSON.stringify({ ...newMaps[activeMindMapIndex], ...updatedData });
-        if (current === next) return prev;
-
-        newMaps[activeMindMapIndex] = {
-          ...newMaps[activeMindMapIndex],
-          ...updatedData
-        };
-        setHasUnsavedChanges(true);
-      }
-      return newMaps;
-    });
-  }, [activeMindMapIndex]);
-
-  // Debounced auto-save effect
-  useEffect(() => {
-    if (!user || !mindMap || isPublic || mode === 'self-reference' || !hasUnsavedChanges) return;
-
-    const debounceTimer = setTimeout(() => {
-      handleSaveMap(mindMap, (mindMap as any).id, true);
-    }, 15000); // 15 seconds debounce
-
-    return () => clearTimeout(debounceTimer);
-  }, [mindMap, user, isPublic, mode, hasUnsavedChanges, handleSaveMap]);
-
-
+    return setupAutoSave(mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, handleSaveMapFromHook);
+  }, [mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
 
   const handleManualSaveMap = useCallback(() => {
-    if (mindMap) {
-      handleSaveMap(mindMap);
-    }
-  }, [mindMap, handleSaveMap]);
+    handleSaveMapFromHook();
+  }, [handleSaveMapFromHook]);
 
   const handleExplainInChat = useCallback((message: string) => {
     setChatInitialMessage(message);
     setIsChatOpen(true);
-  }, [setChatInitialMessage, setIsChatOpen]);
+  }, []);
 
-  const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string) => {
-    if (!mindMap) return;
-
-    // Create a temporary ID and item for optimistic UI
-    const tempId = crypto.randomUUID();
-    const tempContextPath = contextPath;
-
-    const tempNestedItem: NestedExpansionItem = {
-      id: tempId,
-      parentName: subTopic,
-      topic: subTopic,
-      icon: 'Loader2', // Temporary icon until generated
-      subCategories: [],
-      path: tempContextPath,
-      createdAt: Date.now(),
-      depth: (mindMaps.length > 0 ? (mindMaps[0] as any).nestedExpansions?.length || 0 : 0) + 1,
-      status: 'generating'
-    };
-
-    setGeneratingNodeId(nodeId);
-
-    // OPTIMISTIC UPDATE: Add "Generating..." item to root map immediately
-    setMindMaps(prev => {
-      const newMaps = [...prev];
-      const rootMap = newMaps[0];
-      const currentExpansions = (rootMap as any).nestedExpansions || [];
-
-      newMaps[0] = {
-        ...rootMap,
-        nestedExpansions: [...currentExpansions, tempNestedItem]
-      } as any;
-
-      return newMaps;
-    });
-
-    toast({
-      title: "Generating Sub-Map...",
-      description: `Creating a detailed map for "${subTopic}".`,
-    });
-
-    const rootMap = mindMaps[0];
-    const rootMapId = (rootMap as any).id;
-
-    // 0. CHECK IF SUB-MAP ALREADY EXISTS for this topic (Global lookup for this user)
-    if (user) {
-      try {
+  const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string, mode: 'foreground' | 'background' = 'background') => {
+    try {
+      if (user) {
         const subMapsQuery = query(
           collection(firestore, 'users', user.uid, 'mindmaps'),
           where('isSubMap', '==', true),
@@ -634,246 +369,58 @@ function MindMapPageContent() {
           limit(1)
         );
         const subMapSnap = await getDocs(subMapsQuery);
-
         if (!subMapSnap.empty) {
-          const existingSubMapDoc = subMapSnap.docs[0];
-          const existingSubMapData = { ...existingSubMapDoc.data(), id: existingSubMapDoc.id } as any;
-
-          // Create a lightweight reference (no fullData)
-          const completedNestedItem: NestedExpansionItem = {
-            id: existingSubMapDoc.id,
-            parentName: subTopic,
-            topic: subTopic,
-            icon: existingSubMapData.icon || 'Network',
-            subCategories: existingSubMapData.subTopics.flatMap((st: any) => st.categories.flatMap((c: any) => c.subCategories)).slice(0, 4),
-            path: tempContextPath,
-            createdAt: existingSubMapData.createdAt?.toMillis() || Date.now(),
-            depth: mindMaps.length,
-            status: 'completed'
-            // Note: NO fullData - will be loaded on-demand when opening
-          };
-
-          setMindMaps(prev => {
-            const newMaps = [...prev];
-            const currentExpansions = (newMaps[0] as any).nestedExpansions || [];
-            // Remove any old placeholders for this topic and add the completed one
-            newMaps[0] = {
-              ...newMaps[0],
-              nestedExpansions: [...currentExpansions.filter((i: any) => i.topic !== subTopic), completedNestedItem]
-            } as any;
-
-            // Add to stack if not already there
-            if (!newMaps.some(m => m.topic === subTopic)) {
-              newMaps.push(existingSubMapData);
-            }
-            return newMaps;
-          });
-
-          setMindMaps(prev => {
-            const idx = prev.findIndex(m => m.topic === subTopic);
-            if (idx !== -1) setActiveMindMapIndex(idx);
-            return prev;
-          });
-
-          setGeneratingNodeId(null);
-
-          toast({
-            title: "Sub-Map Linked",
-            description: `Linked existing map for "${subTopic}".`,
-          });
+          const existing = { ...subMapSnap.docs[0].data(), id: subMapSnap.docs[0].id } as MindMapWithId;
+          setMindMaps(prev => [...prev.filter(m => m.topic !== subTopic), existing]);
+          if (mode === 'foreground') {
+            setActiveMindMapIndex(mindMaps.length);
+            toast({ title: "Sub-Map Linked", description: `Linked existing map for "${subTopic}".` });
+          } else {
+            toast({ title: "Sub-Map Available", description: `An existing map for "${subTopic}" has been linked to your Nested Maps.` });
+          }
           return;
         }
-      } catch (e) {
-        console.error("Error checking for existing sub-map:", e);
-      }
-    }
-
-    try {
-      const lang = searchParams.get('lang') || 'en';
-      const aiOptions = await getProviderKey();
-
-      const result = await generateMindMapAction({
-        topic: subTopic,
-        parentTopic: mindMap.topic,
-        targetLang: lang,
-        persona: aiPersona,
-      }, aiOptions);
-
-      if (result.error) throw new Error(result.error);
-      if (!result.data) throw new Error("No data returned");
-
-      const newSubMap = {
-        ...result.data,
-        isSubMap: true,
-        parentMapId: rootMapId || null
-      };
-
-      console.log('🗺️ Creating sub-map:', {
-        topic: newSubMap.topic,
-        isSubMap: newSubMap.isSubMap,
-        parentMapId: newSubMap.parentMapId
-      });
-
-      // Create the final completed item
-      const completedNestedItem: NestedExpansionItem = {
-        id: tempId,
-        parentName: subTopic,
-        topic: subTopic,
-        icon: 'Network',
-        subCategories: newSubMap.subTopics.flatMap((st: any) => st.categories.flatMap((c: any) => c.subCategories)).slice(0, 4),
-        path: tempContextPath,
-        createdAt: Date.now(),
-        depth: mindMaps.length,
-        status: 'completed',
-        fullData: newSubMap
-      };
-
-      // 1. Open the new map immediately (Update Local View State)
-      setMindMaps(prev => {
-        const newMaps = [...prev];
-        const rootMap = newMaps[0];
-        const currentExpansions = (rootMap as any).nestedExpansions || [];
-
-        newMaps[0] = {
-          ...rootMap,
-          nestedExpansions: currentExpansions.map((i: any) => i.topic === subTopic ? completedNestedItem : i)
-        } as any;
-
-        // Append full map data to breadcrumb list (the stack)
-        const exists = newMaps.some(m => m.topic === newSubMap.topic);
-        if (!exists) {
-          newMaps.push({ ...newSubMap, id: tempId });
-        }
-
-        // Set active index to the new map
-        const newIndex = newMaps.findIndex(m => m.topic === newSubMap.topic);
-        if (newIndex !== -1) setActiveMindMapIndex(newIndex);
-
-        return newMaps;
-      });
-
-      // 2. Save to Ecosystem
-      if (rootMapId && user) {
-        // First, save the sub-map as a standalone document
-        await handleSaveMap(newSubMap, tempId, true);
-
-        // Then, update the parent map with a REFERENCE (not fullData)
-        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', rootMapId);
-        const currentRootNestedExpansions = (mindMaps[0] as any).nestedExpansions || [];
-
-        // Create a lightweight reference without fullData
-        const referenceItem = {
-          id: tempId,
-          parentName: subTopic,
-          topic: subTopic,
-          icon: 'Network',
-          subCategories: newSubMap.subTopics.flatMap((st: any) => st.categories.flatMap((c: any) => c.subCategories)).slice(0, 4),
-          path: tempContextPath,
-          createdAt: Date.now(),
-          depth: mindMaps.length,
-          status: 'completed'
-          // Note: NO fullData here - it will be loaded on-demand
-        };
-
-        const updatedRootNestedExpansions = [...currentRootNestedExpansions, referenceItem];
-
-        await updateDoc(mapRef, {
-          nestedExpansions: updatedRootNestedExpansions
-        });
       }
 
-      toast({
-        title: "Sub-Map Generated",
-        description: "Sub-map generated and saved to the nested map panel.",
-      });
-
+      await expandNode(subTopic, nodeId, { mode });
+      if (mode === 'foreground') {
+        toast({ title: "Sub-Map Generated", description: `Created detailed map for "${subTopic}".` });
+      }
     } catch (error: any) {
-      // ROLLBACK: Remove the temporary item
-      setMindMaps(prev => {
-        const newMaps = [...prev];
-        const currentExpansions = (newMaps[0] as any).nestedExpansions || [];
-        newMaps[0] = {
-          ...newMaps[0],
-          nestedExpansions: currentExpansions.filter((i: any) => i.topic !== subTopic)
-        } as any;
-        return newMaps;
-      });
-
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description: error.message
-      });
-    } finally {
-      setGeneratingNodeId(null);
+      toast({ variant: "destructive", title: "Generation Failed", description: error.message });
     }
-  }, [mindMap, mindMaps, user, firestore, aiPersona, searchParams, toast, setGeneratingNodeId, setMindMaps, setActiveMindMapIndex, getProviderKey, generateMindMapAction, handleSaveMap]);
-
-  const handleLanguageChange = useCallback((langCode: string) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set('lang', langCode);
-    router.push(`/mindmap?${newParams.toString()}`);
-  }, [searchParams, router]);
-
-  const handleRegenerate = useCallback(() => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.set('_r', Date.now().toString()); // Add a random param to force re-fetch
-    router.replace(`/mindmap?${newParams.toString()}`);
-  }, [searchParams, router]);
+  }, [user, firestore, expandNode, mindMaps.length, setMindMaps, setActiveMindMapIndex, toast]);
 
   const handleBreadcrumbSelect = useCallback((index: number) => {
     setActiveMindMapIndex(index);
     const activeMap = mindMaps[index];
-    const lang = searchParams.get('lang');
-    const newParams = new URLSearchParams();
-
-    if (activeMap.topic.toLowerCase() === 'mindscape') {
-      newParams.set('selfReference', 'true');
-    } else {
-      newParams.set('topic', activeMap.topic);
+    if (activeMap) {
+      navigateToMap(activeMap.id || '', activeMap.topic);
     }
+  }, [mindMaps, navigateToMap, setActiveMindMapIndex]);
 
-    if (lang) newParams.set('lang', lang);
-    if (index > 0) {
-      newParams.set('parent', mindMaps[index - 1].topic);
-    }
-    router.replace(`/mindmap?${newParams.toString()}`);
-  }, [mindMaps, searchParams, router, setActiveMindMapIndex]);
-
-  // Handler for opening a nested map from the ecosystem dialog
   const handleOpenNestedMap = useCallback(async (mapData: any, expansionId: string) => {
     if (!mapData) {
-      toast({
-        variant: "destructive",
-        title: "Cannot Open Map",
-        description: "This map data is not available.",
-      });
+      toast({ variant: "destructive", title: "Cannot Open Map", description: "This map data is not available." });
       return;
     }
 
     let finalMapData = mapData;
-
-    // RESILIENT LOAD: Fetch latest version from Firestore if it has an ID
     const mapIdToFetch = mapData.id || expansionId;
     if (mapIdToFetch && user && firestore) {
       try {
-        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', mapIdToFetch);
-        const snap = await getDoc(mapRef);
-        if (snap.exists()) {
-          finalMapData = { ...snap.data(), id: snap.id };
-        }
+        const snap = await getDoc(doc(firestore, 'users', user.uid, 'mindmaps', mapIdToFetch));
+        if (snap.exists()) finalMapData = { ...snap.data(), id: snap.id };
       } catch (e) {
-        console.warn("Could not fetch latest sub-map data, using cached version.", e);
+        console.warn("Using cached sub-map data.", e);
       }
     }
 
-    // Check if map already exists in the stack
     const existingIndex = mindMaps.findIndex(m => m.topic === finalMapData.topic);
     if (existingIndex !== -1) {
       setActiveMindMapIndex(existingIndex);
     } else {
-      // Add to stack and switch to it
-      setMindMaps(prev => [...prev, finalMapData]);
+      setMindMaps(prev => [...prev.filter(m => m.topic !== finalMapData.topic), finalMapData]);
       setMindMaps(prev => {
         const idx = prev.findIndex(m => m.topic === finalMapData.topic);
         if (idx !== -1) setActiveMindMapIndex(idx);
@@ -881,39 +428,37 @@ function MindMapPageContent() {
       });
     }
 
-    const lang = searchParams.get('lang');
-    const newParams = new URLSearchParams();
-    newParams.set('topic', finalMapData.topic);
-    if (lang) newParams.set('lang', lang);
-    newParams.set('parent', mindMap?.topic || '');
-    router.replace(`/mindmap?${newParams.toString()}`);
-  }, [mindMap, mindMaps, searchParams, router, toast, setMindMaps, setActiveMindMapIndex, user, firestore]);
+    navigateToMap(finalMapData.id || '', finalMapData.topic);
+  }, [mindMaps, navigateToMap, toast, setMindMaps, setActiveMindMapIndex, user, firestore]);
 
-  if (isLoading) {
-    return <GenerationLoading />;
-  }
+  if (isLoading) return <GenerationLoading />;
 
   if (error) {
+    const isAuthError = error.toLowerCase().includes('api key') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('401');
+    const isRateLimit = error.toLowerCase().includes('rate limit') || error.toLowerCase().includes('429');
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 px-4">
-        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-          <AlertCircle className="h-8 w-8 text-destructive" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-zinc-400 p-8 max-w-2xl mx-auto text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-20 h-20 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-2 shadow-2xl shadow-red-500/10">
+          <ZapOff className="h-10 w-10 text-red-500" />
         </div>
-        <div className="text-center space-y-2 max-w-md">
-          <h2 className="text-2xl font-bold text-white">Generation Failed</h2>
-          <p className="text-zinc-400">{error}</p>
+        <div className="space-y-4">
+          <h2 className="text-3xl font-black text-white tracking-tight">Something went wrong</h2>
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm font-mono text-zinc-300 break-words max-w-md mx-auto">
+            {error.includes('StructuredOutputError') ? 'AI Coordination Error: Structure Mismatch' : error}
+          </div>
+          <p className="text-zinc-400 leading-relaxed max-w-lg mx-auto">
+            {error.includes('StructuredOutputError') ? "The AI generated a response, but it didn't fit the structure." : isAuthError ? "Verify your API key in settings." : isRateLimit ? "AI is busy, please wait." : "Unexpected error during generation."}
+          </p>
         </div>
-        <Button
-          onClick={() => {
-            setError(null);
-            setIsLoading(true);
-            window.location.reload();
-          }}
-          className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Try Again
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <Button onClick={() => window.location.reload()} size="lg" className="rounded-2xl bg-white text-black hover:bg-zinc-200 gap-2 font-bold px-8">
+            <RefreshCw className="h-4 w-4" /> Try Again
+          </Button>
+          <Button variant="ghost" onClick={() => router.push('/')} size="lg" className="rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 gap-2 font-bold px-8">
+            Go Home
+          </Button>
+        </div>
       </div>
     );
   }
@@ -921,14 +466,8 @@ function MindMapPageContent() {
   if (!mindMap) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-zinc-400 animate-in fade-in zoom-in duration-700">
-        <div className="relative">
-          <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full animate-pulse" />
-          <Loader2 className="h-10 w-10 animate-spin text-purple-500 relative z-10" />
-        </div>
-        <div className="text-center space-y-1">
-          <p className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Preparing your knowledge universe...</p>
-          <p className="text-sm text-zinc-500">Sit tight while we sync your ideas</p>
-        </div>
+        <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
+        <p className="text-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Preparing your knowledge universe...</p>
       </div>
     );
   }
@@ -938,27 +477,29 @@ function MindMapPageContent() {
       <div className="flex flex-col items-center px-4 sm:px-8 pb-8">
         <div className="w-full max-w-6xl mx-auto">
           <MindMap
-            key={activeMindMapIndex} // Force re-mount to reset internal state
+            key={activeMindMapIndex}
             data={mindMap}
             isSaved={isSaved && !hasUnsavedChanges}
-            isPublic={isPublic}
+            isPublic={params.isPublic}
             onSaveMap={handleManualSaveMap}
             onExplainInChat={handleExplainInChat}
             onGenerateNewMap={handleGenerateAndOpenSubMap}
             onOpenNestedMap={handleOpenNestedMap}
-            generatingNode={generatingNodeId}
-            selectedLanguage={searchParams.get('lang') || 'en'}
-            onLanguageChange={handleLanguageChange}
+            generatingNode={activeGeneratingNodeId}
+            selectedLanguage={params.lang}
+            onLanguageChange={changeLanguage}
             onAIPersonaChange={handlePersonaChange}
             aiPersona={aiPersona}
-            onRegenerate={handleRegenerate}
+            onRegenerate={regenerate}
             isRegenerating={isLoading}
-            canRegenerate={!isPublic && mode !== 'self-reference'}
-            nestedExpansions={mindMaps.length > 0 ? (mindMaps[0] as any).nestedExpansions : EMPTY_ARRAY}
+            canRegenerate={!params.isPublic && mode !== 'self-reference'}
+            nestedExpansions={mindMap?.nestedExpansions || []}
             mindMapStack={mindMaps}
             activeStackIndex={activeMindMapIndex}
             onStackSelect={handleBreadcrumbSelect}
             onUpdate={handleUpdateCurrentMap}
+            status={hookStatus}
+            aiHealth={aiHealth}
           />
         </div>
       </div>

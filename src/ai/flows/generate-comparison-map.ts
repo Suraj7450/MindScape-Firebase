@@ -107,27 +107,30 @@ export async function generateComparisonMap(
 
     const userPrompt = `Generate a structured mind map comparing and contrasting "${input.topic1}" and "${input.topic2}".`;
 
-    const rawResult = await generateContent({
-      provider: provider,
-      apiKey: apiKey,
-      systemPrompt,
-      userPrompt,
-      strict
-    });
+    const maxAttempts = 2;
+    let lastError = null;
 
-    const normalized = {
-      topic: rawResult?.topic || `${input.topic1} vs ${input.topic2}`,
-      shortTitle: rawResult?.shortTitle || rawResult?.topic || 'Comparison',
-      icon: rawResult?.icon || 'scale',
-      subTopics: rawResult?.subTopics || []
-    };
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await generateContent({
+          provider,
+          apiKey,
+          systemPrompt,
+          userPrompt,
+          schema: GenerateComparisonMapOutputSchema,
+          strict
+        });
 
-    try {
-      return GenerateComparisonMapOutputSchema.parse(normalized);
-    } catch (e) {
-      console.error("Comparison map validation failed:", e);
-      return normalized as GenerateComparisonMapOutput;
+        return result;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`❌ Comparison map generation attempt ${attempt} failed:`, e.message);
+        if (attempt === maxAttempts) throw e;
+        await new Promise(res => setTimeout(res, 1000));
+      }
     }
+
+    throw lastError || new Error('Comparison map generation failed');
   }
   return generateComparisonMapFlow(input);
 }

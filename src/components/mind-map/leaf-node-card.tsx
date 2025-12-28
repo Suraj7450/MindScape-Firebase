@@ -1,0 +1,158 @@
+'use client';
+
+import React, { memo } from 'react';
+import * as LucideIcons from 'lucide-react';
+import {
+    FileText,
+    Loader2,
+    Network,
+    Image as ImageIcon,
+    MessageCircle,
+    ArrowRight
+} from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn, toPascalCase } from '@/lib/utils';
+import { SubCategory, MindMapData } from '@/types/mind-map';
+
+interface LeafNodeCardProps {
+    node: SubCategory;
+    onSubCategoryClick: (subCategory: SubCategory) => void;
+    onGenerateImage: (subCategory: SubCategory) => void;
+    onExplainInChat: (message: string) => void;
+    onGenerateNewMap: (topic: string, nodeId: string, contextPath: string, mode?: 'foreground' | 'background') => void;
+    isGeneratingMap: boolean;
+    mainTopic: string;
+    nodeId: string;
+    contextPath: string;
+    existingExpansion?: any;
+    onOpenMap?: (mapData: MindMapData, id: string) => void;
+    isGlobalBusy?: boolean;
+}
+
+export const LeafNodeCard = memo(function LeafNodeCard({
+    node,
+    onSubCategoryClick,
+    onGenerateImage,
+    onExplainInChat,
+    onGenerateNewMap,
+    isGeneratingMap,
+    mainTopic,
+    nodeId,
+    contextPath,
+    existingExpansion,
+    onOpenMap,
+    isGlobalBusy = false,
+}: LeafNodeCardProps) {
+    const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
+
+    const handleExpandClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onGenerateNewMap(node.name, nodeId, contextPath, 'background');
+    };
+
+    const handleChatClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onExplainInChat(`Explain "${node.name}" in the context of ${mainTopic}.`);
+    };
+
+    const handleImageClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onGenerateImage(node);
+    };
+
+    return (
+        <Card
+            className="group/item relative h-full cursor-pointer rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-primary/40 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] transition-all duration-500 overflow-hidden flex flex-col"
+            onClick={() => onSubCategoryClick(node)}
+        >
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
+
+            <div className="relative z-10 p-5 flex flex-col h-full">
+                <div className="flex items-start gap-4 mb-4">
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary group-hover/item:scale-110 group-hover/item:bg-primary group-hover/item:text-white transition-all duration-500">
+                        <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h4 className="text-base font-bold text-zinc-100 leading-snug truncate group-hover/item:text-white transition-colors">
+                            {node.name}
+                        </h4>
+                        <div className="flex items-center mt-1 gap-2">
+                            {existingExpansion && <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-emerald-500/30 text-emerald-400 font-medium bg-emerald-500/5">Expanded</Badge>}
+                        </div>
+                    </div>
+                </div>
+
+                <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3 mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
+                    {node.description}
+                </p>
+
+                <div className="flex items-center justify-between gap-2 mt-auto pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-0.5">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(
+                                            "h-8 w-8 rounded-lg transition-all",
+                                            existingExpansion ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 hover:text-primary hover:bg-primary/10'
+                                        )}
+                                        onClick={(e) => {
+                                            if (existingExpansion?.fullData && onOpenMap) {
+                                                onOpenMap(existingExpansion.fullData, existingExpansion.id);
+                                            } else {
+                                                handleExpandClick(e);
+                                            }
+                                        }}
+                                        disabled={isGeneratingMap || isGlobalBusy}
+                                    >
+                                        {isGeneratingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-4 w-4" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>Generate Sub-Map</p></TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-pink-400 hover:bg-pink-400/10 transition-all" onClick={handleImageClick}>
+                                        <ImageIcon className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>Visual Insight</p></TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all" onClick={handleChatClick}>
+                                        <MessageCircle className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+
+                    <Button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSubCategoryClick(node);
+                        }}
+                        variant="ghost"
+                        className="h-8 py-0 px-3 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 rounded-full group-hover/item:bg-primary/20 group-hover/item:text-primary transition-all flex items-center gap-1"
+                    >
+                        Details <ArrowRight className="w-3 h-3 group-hover/item:translate-x-1 transition-transform" />
+                    </Button>
+                </div>
+            </div>
+        </Card >
+    );
+});
