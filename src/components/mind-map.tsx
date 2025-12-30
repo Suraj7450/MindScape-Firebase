@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, memo, useRef } from 'react';
+import React, { useState, useEffect, memo, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -186,7 +186,7 @@ import { Badge } from './ui/badge';
 import { toPascalCase } from '@/lib/utils';
 import { toPlainObject } from '@/lib/serialize';
 
-import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
@@ -221,6 +221,7 @@ interface MindMapProps {
   onUpdate?: (updatedData: Partial<MindMapData>) => void;
   status: MindMapStatus;
   aiHealth?: { name: string, status: string }[];
+  hasUnsavedChanges?: boolean;
 }
 
 /**
@@ -263,7 +264,8 @@ export const MindMap = ({
   onStackSelect,
   onUpdate,
   status,
-  aiHealth
+  aiHealth,
+  hasUnsavedChanges
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -281,15 +283,16 @@ export const MindMap = ({
   useStudyTimeTracker(firestore, user?.uid, true);
 
   const { config } = useAIConfig();
-  const providerOptions = {
+  const providerOptions = useMemo(() => ({
     provider: config.provider,
     apiKey: config.apiKey,
     strict: true
-  };
-  const imageProviderOptions = {
+  }), [config.provider, config.apiKey]);
+
+  const imageProviderOptions = useMemo(() => ({
     provider: config.provider === 'gemini' ? 'pollinations' : config.provider as 'pollinations' | 'bytez',
     apiKey: config.apiKey
-  };
+  }), [config.provider, config.apiKey]);
 
 
 
@@ -360,44 +363,56 @@ export const MindMap = ({
   }, []);
 
   useEffect(() => {
-    const fetchEnhancedHeroImages = async () => {
-      // If we already have heroImages (from data or generated), don't refetch
+    const fetchHeroImages = async () => {
+      // If we already have heroImages, don't refetch
       if (!mounted || !data?.topic || heroImages) return;
 
       try {
-        const result = await enhanceImagePromptAction({
-          prompt: `A cinematic, high-quality artistic conceptual representation of the topic: ${data.topic}. futuristic, abstract, high resolution, soft lighting.`
-        }, providerOptions);
+        const leftPrompt = `A cinematic, ultra-detailed conceptual 3D render: "${data.topic}", left-balanced composition, abstract futuristic lighting, purple and indigo tones, 8k resolution.`;
+        const rightPrompt = `A cinematic, ultra-detailed conceptual 3D render: "${data.topic}", right-balanced composition, abstract futuristic lighting, purple and indigo tones, 8k resolution.`;
 
-        // Robust extraction of the enhanced prompt
-        const enhancedPart = result.enhancedPrompt?.enhancedPrompt || data.topic;
-        const seedLeft = Math.floor(Math.random() * 10000);
-        const seedRight = Math.floor(Math.random() * 10000);
+        // Attempt to generate via API which uses authenticated providers/rotation
+        const [leftRes, rightRes] = await Promise.all([
+          fetch('/api/generate-image', {
+            method: 'POST',
+            body: JSON.stringify({ prompt: leftPrompt, size: '1024x640' })
+          }),
+          fetch('/api/generate-image', {
+            method: 'POST',
+            body: JSON.stringify({ prompt: rightPrompt, size: '1024x640' })
+          })
+        ]);
 
+        let leftUrl = '';
+        let rightUrl = '';
+
+        if (leftRes.ok) {
+          const lData = await leftRes.json();
+          leftUrl = lData.images?.[0];
+        }
+        if (rightRes.ok) {
+          const rData = await rightRes.json();
+          rightUrl = rData.images?.[0];
+        }
+
+        // Final fallback to direct URL with a cache-busting seed if API failed
+        const seed = Math.floor(Math.random() * 1000000);
         setHeroImages({
-          left: `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPart + ", left artistic composition")}?width=1000&height=600&nologo=true&seed=${seedLeft}`,
-          right: `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPart + ", right artistic composition")}?width=1000&height=600&nologo=true&seed=${seedRight}`
+          left: leftUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(leftPrompt)}?width=1024&height=640&nologo=true&model=flux&seed=${seed}`,
+          right: rightUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(rightPrompt)}?width=1024&height=640&nologo=true&model=turbo&seed=${seed + 1}`
         });
-      } catch (e) {
-        console.error("Hero image enhancement failed:", e);
-        // Fallback to basic topic
-        setHeroImages({
-          left: `https://image.pollinations.ai/prompt/${encodeURIComponent(data.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=42`,
-          right: `https://image.pollinations.ai/prompt/${encodeURIComponent(data.topic + ", cinematic background")}?width=1000&height=600&nologo=true&seed=1337`
-        });
+
+      } catch (err) {
+        console.error("Hero image fetch failed:", err);
       }
     };
-    // Stagger the fetch slightly to avoid hitting concurrency limits with the main mind map generation
-    const timer = setTimeout(() => {
-      fetchEnhancedHeroImages();
-    }, 1500); // 1.5s delay
 
-    return () => clearTimeout(timer);
-  }, [data.topic, mounted, heroImages, providerOptions]);
+    fetchHeroImages();
+  }, [data.topic, mounted, heroImages]);
 
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
+  const [isPublished, setIsPublished] = useState(!!data?.isPublic);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -410,15 +425,40 @@ export const MindMap = ({
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(data.savedImages || []);
   const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(propNestedExpansions || data.nestedExpansions || []);
 
+  // Sync published status, images and expansions
+  useEffect(() => {
+    if (data) {
+      if (data.isPublic !== undefined && data.isPublic !== isPublished) {
+        setIsPublished(data.isPublic);
+      }
+      if (data.savedImages) setGeneratedImages(data.savedImages);
+      if (data.nestedExpansions) setNestedExpansions(data.nestedExpansions);
+    }
+  }, [data.isPublic, data.savedImages, data.nestedExpansions]);
+
+  // Use refs to track previous prop values to avoid infinite loops
+  const prevPropNestedExpansionsRef = useRef<string>('');
+  const prevDataNestedExpansionsRef = useRef<string>('');
+  const prevDataSavedImagesRef = useRef<string>('');
+
   useEffect(() => {
     // Only sync if props change externally and differ from local state
-    if (propNestedExpansions && JSON.stringify(propNestedExpansions) !== JSON.stringify(nestedExpansions)) {
+    const propNestedExpansionsStr = JSON.stringify(propNestedExpansions);
+    const dataNestedExpansionsStr = JSON.stringify(data.nestedExpansions);
+    const dataSavedImagesStr = JSON.stringify(data.savedImages);
+
+    // Update nested expansions only if the prop actually changed
+    if (propNestedExpansions && propNestedExpansionsStr !== prevPropNestedExpansionsRef.current) {
+      prevPropNestedExpansionsRef.current = propNestedExpansionsStr;
       setNestedExpansions(propNestedExpansions);
-    } else if (data.nestedExpansions && JSON.stringify(data.nestedExpansions) !== JSON.stringify(nestedExpansions)) {
+    } else if (data.nestedExpansions && dataNestedExpansionsStr !== prevDataNestedExpansionsRef.current && !propNestedExpansions) {
+      prevDataNestedExpansionsRef.current = dataNestedExpansionsStr;
       setNestedExpansions(data.nestedExpansions);
     }
 
-    if (data.savedImages && JSON.stringify(data.savedImages) !== JSON.stringify(generatedImages)) {
+    // Update saved images only if the data actually changed
+    if (data.savedImages && dataSavedImagesStr !== prevDataSavedImagesRef.current) {
+      prevDataSavedImagesRef.current = dataSavedImagesStr;
       setGeneratedImages(data.savedImages);
     }
   }, [data.nestedExpansions, data.savedImages, propNestedExpansions]);
@@ -462,56 +502,8 @@ export const MindMap = ({
     checkIfPublished();
   }, [data.topic, firestore, isPublic, user?.uid]);
 
-  // Auto-save nestedExpansions to Firestore when they change
-  useEffect(() => {
-    const saveNestedExpansions = async () => {
-      if (!firestore || !user || !data.id || isPublic) return;
-
-      try {
-        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
-
-        // Filter out generating items - they are ephemeral and shouldn't be persisted until complete
-        const expansionsToSave = nestedExpansions.filter(e => e.status !== 'generating');
-
-        await updateDoc(mapDocRef, {
-          nestedExpansions: expansionsToSave,
-          updatedAt: serverTimestamp(),
-        });
-      } catch (error) {
-        console.error('Error saving nested expansions:', error);
-      }
-    };
-
-    // Only save if there's an actual map ID (saved map)
-    if (data.id && nestedExpansions.length >= 0) {
-      saveNestedExpansions();
-    }
-  }, [nestedExpansions, firestore, user, data.id, isPublic]);
-
-  // Auto-save generatedImages to Firestore when they change
-  useEffect(() => {
-    const saveGeneratedImages = async () => {
-      if (!firestore || !user || !data.id || isPublic) return;
-
-      // Only save completed images
-      const completedImages = generatedImages.filter(img => img.status === 'completed');
-      if (completedImages.length === 0) return;
-
-      try {
-        const mapDocRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
-        await updateDoc(mapDocRef, {
-          savedImages: completedImages,
-          updatedAt: serverTimestamp(),
-        });
-      } catch (error) {
-        console.error('Error saving generated images:', error);
-      }
-    };
-
-    if (data.id) {
-      saveGeneratedImages();
-    }
-  }, [generatedImages, firestore, user, data.id, isPublic]);
+  // Internal auto-saves removed. 
+  // All persistence is now handled by the parent component via onUpdate and its debounced auto-save.
 
 
   const handleDownloadImage = (url: string, name: string) => {
@@ -769,55 +761,190 @@ export const MindMap = ({
     }
     setIsQuizLoading(false);
   };
+
+
   const handlePublishMap = async () => {
-    if (!data.id) return;
+    if (!firestore || !user) {
+      toast({ variant: 'destructive', title: 'Auth Error', description: 'You must be signed in to publish.' });
+      return;
+    }
+
+    if (!data.id) {
+      toast({
+        title: 'Save Required',
+        description: 'Please save your mind map manually before publishing so it has a permanent reference id.'
+      });
+      return;
+    }
+
     setIsPublishing(true);
+    console.log(`🚀 Starting publish for topic: "${data.topic}" (ID: ${data.id})`);
 
     try {
-      // 0. Ensure we have an ID before publishing
-      if (!data.id) {
-        toast({ title: "Saving first...", description: "We need to save your map before it can be published." });
-        onSaveMap();
-        // Wait a bit for Firestore ID to propagate? 
-        // Actually handleSaveMap in page.tsx is async but we don't await onSaveMap() here because it's a prop.
-        // It's better if we tell the user to try again or we wait.
-        // For simplicity, let's just return and let the auto-save (or manual save) finish.
-        // But better: tell them it's saving.
-        return;
+      // 1. PRE-FLIGHT CHECK: Verify private document existence
+      // This is the CRITICAL fix for the "Missing or insufficient permissions" error.
+      // batch.update() or set(..., {merge:true}) will fail on non-existent docs 
+      // if the rules require a 'userId' field for the 'create' path.
+      const privateRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
+      const privateSnap = await getDoc(privateRef);
+
+      if (!privateSnap.exists()) {
+        throw new Error('This map has not been saved to the database yet. Please click "Save Map" or wait for autosave, then try publishing again.');
       }
 
-      // 1. Use a default description
+      // 2. Prepare data and batch
+      const batch = writeBatch(firestore);
       const summary = `A detailed mind map exploration of ${data.topic}.`;
 
-      // 2. Publish to Firestore
-      const publicMapData = {
-        ...data,
-        originalAuthorId: user?.uid,
-        publishedAt: serverTimestamp(),
-        authorName: user?.displayName || 'Anonymous',
-        likes: 0,
-        views: 0,
-        summary: summary, // Add summary if available
+      // Recursive cleaner to remove 'undefined' fields which Firestore rejects
+      const clean = (obj: any): any => {
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (obj.constructor?.name === 'FieldValue' ||
+          obj.constructor?.name === 'Timestamp' ||
+          obj._methodName === 'serverTimestamp') {
+          return obj;
+        }
+        if (Array.isArray(obj)) return obj.map(item => clean(item));
+        const newObj: any = {};
+        Object.keys(obj).forEach(key => {
+          if (obj[key] !== undefined) newObj[key] = clean(obj[key]);
+        });
+        return newObj;
       };
 
-      await addDoc(collection(firestore!, 'publicMindmaps'), publicMapData);
+      const { id: _, ...dataToPublishRaw } = data;
+      const dataToPublish = clean(dataToPublishRaw);
+
+      // Defensively check for large base64 images in savedImages
+      if (dataToPublish.savedImages) {
+        dataToPublish.savedImages = dataToPublish.savedImages.map((img: any) => {
+          if (img.url && img.url.startsWith('data:image') && img.url.length > 400000) {
+            console.warn(`Skipping large public image (${img.name}) to stay under 1MB limit`);
+            return { ...img, url: `https://image.pollinations.ai/prompt/${encodeURIComponent(img.name)}?width=400&height=400&nologo=true` };
+          }
+          return img;
+        });
+      }
+
+      const publicRef = doc(collection(firestore, 'publicMindmaps'));
+      const auditLogRef = doc(collection(firestore, 'activityLogs'));
+
+      console.log('📦 Staging batch: publicRef, privateRef, auditLogRef');
+
+      // 3. Staging changes in the batch
+      batch.set(publicRef, {
+        ...dataToPublish,
+        mindmapId: data.id,
+        originalAuthorId: user.uid,
+        publishedAt: serverTimestamp(),
+        authorName: user.displayName || 'Anonymous',
+        likes: 0,
+        views: 0,
+        summary,
+      });
+
+      // Existing document verified above, so update is safe and satisfies isOwner(userId)
+      batch.update(privateRef, {
+        isPublic: true,
+        lastPublishedAt: serverTimestamp()
+      });
+
+      batch.set(auditLogRef, {
+        type: "PUBLISH",
+        mindmapId: data.id,
+        publicId: publicRef.id,
+        userId: user.uid,
+        timestamp: serverTimestamp(),
+        client: "web"
+      });
+
+      // 4. Atomic Commit
+      console.log('⌛ Committing batch...');
+      await batch.commit();
+      console.log('✅ Batch committed successfully.');
 
       setIsPublished(true);
       toast({
         title: 'Mind Map Published!',
-        description: summary ? 'Your mind map is now public and has been summarized.' : 'Your mind map is public (summary generation failed).',
+        description: 'Your mind map is now public and has been recorded in the community gallery.',
       });
 
-      // Track activity
-      if (firestore && user) {
-        // We'd track this if we had a specific function for it, or just generic 'created_map'
-      }
-
     } catch (error: any) {
+      console.error("Atomic publish failed:", error);
       toast({
         variant: 'destructive',
         title: 'Publishing Failed',
-        description: error.message,
+        description: error.message || 'An error occurred while publishing.',
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublishMap = async () => {
+    if (!data.id || !firestore || !user) {
+      toast({ variant: 'destructive', title: 'Action Denied', description: 'You must be logged in to manage your public maps.' });
+      return;
+    }
+
+    setIsPublishing(true); // Re-use isPublishing for loading state
+
+    try {
+      const batch = writeBatch(firestore);
+      const publicMapsCollection = collection(firestore, 'publicMindmaps');
+      // We search by originalAuthorId and topic to find the specific public entry
+      const q = query(
+        publicMapsCollection,
+        where('originalAuthorId', '==', user.uid),
+        where('mindmapId', '==', data.id)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        throw new Error("Could not find this map in the public gallery. It may already be removed.");
+      }
+
+      // 1. Delete public entries in the batch
+      querySnapshot.docs.forEach(docSnap => {
+        console.log('Auth UID:', user.uid);
+        console.log('Deleting path:', `publicMindmaps/${docSnap.id}`);
+        batch.delete(doc(firestore, 'publicMindmaps', docSnap.id));
+      });
+
+      // 2. Mark private map as unpublished in the batch
+      const privateRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
+      // Include userId in case merge:true triggers a create path (satisfies rules)
+      batch.set(privateRef, {
+        userId: user.uid,
+        isPublic: false,
+        unpublishedAt: serverTimestamp()
+      }, { merge: true });
+
+      // 3. Record in audit log
+      const auditLogRef = doc(collection(firestore, 'activityLogs'));
+      batch.set(auditLogRef, {
+        type: "UNPUBLISH",
+        mindmapId: data.id,
+        userId: user.uid,
+        timestamp: serverTimestamp(),
+        client: "web"
+      });
+
+      // 4. Atomic Commit
+      await batch.commit();
+
+      setIsPublished(false);
+      toast({
+        title: 'Mind Map Removed',
+        description: 'Your mind map has been successfully removed from the public gallery.',
+      });
+
+    } catch (error: any) {
+      console.error("Unpublishing error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Removal Failed',
+        description: error.message || 'An error occurred while unpublishing.',
       });
     } finally {
       setIsPublishing(false);
@@ -833,14 +960,14 @@ export const MindMap = ({
         throw new Error("You must be logged in to duplicate a mind map.");
       }
 
-      // Create a new map object
+      // Create a new map object, excluding fields that shouldn't be copied
+      const { id, parentMapId, isSubMap, createdAt: oldCreatedAt, updatedAt: oldUpdatedAt, ...cleanData } = data as any;
+
       const newMapData = {
-        ...data,
-        id: undefined, // Let Firestore generate a new ID
+        ...cleanData,
         userId: user.uid,
-        createdAt: Date.now(),
-        nestedExpansions: [], // Start fresh or copy? Let's copy but reset status
-        savedImages: [], // Copy images? Maybe not deep copy to save space/bandwidth
+        nestedExpansions: [], // Start fresh
+        savedImages: [], // Start fresh
       };
 
       // We essentially just "create new map" flow
@@ -849,6 +976,7 @@ export const MindMap = ({
 
       const docRef = await addDoc(collection(firestore!, 'users', user.uid, 'mindmaps'), {
         ...newMapData,
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
@@ -936,6 +1064,7 @@ export const MindMap = ({
         isPublished={isPublished}
         isPublishing={isPublishing}
         onPublish={handlePublishMap}
+        onUnpublish={handleUnpublishMap}
         onOpenAiContent={() => setIsAiContentDialogOpen(true)}
         onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
         onOpenGallery={() => setIsGalleryOpen(true)}

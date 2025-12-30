@@ -54,6 +54,27 @@ export function useMindMapStack(options: {
     const push = useCallback(async (topic: string, nodeId: string, navOptions: { mode: 'foreground' | 'background' } = { mode: 'background' }) => {
         if (status !== 'idle') return;
 
+        // CRITICAL: Ensure parent map is saved before creating sub-map
+        if (currentMap && !currentMap.id) {
+            console.warn('Parent map not saved yet, saving first...');
+            try {
+                const parentId = await options.persistenceAdapter.persist(currentMap, undefined, true);
+                if (parentId) {
+                    // Update the current map with the new ID
+                    setStack(prev => {
+                        const newStack = [...prev];
+                        if (newStack[activeIndex]) {
+                            newStack[activeIndex] = { ...newStack[activeIndex], id: parentId };
+                        }
+                        return newStack;
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to save parent map:', err);
+                throw new Error('Parent map must be saved before creating sub-maps');
+            }
+        }
+
         setStatus('generating');
         setGenerationScope(navOptions.mode);
         setGeneratingNodeId(nodeId);
@@ -86,7 +107,7 @@ export function useMindMapStack(options: {
                 const newMap = {
                     ...mapWithDefaults,
                     isSubMap: true,
-                    parentMapId: currentMap?.id,
+                    parentMapId: currentMap?.id || undefined,
                 };
 
                 // Persist the new map

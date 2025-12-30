@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { generateContentWithPollinations } from './pollinations-client';
 import { generateContentWithBytez } from './bytez-client';
 import { providerMonitor } from './provider-monitor';
@@ -156,38 +156,34 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     // 3. Gemini (Selected OR Fallback)
     if (provider === 'gemini') {
         // Resolve API key: provided key > environment key
-        const effectiveApiKey = apiKey || process.env.GOOGLE_GENAI_API_KEY;
+        const effectiveApiKey = apiKey || process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
 
         if (!effectiveApiKey) {
-            throw new Error("Gemini provider requires an API Key. Please configure GOOGLE_GENAI_API_KEY or provide a custom key.");
+            throw new Error("Gemini provider requires an API Key. Please configure GOOGLE_GENAI_API_KEY or GEMINI_API_KEY or provide a custom key.");
         }
 
         try {
-            const genAI = new GoogleGenerativeAI(effectiveApiKey);
-            // Using gemini-1.5-flash-latest for better resilience against 404s on specific API versions
-            const model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash-latest',
-                generationConfig: {
+            const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+
+            const contents: any[] = [userPrompt];
+            if (images && images.length > 0) {
+                contents.push(...images);
+            }
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: contents,
+                config: {
+                    systemInstruction: systemPrompt,
                     responseMimeType: 'application/json'
                 }
             });
 
-            const parts: any[] = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
-
-            if (images && images.length > 0) {
-                parts.push(...images);
-            }
-
-            const aiResult = await model.generateContent(parts);
-            const response = await aiResult.response;
-
             if (!response) throw new Error("No response received from Gemini");
 
-            const text = response.text();
+            const text = response.text;
             if (!text) {
-                // Check for safety ratings or other reasons for no text
-                const safety = response.promptFeedback?.blockReason;
-                throw new Error(safety ? `Gemini blocked content: ${safety}` : "Empty response from Gemini");
+                throw new Error("Empty response from Gemini");
             }
 
             console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);

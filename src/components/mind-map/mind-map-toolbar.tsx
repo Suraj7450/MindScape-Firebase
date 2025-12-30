@@ -23,7 +23,8 @@ import {
     Table,
     Layers,
     Share,
-    BookOpen
+    BookOpen,
+    X
 } from 'lucide-react';
 import {
     Select,
@@ -54,10 +55,12 @@ interface MindMapToolbarProps {
     isCopied: boolean;
     onCopyPath: () => void;
     isSaved: boolean;
+    hasUnsavedChanges?: boolean;
     onSave: () => void;
     isPublished: boolean;
     isPublishing: boolean;
     onPublish: () => void;
+    onUnpublish: () => void;
     onOpenAiContent: () => void;
     onOpenNestedMaps: () => void;
     onOpenGallery: () => void;
@@ -86,10 +89,12 @@ export const MindMapToolbar = ({
     isCopied,
     onCopyPath,
     isSaved,
+    hasUnsavedChanges,
     onSave,
     isPublished,
     isPublishing,
     onPublish,
+    onUnpublish,
     onOpenAiContent,
     onOpenNestedMaps,
     onOpenGallery,
@@ -250,16 +255,36 @@ export const MindMapToolbar = ({
                             </Button>
                         </div>
 
-                        {!isSaved ? (
+                        {(!isSaved || hasUnsavedChanges) ? (
                             <Button
-                                variant="default"
+                                variant={!isSaved ? "default" : "ghost"}
                                 size="sm"
                                 onClick={onSave}
                                 disabled={isBusy}
-                                className="h-9 gap-2 text-xs font-bold px-5 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
+                                className={cn(
+                                    "h-9 gap-2 text-xs font-bold px-5 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-70",
+                                    !isSaved
+                                        ? "bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+                                        : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
+                                )}
                             >
-                                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                {isSyncing ? 'Saving...' : 'Save Map'}
+                                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : (isSaved ? <RefreshCw className="h-4 w-4" /> : <Save className="h-4 w-4" />)}
+                                {isSyncing ? 'Saving...' : (!isSaved ? 'Save Map' : 'Syncing...')}
+                            </Button>
+                        ) : isPublished ? (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onUnpublish}
+                                disabled={isPublishing || isBusy}
+                                className="h-9 gap-2 text-xs font-bold px-5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                            >
+                                {isPublishing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <X className="h-4 w-4" />
+                                )}
+                                {isPublishing ? 'Updating...' : 'Remove Public'}
                             </Button>
                         ) : !isPublished && (
                             <Button

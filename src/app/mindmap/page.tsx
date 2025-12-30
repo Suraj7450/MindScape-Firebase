@@ -307,22 +307,33 @@ function MindMapPageContent() {
         }
 
         if (result.data) {
+          // Add to stack if not already there and set active index
           setMindMaps(prevMaps => {
             const exists = prevMaps.some(m => m.topic === result.data!.topic);
-            if (exists) return prevMaps;
-            return [...prevMaps, result.data!];
-          });
-
-          setMindMaps(prev => {
-            const newIndex = prev.findIndex(m => m.topic === result.data!.topic);
-            if (newIndex !== -1) setActiveMindMapIndex(newIndex);
-            return prev;
+            if (exists) {
+              const newIndex = prevMaps.findIndex(m => m.topic === result.data!.topic);
+              if (newIndex !== -1) setActiveMindMapIndex(newIndex);
+              return prevMaps;
+            }
+            const newMaps = [...prevMaps, result.data!];
+            setActiveMindMapIndex(newMaps.length - 1);
+            return newMaps;
           });
 
           const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user) {
             const existingMapWithId = mindMaps.find(m => m.topic === result.data!.topic && m.id);
-            await handleSaveMap(result.data, existingMapWithId?.id);
+            const savedId = await handleSaveMap(result.data, existingMapWithId?.id);
+
+            // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
+            if (savedId && !existingMapWithId?.id) {
+              setMindMaps(prev => prev.map(m =>
+                m.topic === result.data!.topic ? { ...m, id: savedId } : m
+              ));
+
+              // Also update the current map directly to ensure isSaved shows immediately
+              handleUpdateCurrentMap({ id: savedId });
+            }
           }
         }
       } catch (e: any) {
@@ -347,11 +358,34 @@ function MindMapPageContent() {
   // 4. Auto-Save Effect
 
   useEffect(() => {
-    return setupAutoSave(mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, handleSaveMapFromHook);
+    const persistFn = async (silent: boolean) => {
+      await handleSaveMapFromHook(silent);
+      setHasUnsavedChanges(false);
+    };
+    return setupAutoSave(mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, persistFn);
   }, [mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
 
-  const handleManualSaveMap = useCallback(() => {
-    handleSaveMapFromHook();
+  const onMapUpdate = useCallback((updatedData: Partial<MindMapData>) => {
+    if (!mindMap) return;
+
+    // Deep-ish check to see if anything actually changed
+    let hasActualChanges = false;
+    for (const key in updatedData) {
+      if (JSON.stringify((updatedData as any)[key]) !== JSON.stringify((mindMap as any)[key])) {
+        hasActualChanges = true;
+        break;
+      }
+    }
+
+    if (hasActualChanges) {
+      handleUpdateCurrentMap(updatedData);
+      setHasUnsavedChanges(true);
+    }
+  }, [handleUpdateCurrentMap, mindMap]);
+
+  const onManualSave = useCallback(async () => {
+    await handleSaveMapFromHook();
+    setHasUnsavedChanges(false);
   }, [handleSaveMapFromHook]);
 
   const handleExplainInChat = useCallback((message: string) => {
@@ -479,9 +513,10 @@ function MindMapPageContent() {
           <MindMap
             key={activeMindMapIndex}
             data={mindMap}
-            isSaved={isSaved && !hasUnsavedChanges}
+            isSaved={isSaved}
+            hasUnsavedChanges={hasUnsavedChanges}
             isPublic={params.isPublic}
-            onSaveMap={handleManualSaveMap}
+            onSaveMap={onManualSave}
             onExplainInChat={handleExplainInChat}
             onGenerateNewMap={handleGenerateAndOpenSubMap}
             onOpenNestedMap={handleOpenNestedMap}
@@ -497,7 +532,7 @@ function MindMapPageContent() {
             mindMapStack={mindMaps}
             activeStackIndex={activeMindMapIndex}
             onStackSelect={handleBreadcrumbSelect}
-            onUpdate={handleUpdateCurrentMap}
+            onUpdate={onMapUpdate}
             status={hookStatus}
             aiHealth={aiHealth}
           />

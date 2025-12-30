@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { AIProvider } from '@/ai/client-dispatcher';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface AIConfig {
     provider: AIProvider;
@@ -36,43 +36,72 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
 
     const [hydrated, setHydrated] = useState(false);
 
+    // Track if we're currently syncing from Firestore to prevent loops
+    const isSyncingFromFirestore = React.useRef(false);
+    const lastStoredConfigRef = React.useRef<string>('');
+    const configRef = React.useRef<AIConfig>(DEFAULT_CONFIG);
+
+    // Keep configRef in sync with config state
+    React.useEffect(() => {
+        configRef.current = config;
+    }, [config]);
+
     // Sync state with local storage on mount and when storage changes
     useEffect(() => {
-        if (storedConfig) {
-            setConfig(storedConfig);
+        // Only sync from localStorage if the change didn't come from Firestore
+        if (!isSyncingFromFirestore.current && storedConfig) {
+            const storedConfigStr = JSON.stringify(storedConfig);
+            if (storedConfigStr !== lastStoredConfigRef.current) {
+                lastStoredConfigRef.current = storedConfigStr;
+                setConfig(storedConfig);
+            }
         }
+        // Reset the flag after processing
+        isSyncingFromFirestore.current = false;
     }, [storedConfig]);
 
-    // Sync with Firestore on user login
+    // Sync with Firestore on user login - REAL-TIME LISTENER
     useEffect(() => {
-        const fetchRemoteConfig = async () => {
-            if (!user || !firestore || hydrated) return;
-            try {
-                const snap = await getDoc(doc(firestore, 'users', user.uid));
-                if (snap.exists() && snap.data().apiSettings) {
-                    const settings = snap.data().apiSettings;
-                    // Merge remote settings with default/current
-                    // Logic: Remote wins if present.
-                    const remoteConfig: Partial<AIConfig> = {};
-                    if (settings.provider) remoteConfig.provider = settings.provider;
-                    if (settings.apiKey) remoteConfig.apiKey = settings.apiKey;
+        if (!user || !firestore) return;
 
-                    if (Object.keys(remoteConfig).length > 0) {
-                        setConfig(prev => {
-                            const newC = { ...prev, ...remoteConfig };
-                            setStoredConfig(newC); // Update local storage too
-                            return newC;
-                        });
+        console.log('🔄 Setting up AI config listener for user:', user.uid);
+
+        // Set up real-time listener for apiSettings
+        const userRef = doc(firestore, 'users', user.uid);
+        const unsubscribe = onSnapshot(userRef, (snap) => {
+            if (snap.exists() && snap.data().apiSettings) {
+                const settings = snap.data().apiSettings;
+                const remoteConfig: Partial<AIConfig> = {};
+
+                if (settings.provider) remoteConfig.provider = settings.provider;
+                if (settings.apiKey) remoteConfig.apiKey = settings.apiKey;
+
+                if (Object.keys(remoteConfig).length > 0) {
+                    // Use configRef to get the latest config value
+                    const newC = { ...configRef.current, ...remoteConfig };
+                    const newConfigStr = JSON.stringify(newC);
+
+                    // Only update if the config actually changed
+                    if (newConfigStr !== lastStoredConfigRef.current) {
+                        lastStoredConfigRef.current = newConfigStr;
+                        isSyncingFromFirestore.current = true;
+                        setConfig(newC);
+                        setStoredConfig(newC); // Update local storage too
+                        console.log('✅ AI Config synced from Firestore:', newC.provider);
                     }
                 }
-            } catch (e) {
-                console.error("Failed to sync AI config from Firestore", e);
-            } finally {
-                setHydrated(true);
             }
+            setHydrated(true);
+        }, (error) => {
+            console.error("Failed to sync AI config from Firestore", error);
+            setHydrated(true);
+        });
+
+        return () => {
+            console.log('🔄 Cleaning up AI config listener');
+            unsubscribe();
         };
-        fetchRemoteConfig();
-    }, [user, firestore, hydrated, setStoredConfig]);
+    }, [user, firestore, setStoredConfig]);
 
     const updateConfig = (updates: Partial<AIConfig>) => {
         const newConfig = { ...config, ...updates };

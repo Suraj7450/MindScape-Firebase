@@ -65,6 +65,12 @@ export interface NestedExpansionItem {
 export type MindMapWithId = MindMap & {
   id?: string;
   uid?: string;
+  userId?: string;
+  isPublic?: boolean;
+  originalAuthorId?: string;
+  authorName?: string;
+  lastPublishedAt?: Timestamp | number;
+  unpublishedAt?: Timestamp | number;
   createdAt?: Timestamp | number;
   updatedAt?: Timestamp | number;
   summary?: string;

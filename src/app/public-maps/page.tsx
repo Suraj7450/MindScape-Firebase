@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -24,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
 import { useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, Timestamp, doc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, Timestamp, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import Image from 'next/image';
 import { useFirestore } from '@/firebase';
 import PublicDashboardLoading from './loading';
@@ -34,15 +33,16 @@ import { formatShortDistanceToNow } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-type PublicMindMap = GenerateMindMapOutput & {
+import { MindMapData } from '@/types/mind-map';
+
+interface PublicMindMap extends MindMapData {
   id: string;
+  mindmapId?: string;
+  originalAuthorId?: string;
+  authorName?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  summary: string;
-  thumbnailUrl?: string;
-  authorName?: string;
-  originalAuthorId?: string;
-};
+}
 
 type SortOption = 'recent' | 'alphabetical' | 'oldest';
 type MapFilter = 'all' | 'my-published' | 'others';
@@ -109,22 +109,74 @@ export default function PublicMapsPage() {
   };
 
   const handleUnpublishMap = async () => {
-    if (!mapToUnpublish || !user) return;
-    const docRef = doc(firestore, 'publicMindmaps', mapToUnpublish);
+    if (!mapToUnpublish || !firestore || !user) return;
 
-    // Additional check to ensure only the owner can delete
-    const mapToDel = publicMaps?.find(m => m.id === mapToUnpublish);
-    if (mapToDel?.originalAuthorId !== user.uid) {
-      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You can only unpublish your own maps.' });
-      setMapToUnpublish(null);
-      return;
-    }
+    try {
+      const docRef = doc(firestore, 'publicMindmaps', mapToUnpublish);
+      console.log('Auth UID:', user.uid);
+      console.log('Deleting path:', docRef.path);
 
-    deleteDoc(docRef).catch(async (serverError) => {
-      const permissionError = new FirestorePermissionError({ path: docRef.path, operation: 'delete' });
+      // Verify ownership locally first for better UX
+      const mapToDel = publicMaps?.find(m => m.id === mapToUnpublish);
+
+      console.log('Document ID to delete:', mapToUnpublish);
+      console.log('Document originalAuthorId (Local):', mapToDel?.originalAuthorId);
+      console.log('Document Topic:', mapToDel?.topic);
+      if (!mapToDel || mapToDel.originalAuthorId !== user.uid) {
+        toast({
+          variant: 'destructive',
+          title: 'Permission Denied',
+          description: 'You can only unpublish your own maps.'
+        });
+        return;
+      }
+
+      const batch = writeBatch(firestore);
+      batch.delete(docRef);
+
+      // 1. Sync private map status if mindmapId exists
+      if (mapToDel.mindmapId) {
+        const privateRef = doc(firestore, 'users', user.uid, 'mindmaps', mapToDel.mindmapId);
+        batch.set(privateRef, {
+          isPublic: false,
+          unpublishedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      // 2. Record in audit log
+      const auditLogRef = doc(collection(firestore, 'activityLogs'));
+      batch.set(auditLogRef, {
+        type: "UNPUBLISH_DASHBOARD",
+        mindmapId: mapToDel.mindmapId || 'unknown',
+        publicId: mapToUnpublish,
+        userId: user.uid,
+        timestamp: serverTimestamp(),
+        client: "web"
+      });
+
+      // 3. Atomic Commit
+      await batch.commit();
+
+      toast({
+        title: 'Map Removed',
+        description: `"${mapToDel.topic}" has been removed from the public gallery.`,
+      });
+    } catch (error: any) {
+      console.error("Unpublish failed:", error);
+      const permissionError = new FirestorePermissionError({
+        path: `publicMindmaps/${mapToUnpublish}`,
+        operation: 'delete'
+      });
       errorEmitter.emit('permission-error', permissionError);
-    });
-    setMapToUnpublish(null);
+
+      toast({
+        variant: 'destructive',
+        title: 'Removal Failed',
+        description: error.message || 'Could not remove the map. Please try again.',
+      });
+    } finally {
+      setMapToUnpublish(null);
+    }
   };
 
   const handleDuplicateMap = async (map: PublicMindMap) => {
@@ -141,13 +193,14 @@ export default function PublicMapsPage() {
 
     try {
       const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
-      const { id, createdAt, updatedAt, originalAuthorId, authorName, ...plainMindMapData } = map as any;
+      const { id, createdAt, updatedAt, originalAuthorId, authorName, parentMapId, isSubMap, ...plainMindMapData } = map as any;
 
       const docRef = await addDoc(mindMapsCollection, {
         ...plainMindMapData,
+        userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        thumbnailUrl: map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`,
+        thumbnailUrl: map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization of ${map.topic}, cinematic lighting, purple tones`)}?width=400&height=225&nologo=true`,
         thumbnailPrompt: `A cinematic 3D render of ${map.topic}, in futuristic purple tones, mind-map theme, highly detailed`
       });
 
@@ -186,19 +239,20 @@ export default function PublicMapsPage() {
         key={map.id}
         className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-300 hover:border-purple-600/50 hover:shadow-glow hover:-translate-y-1"
       >
-        <div className="w-full aspect-video relative mb-4" onClick={() => handleMindMapClick(map.id)}>
-          <Image
+        <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A]" onClick={() => handleMindMapClick(map.id)}>
+          <img
             src={
               map.thumbnailUrl ||
               `https://image.pollinations.ai/prompt/${encodeURIComponent(
-                map.topic
+                `A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`
               )}?width=400&height=225&nologo=true`
             }
             alt={`Thumbnail for ${map.topic}`}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover rounded-xl"
-            data-ai-hint="abstract concept"
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = `https://placehold.co/400x225/1a1a1a/666666?text=${encodeURIComponent(map.topic)}`;
+            }}
           />
         </div>
 

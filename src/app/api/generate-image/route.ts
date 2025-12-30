@@ -3,7 +3,7 @@ import { enhanceImagePromptAction } from '@/app/actions';
 import { NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 
-const pollinationsModels = ['flux', 'flux-pro', 'stable-diffusion', 'turbo'];
+const pollinationsModels = ['turbo', 'stable-diffusion', 'flux'];
 
 export async function POST(req: Request) {
   try {

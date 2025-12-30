@@ -98,31 +98,61 @@ export async function generateContentWithBytez(
 }
 
 /**
- * Image Generation Client using Bytez API
+ * Image Generation Client using Bytez REST API v2
+ * Uses dreamlike-photoreal-2.0 model for high-quality photorealistic images
  */
 export async function generateImageWithBytez(
     prompt: string,
     apiKey: string,
-    modelId: string = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+    model: string = "dreamlike-art/dreamlike-photoreal-2.0"
 ): Promise<string> {
     try {
-        const sdk = new Bytez(apiKey);
-        const model = sdk.model(modelId);
+        console.log('🎨 Bytez Image API: Generating with model:', model);
 
-        const { error, output } = await model.run(prompt);
+        // Bytez REST API v2 endpoint
+        const apiUrl = `https://api.bytez.com/models/v2/${model}`;
 
-        if (error) {
-            throw new Error(`Bytez Image API error: ${JSON.stringify(error)}`);
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': apiKey,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: prompt
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Bytez API error (${response.status}): ${errorText}`);
         }
 
-        if (!output) {
-            throw new Error("No image data received from Bytez");
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(`Bytez Image API error: ${data.error}`);
         }
 
-        // Convert the binary output to a base64 data URI
-        const buffer = Buffer.from(output as any);
-        const base64 = buffer.toString('base64');
-        return `data:image/png;base64,${base64}`;
+        if (!data.output) {
+            throw new Error("No image URL received from Bytez");
+        }
+
+        // Bytez v2 returns an image URL, fetch it and convert to base64
+        console.log('🖼️ Bytez Image URL:', data.output);
+
+        const imageResponse = await fetch(data.output);
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch generated image: ${imageResponse.status}`);
+        }
+
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const base64 = Buffer.from(imageBuffer).toString('base64');
+
+        // Determine content type from response or default to PNG
+        const contentType = imageResponse.headers.get('content-type') || 'image/png';
+
+        return `data:${contentType};base64,${base64}`;
     } catch (error: any) {
         console.error("Bytez Image Generation Failed:", error);
         throw new Error(`Bytez Image API failed: ${error.message}`);

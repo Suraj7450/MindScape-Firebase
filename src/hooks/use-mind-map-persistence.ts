@@ -62,12 +62,18 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             if (snapshot.metadata.hasPendingWrites) return;
             if (snapshot.exists()) {
                 const remoteData = snapshot.data();
-                if (!remoteData.hasSplitContent) {
-                    // Legacy Sync
-                    const remoteUpdatedAt = (remoteData as any).updatedAt?.toMillis?.() || 0;
-                    const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
-                    if (remoteUpdatedAt > localUpdatedAt && options.onRemoteUpdate) {
+
+                // Track update times for synchronization
+                const remoteUpdatedAt = (remoteData as any).updatedAt?.toMillis?.() || 0;
+                const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
+
+                if (remoteUpdatedAt > localUpdatedAt && options.onRemoteUpdate) {
+                    if (!remoteData.hasSplitContent) {
+                        // Legacy Sync (full doc in metadata)
                         options.onRemoteUpdate({ ...remoteData, id: snapshot.id } as MindMapData);
+                    } else if (currentMap) {
+                        // Split Schema Sync: Merge metadata (isPublic, stats, etc) into existing map
+                        options.onRemoteUpdate({ ...currentMap, ...remoteData, id: snapshot.id } as MindMapData);
                     }
                 }
             }
@@ -106,23 +112,60 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-            const thumbnailPrompt = `A cinematic 3D render of ${mapToSave.topic}, in futuristic purple tones, mind-map theme, highly detailed`;
-            const thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=400&height=225&nologo=true`;
+            const thumbnailPrompt = `A cinematic, highly detailed 3D visualization representing the concept: ${mapToSave.topic}. Mind-map theme, futuristic aesthetics, elegant purple and indigo lighting, premium quality, 8k resolution.`;
+
+            // Generate thumbnail using internal API (which enhances prompts)
+            let thumbnailUrl = '';
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: thumbnailPrompt,
+                        style: 'Cinematic', // Use a high-quality style
+                        provider: 'bytez', // Prefer high-quality provider
+                        size: '512x288'   // Fixed small size to prevent Firestore 1MB limit
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.images && data.images[0]) {
+                        thumbnailUrl = data.images[0];
+                        console.log('✅ AI Thumbnail generated via API');
+                    }
+                }
+                if (thumbnailUrl && thumbnailUrl.length > 800000) {
+                    console.warn('⚠️ Thumbnail too large for Firestore (>800KB), dropping base64 data to prevent save failure.');
+                    thumbnailUrl = '';
+                }
+            } catch (imageError) {
+                console.warn('⚠️ Thumbnail generation failed:', imageError);
+            }
+
+            // Fallback for thumbnailUrl if generation failed OR if it was too large
+            if (!thumbnailUrl) {
+                thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
+            }
 
             // SPLIT SCHEMA: Metadata vs Content
-            const { subTopics, nodes, edges, ...metadata } = mapToSave as any;
+            const { subTopics, nodes, edges, id, ...metadata } = mapToSave as any;
 
-            const metadataToSave = {
+            const metadataToSave: any = {
                 ...metadata,
                 summary,
                 updatedAt: serverTimestamp(),
                 thumbnailUrl,
                 thumbnailPrompt,
-                uid: user.uid,
+                userId: user.uid,
                 isSubMap: mapToSave.isSubMap || false,
-                parentMapId: mapToSave.parentMapId || null,
                 hasSplitContent: true, // Flag for migration/loading logic
             };
+
+            // Only include parentMapId if it exists (Firestore doesn't allow undefined)
+            if (mapToSave.parentMapId) {
+                metadataToSave.parentMapId = mapToSave.parentMapId;
+            }
 
             const contentToSave = {
                 subTopics: subTopics || [],
@@ -131,20 +174,47 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 updatedAt: serverTimestamp(),
             };
 
+            // HELPER: Firestore doesn't allow 'undefined' fields anywhere in the document structure.
+            // We recursively strip them while keeping Firestore FieldValues (like serverTimestamp) intact.
+            const clean = (obj: any): any => {
+                if (obj === null || typeof obj !== 'object') return obj;
+
+                // Don't recurse into Firestore FieldValues or Timestamps
+                // These are special objects used by the Firebase SDK
+                if (obj.constructor?.name === 'FieldValue' || obj.constructor?.name === 'Timestamp' || obj._methodName === 'serverTimestamp') {
+                    return obj;
+                }
+
+                if (Array.isArray(obj)) {
+                    return obj.map(item => clean(item));
+                }
+
+                const newObj: any = {};
+                Object.keys(obj).forEach(key => {
+                    if (obj[key] !== undefined) {
+                        newObj[key] = clean(obj[key]);
+                    }
+                });
+                return newObj;
+            };
+
+            const metadataFinal = clean(metadataToSave);
+            const contentFinal = clean(contentToSave);
+
             let finalId = targetId;
             if (targetId) {
                 const metadataRef = doc(firestore, 'users', user.uid, 'mindmaps', targetId);
                 const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', targetId, 'content', 'tree');
 
-                await setDoc(metadataRef, metadataToSave, { merge: true });
-                await setDoc(contentRef, contentToSave);
+                await setDoc(metadataRef, metadataFinal, { merge: true });
+                await setDoc(contentRef, contentFinal);
             } else {
                 const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
-                const docRef = await addDoc(mindMapsCollection, { ...metadataToSave, createdAt: serverTimestamp() });
+                const docRef = await addDoc(mindMapsCollection, { ...metadataFinal, createdAt: serverTimestamp() });
                 finalId = docRef.id;
 
                 const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', finalId, 'content', 'tree');
-                await setDoc(contentRef, contentToSave);
+                await setDoc(contentRef, contentFinal);
 
                 // Track creation
                 await trackMapCreated(firestore, user.uid);

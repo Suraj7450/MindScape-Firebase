@@ -63,6 +63,8 @@ export const HeroSection = ({
                                     src={heroImages.left}
                                     alt=""
                                     fill
+                                    priority
+                                    sizes="(max-width: 1024px) 100vw, 1024px"
                                     className="object-cover"
                                     style={{ maskImage: 'radial-gradient(circle at 10% 50%, black 0%, transparent 85%)' }}
                                 />
@@ -72,6 +74,8 @@ export const HeroSection = ({
                                     src={heroImages.right}
                                     alt=""
                                     fill
+                                    priority
+                                    sizes="(max-width: 1024px) 100vw, 1024px"
                                     className="object-cover"
                                     style={{ maskImage: 'radial-gradient(circle at 90% 50%, black 0%, transparent 85%)' }}
                                 />

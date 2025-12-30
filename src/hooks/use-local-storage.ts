@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Safely retrieves a value from window.localStorage.
@@ -50,9 +50,10 @@ export function useLocalStorage<T>(
 
   /**
    * Sets the new value in both the component's state and localStorage.
+   * Memoized with useCallback to prevent infinite re-renders when used in dependency arrays.
    * @param {T | ((val: T) => T)} value - The new value or a function that returns the new value.
    */
-  const setValue = (value: T | ((val: T) => T)) => {
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
       // Allow value to be a function so we have same API as useState
       const valueToStore =
@@ -66,7 +67,7 @@ export function useLocalStorage<T>(
     } catch (error) {
       console.error(`Error writing to localStorage for key "${key}":`, error);
     }
-  };
+  }, [key, storedValue]);
 
   return [storedValue, setValue];
 }

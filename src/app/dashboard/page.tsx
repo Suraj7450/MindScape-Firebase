@@ -254,14 +254,16 @@ export default function DashboardPage() {
                   key={map.id}
                   className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-300 hover:border-purple-600/50 hover:shadow-glow hover:-translate-y-1"
                 >
-                  <div className="w-full aspect-video relative mb-4" onClick={() => handleMindMapClick(map.id)}>
-                    <Image
-                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(map.topic)}?width=400&height=225&nologo=true`}
+                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A]" onClick={() => handleMindMapClick(map.id)}>
+                    <img
+                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
                       alt={`Thumbnail for ${map.topic}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      className="object-cover rounded-xl"
-                      data-ai-hint="abstract concept"
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        // Fallback to placeholder on error
+                        e.currentTarget.src = `https://placehold.co/400x225/1a1a1a/666666?text=${encodeURIComponent(map.topic)}`;
+                      }}
                     />
                   </div>
 
