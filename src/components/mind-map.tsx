@@ -148,7 +148,7 @@ import { MindMapStatus } from '@/hooks/use-mind-map-stack';
 import { LeafNodeCard } from './mind-map/leaf-node-card';
 import { ExplanationDialog } from './mind-map/explanation-dialog';
 import { MindMapToolbar } from './mind-map/mind-map-toolbar';
-import { HeroSection } from './mind-map/hero-section';
+import { TopicHeader } from './mind-map/topic-header';
 import { MindMapRadialView } from './mind-map/mind-map-radial-view';
 import { cn } from '@/lib/utils';
 import { MindMapAccordion } from './mind-map/mind-map-accordion';
@@ -201,7 +201,6 @@ import { useStudyTimeTracker } from '@/hooks/use-study-time-tracker';
 interface MindMapProps {
   data: MindMapData;
   isSaved: boolean;
-  isPublic: boolean;
   onSaveMap: () => void;
   onExplainInChat: (message: string) => void;
   onGenerateNewMap: (topic: string, nodeId: string, contextPath: string, mode?: 'foreground' | 'background') => void;
@@ -245,7 +244,6 @@ interface ExplanationDialogProps {
 export const MindMap = ({
   data,
   isSaved,
-  isPublic,
   onSaveMap,
   onExplainInChat,
   onGenerateNewMap,
@@ -329,7 +327,6 @@ export const MindMap = ({
   const [isExampleLoading, setIsExampleLoading] = useState(false);
   const [activeExplainableNode, setActiveExplainableNode] = useState<any>(null);
 
-  const [heroImages, setHeroImages] = useState<{ left: string; right: string } | undefined>(data.heroImages || undefined);
   const [mounted, setMounted] = useState(false);
   const [languageUI, setLanguageUI] = useState(selectedLanguage);
   const [personaUI, setPersonaUI] = useState(aiPersona);
@@ -362,57 +359,8 @@ export const MindMap = ({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const fetchHeroImages = async () => {
-      // If we already have heroImages, don't refetch
-      if (!mounted || !data?.topic || heroImages) return;
-
-      try {
-        const leftPrompt = `A cinematic, ultra-detailed conceptual 3D render: "${data.topic}", left-balanced composition, abstract futuristic lighting, purple and indigo tones, 8k resolution.`;
-        const rightPrompt = `A cinematic, ultra-detailed conceptual 3D render: "${data.topic}", right-balanced composition, abstract futuristic lighting, purple and indigo tones, 8k resolution.`;
-
-        // Attempt to generate via API which uses authenticated providers/rotation
-        const [leftRes, rightRes] = await Promise.all([
-          fetch('/api/generate-image', {
-            method: 'POST',
-            body: JSON.stringify({ prompt: leftPrompt, size: '1024x640' })
-          }),
-          fetch('/api/generate-image', {
-            method: 'POST',
-            body: JSON.stringify({ prompt: rightPrompt, size: '1024x640' })
-          })
-        ]);
-
-        let leftUrl = '';
-        let rightUrl = '';
-
-        if (leftRes.ok) {
-          const lData = await leftRes.json();
-          leftUrl = lData.images?.[0];
-        }
-        if (rightRes.ok) {
-          const rData = await rightRes.json();
-          rightUrl = rData.images?.[0];
-        }
-
-        // Final fallback to direct URL with a cache-busting seed if API failed
-        const seed = Math.floor(Math.random() * 1000000);
-        setHeroImages({
-          left: leftUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(leftPrompt)}?width=1024&height=640&nologo=true&model=flux&seed=${seed}`,
-          right: rightUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(rightPrompt)}?width=1024&height=640&nologo=true&model=turbo&seed=${seed + 1}`
-        });
-
-      } catch (err) {
-        console.error("Hero image fetch failed:", err);
-      }
-    };
-
-    fetchHeroImages();
-  }, [data.topic, mounted, heroImages]);
 
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [isPublished, setIsPublished] = useState(!!data?.isPublic);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -424,17 +372,16 @@ export const MindMap = ({
   // State for images and expansions is initialized from data prop
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(data.savedImages || []);
   const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(propNestedExpansions || data.nestedExpansions || []);
+  const [explanations, setExplanations] = useState<Record<string, string[]>>(data.explanations || {});
 
-  // Sync published status, images and expansions
+  // Sync images and expansions
   useEffect(() => {
     if (data) {
-      if (data.isPublic !== undefined && data.isPublic !== isPublished) {
-        setIsPublished(data.isPublic);
-      }
       if (data.savedImages) setGeneratedImages(data.savedImages);
       if (data.nestedExpansions) setNestedExpansions(data.nestedExpansions);
+      if (data.explanations) setExplanations(data.explanations);
     }
-  }, [data.isPublic, data.savedImages, data.nestedExpansions]);
+  }, [data.savedImages, data.nestedExpansions, data.explanations]);
 
   // Use refs to track previous prop values to avoid infinite loops
   const prevPropNestedExpansionsRef = useRef<string>('');
@@ -470,7 +417,7 @@ export const MindMap = ({
       const dataToNotify = {
         nestedExpansions: nestedExpansions,
         savedImages: generatedImages,
-        heroImages: heroImages
+        explanations: explanations
       };
       const stringified = JSON.stringify(dataToNotify);
       if (stringified !== lastNotifiedRef.current) {
@@ -478,29 +425,9 @@ export const MindMap = ({
         onUpdate(dataToNotify);
       }
     }
-  }, [generatedImages, nestedExpansions, heroImages, onUpdate]);
+  }, [generatedImages, nestedExpansions, explanations, onUpdate]);
 
-  useEffect(() => {
-    const checkIfPublished = async () => {
-      if (!firestore || !data.id || isPublic || !user?.uid) {
-        setIsPublished(isPublic);
-        return;
-      }
-      try {
-        const publicMapsCollection = collection(firestore, 'publicMindmaps');
-        const q = query(publicMapsCollection, where('originalAuthorId', '==', user?.uid), where('topic', '==', data.topic));
-        const querySnapshot = await getDocs(q);
 
-        // This is a simplification. A more robust check might involve a unique ID from the original map.
-        setIsPublished(!querySnapshot.empty);
-      } catch (error) {
-        console.error("Error checking if map is published:", error);
-        setIsPublished(false);
-      }
-    };
-
-    checkIfPublished();
-  }, [data.topic, firestore, isPublic, user?.uid]);
 
   // Internal auto-saves removed. 
   // All persistence is now handled by the parent component via onUpdate and its debounced auto-save.
@@ -562,6 +489,18 @@ export const MindMap = ({
 
   const fetchExplanation = async () => {
     if (!activeSubCategory) return;
+
+    // Cache Key: unique combo of category name and persona/mode
+    // We append explanationMode to keys to differentiate 'Simple' vs 'Expert' explanations for the same node
+    const cacheKey = `${activeSubCategory.name}-${explanationMode}`;
+
+    // 1. Check Cache
+    if (explanations[cacheKey]) {
+      console.log(`⚡ Using cached explanation for ${cacheKey}`);
+      setExplanationDialogContent(explanations[cacheKey]);
+      return;
+    }
+
     setIsExplanationLoading(true);
     const { explanation, error } = await explainNodeAction({
       mainTopic: data.topic,
@@ -578,6 +517,12 @@ export const MindMap = ({
       });
     } else if (explanation) {
       setExplanationDialogContent(explanation.explanationPoints);
+
+      // 2. Save to State (triggers auto-save)
+      setExplanations(prev => ({
+        ...prev,
+        [cacheKey]: explanation.explanationPoints
+      }));
     }
     setIsExplanationLoading(false);
   };
@@ -763,193 +708,7 @@ export const MindMap = ({
   };
 
 
-  const handlePublishMap = async () => {
-    if (!firestore || !user) {
-      toast({ variant: 'destructive', title: 'Auth Error', description: 'You must be signed in to publish.' });
-      return;
-    }
 
-    if (!data.id) {
-      toast({
-        title: 'Save Required',
-        description: 'Please save your mind map manually before publishing so it has a permanent reference id.'
-      });
-      return;
-    }
-
-    setIsPublishing(true);
-    console.log(`🚀 Starting publish for topic: "${data.topic}" (ID: ${data.id})`);
-
-    try {
-      // 1. PRE-FLIGHT CHECK: Verify private document existence
-      // This is the CRITICAL fix for the "Missing or insufficient permissions" error.
-      // batch.update() or set(..., {merge:true}) will fail on non-existent docs 
-      // if the rules require a 'userId' field for the 'create' path.
-      const privateRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
-      const privateSnap = await getDoc(privateRef);
-
-      if (!privateSnap.exists()) {
-        throw new Error('This map has not been saved to the database yet. Please click "Save Map" or wait for autosave, then try publishing again.');
-      }
-
-      // 2. Prepare data and batch
-      const batch = writeBatch(firestore);
-      const summary = `A detailed mind map exploration of ${data.topic}.`;
-
-      // Recursive cleaner to remove 'undefined' fields which Firestore rejects
-      const clean = (obj: any): any => {
-        if (obj === null || typeof obj !== 'object') return obj;
-        if (obj.constructor?.name === 'FieldValue' ||
-          obj.constructor?.name === 'Timestamp' ||
-          obj._methodName === 'serverTimestamp') {
-          return obj;
-        }
-        if (Array.isArray(obj)) return obj.map(item => clean(item));
-        const newObj: any = {};
-        Object.keys(obj).forEach(key => {
-          if (obj[key] !== undefined) newObj[key] = clean(obj[key]);
-        });
-        return newObj;
-      };
-
-      const { id: _, ...dataToPublishRaw } = data;
-      const dataToPublish = clean(dataToPublishRaw);
-
-      // Defensively check for large base64 images in savedImages
-      if (dataToPublish.savedImages) {
-        dataToPublish.savedImages = dataToPublish.savedImages.map((img: any) => {
-          if (img.url && img.url.startsWith('data:image') && img.url.length > 400000) {
-            console.warn(`Skipping large public image (${img.name}) to stay under 1MB limit`);
-            return { ...img, url: `https://image.pollinations.ai/prompt/${encodeURIComponent(img.name)}?width=400&height=400&nologo=true` };
-          }
-          return img;
-        });
-      }
-
-      const publicRef = doc(collection(firestore, 'publicMindmaps'));
-      const auditLogRef = doc(collection(firestore, 'activityLogs'));
-
-      console.log('📦 Staging batch: publicRef, privateRef, auditLogRef');
-
-      // 3. Staging changes in the batch
-      batch.set(publicRef, {
-        ...dataToPublish,
-        mindmapId: data.id,
-        originalAuthorId: user.uid,
-        publishedAt: serverTimestamp(),
-        authorName: user.displayName || 'Anonymous',
-        likes: 0,
-        views: 0,
-        summary,
-      });
-
-      // Existing document verified above, so update is safe and satisfies isOwner(userId)
-      batch.update(privateRef, {
-        isPublic: true,
-        lastPublishedAt: serverTimestamp()
-      });
-
-      batch.set(auditLogRef, {
-        type: "PUBLISH",
-        mindmapId: data.id,
-        publicId: publicRef.id,
-        userId: user.uid,
-        timestamp: serverTimestamp(),
-        client: "web"
-      });
-
-      // 4. Atomic Commit
-      console.log('⌛ Committing batch...');
-      await batch.commit();
-      console.log('✅ Batch committed successfully.');
-
-      setIsPublished(true);
-      toast({
-        title: 'Mind Map Published!',
-        description: 'Your mind map is now public and has been recorded in the community gallery.',
-      });
-
-    } catch (error: any) {
-      console.error("Atomic publish failed:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Publishing Failed',
-        description: error.message || 'An error occurred while publishing.',
-      });
-    } finally {
-      setIsPublishing(false);
-    }
-  };
-
-  const handleUnpublishMap = async () => {
-    if (!data.id || !firestore || !user) {
-      toast({ variant: 'destructive', title: 'Action Denied', description: 'You must be logged in to manage your public maps.' });
-      return;
-    }
-
-    setIsPublishing(true); // Re-use isPublishing for loading state
-
-    try {
-      const batch = writeBatch(firestore);
-      const publicMapsCollection = collection(firestore, 'publicMindmaps');
-      // We search by originalAuthorId and topic to find the specific public entry
-      const q = query(
-        publicMapsCollection,
-        where('originalAuthorId', '==', user.uid),
-        where('mindmapId', '==', data.id)
-      );
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        throw new Error("Could not find this map in the public gallery. It may already be removed.");
-      }
-
-      // 1. Delete public entries in the batch
-      querySnapshot.docs.forEach(docSnap => {
-        console.log('Auth UID:', user.uid);
-        console.log('Deleting path:', `publicMindmaps/${docSnap.id}`);
-        batch.delete(doc(firestore, 'publicMindmaps', docSnap.id));
-      });
-
-      // 2. Mark private map as unpublished in the batch
-      const privateRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id);
-      // Include userId in case merge:true triggers a create path (satisfies rules)
-      batch.set(privateRef, {
-        userId: user.uid,
-        isPublic: false,
-        unpublishedAt: serverTimestamp()
-      }, { merge: true });
-
-      // 3. Record in audit log
-      const auditLogRef = doc(collection(firestore, 'activityLogs'));
-      batch.set(auditLogRef, {
-        type: "UNPUBLISH",
-        mindmapId: data.id,
-        userId: user.uid,
-        timestamp: serverTimestamp(),
-        client: "web"
-      });
-
-      // 4. Atomic Commit
-      await batch.commit();
-
-      setIsPublished(false);
-      toast({
-        title: 'Mind Map Removed',
-        description: 'Your mind map has been successfully removed from the public gallery.',
-      });
-
-    } catch (error: any) {
-      console.error("Unpublishing error:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Removal Failed',
-        description: error.message || 'An error occurred while unpublishing.',
-      });
-    } finally {
-      setIsPublishing(false);
-    }
-  };
 
   const handleDuplicate = async () => {
     if (!data || isDuplicating) return;
@@ -1013,7 +772,6 @@ export const MindMap = ({
       params.set('mapId', effectiveId);
 
       // Transfer relevant status flags but drop 'topic'
-      if (isPublic) params.set('public', 'true');
       if (selectedLanguage && selectedLanguage !== 'en') {
         params.set('lang', selectedLanguage);
       }
@@ -1061,10 +819,6 @@ export const MindMap = ({
         onCopyPath={copyToClipboard}
         isSaved={isSaved}
         onSave={onSaveMap}
-        isPublished={isPublished}
-        isPublishing={isPublishing}
-        onPublish={handlePublishMap}
-        onUnpublish={handleUnpublishMap}
         onOpenAiContent={() => setIsAiContentDialogOpen(true)}
         onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
         onOpenGallery={() => setIsGalleryOpen(true)}
@@ -1085,19 +839,11 @@ export const MindMap = ({
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
         {viewMode === 'accordion' ? (
           <>
-            <HeroSection
+            <TopicHeader
               mindMap={data}
-              heroImages={heroImages}
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
               onStackSelect={onStackSelect}
-              onOpenAiContent={() => setIsAiContentDialogOpen(true)}
-              onOpenGallery={() => setIsGalleryOpen(true)}
-              onOpenQuiz={handleQuizClick}
-              onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
-              isQuizLoading={isQuizLoading}
-              nestedExpansionsCount={nestedExpansions.length}
-              status={status}
             />
 
             <MindMapAccordion

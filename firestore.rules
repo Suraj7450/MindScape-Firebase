@@ -48,43 +48,12 @@ service cloud.firestore {
     }
 
     /* =========================
-       PUBLIC MIND MAPS
-    ========================== */
-    match /publicMindmaps/{publicId} {
-
-      // Anyone can read public maps
-      allow read: if true;
-
-      // Create: signed-in users only
-      allow create: if isSignedIn()
-        && request.resource.data.originalAuthorId == request.auth.uid
-        && request.resource.data.mindmapId is string;
-
-      // Allow updating views/likes ONLY
-      allow update: if isSignedIn()
-        && (
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['views', 'likes'])
-        );
-
-      // Delete: only original author OR admin
-      allow delete: if isSignedIn()
-        && (
-          resource.data.originalAuthorId == request.auth.uid
-          || isAdmin()
-        );
-    }
-
-    /* =========================
-       AUDIT LOGS
+       AUDIT & ACTIVITY LOGS
     ========================== */
     match /activityLogs/{logId} {
-      // Allow any signed-in user to create an audit log entry
-      // (Used during atomic batches for publish/unpublish)
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
       
-      // Read/Delete/Update: System/Admin only (deny by default for users)
       allow read, update, delete: if false; 
     }
 
@@ -92,10 +61,7 @@ service cloud.firestore {
        ADMIN ACTIONS
     ========================== */
     match /adminActions/{actionId} {
-      // Create and read allowed for admins only
       allow create, read: if isAdmin();
-      
-      // Immutable actions
       allow update, delete: if false;
     }
   }

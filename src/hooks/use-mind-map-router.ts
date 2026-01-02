@@ -17,7 +17,6 @@ export function useMindMapRouter() {
         mapId: searchParams.get('mapId'),
         lang: searchParams.get('lang') || 'en',
         parent: searchParams.get('parent'),
-        isPublic: searchParams.get('public') === 'true',
         isSelfReference: searchParams.get('selfReference') === 'true',
         isRegenerating: !!searchParams.get('_r'),
     }), [searchParams]);
@@ -59,7 +58,6 @@ export function useMindMapRouter() {
             sessionId: params.sessionId,
             mapId: params.mapId,
             lang: params.lang,
-            isPublic: params.isPublic,
             isSelfReference: params.isSelfReference,
             isRegenerating: params.isRegenerating
         });

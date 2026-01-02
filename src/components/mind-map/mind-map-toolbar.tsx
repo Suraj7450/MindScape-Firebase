@@ -57,10 +57,6 @@ interface MindMapToolbarProps {
     isSaved: boolean;
     hasUnsavedChanges?: boolean;
     onSave: () => void;
-    isPublished: boolean;
-    isPublishing: boolean;
-    onPublish: () => void;
-    onUnpublish: () => void;
     onOpenAiContent: () => void;
     onOpenNestedMaps: () => void;
     onOpenGallery: () => void;
@@ -91,10 +87,6 @@ export const MindMapToolbar = ({
     isSaved,
     hasUnsavedChanges,
     onSave,
-    isPublished,
-    isPublishing,
-    onPublish,
-    onUnpublish,
     onOpenAiContent,
     onOpenNestedMaps,
     onOpenGallery,
@@ -255,7 +247,7 @@ export const MindMapToolbar = ({
                             </Button>
                         </div>
 
-                        {(!isSaved || hasUnsavedChanges) ? (
+                        {(!isSaved || hasUnsavedChanges) && (
                             <Button
                                 variant={!isSaved ? "default" : "ghost"}
                                 size="sm"
@@ -270,36 +262,6 @@ export const MindMapToolbar = ({
                             >
                                 {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : (isSaved ? <RefreshCw className="h-4 w-4" /> : <Save className="h-4 w-4" />)}
                                 {isSyncing ? 'Saving...' : (!isSaved ? 'Save Map' : 'Syncing...')}
-                            </Button>
-                        ) : isPublished ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={onUnpublish}
-                                disabled={isPublishing || isBusy}
-                                className="h-9 gap-2 text-xs font-bold px-5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                            >
-                                {isPublishing ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <X className="h-4 w-4" />
-                                )}
-                                {isPublishing ? 'Updating...' : 'Remove Public'}
-                            </Button>
-                        ) : !isPublished && (
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={onPublish}
-                                disabled={isPublishing || isBusy}
-                                className="h-9 gap-2 text-xs font-bold px-5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                            >
-                                {isPublishing ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Rocket className="h-4 w-4" />
-                                )}
-                                {isPublishing ? 'Publishing...' : 'Go Public'}
                             </Button>
                         )}
                     </div>
@@ -392,6 +354,6 @@ export const MindMapToolbar = ({
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

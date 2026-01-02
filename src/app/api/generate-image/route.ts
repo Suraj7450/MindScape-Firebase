@@ -32,21 +32,6 @@ export async function POST(req: Request) {
 
     const finalPrompt = enhancedPrompt.enhancedPrompt || prompt;
 
-    // 2. Generate image
-    if (provider === 'bytez') {
-      try {
-        const { generateImageWithBytez } = await import('@/ai/bytez-client');
-        // We'll use the hardcoded key as fallback if not provided via some other means
-        // In a real scenario, we'd fetch it from the same source as the dispatcher
-        const effectiveApiKey = process.env.BYTEZ_API_KEY || "d5caaa723585c02422e1b4990d15e6e0";
-        const imageDataUri = await generateImageWithBytez(finalPrompt, effectiveApiKey);
-        return NextResponse.json({ images: [imageDataUri] });
-      } catch (err) {
-        console.error("Bytez image generation failed, falling back to Pollinations:", err);
-        // Fallback to pollinations
-      }
-    }
-
     return await generateWithPollinations(finalPrompt, size);
 
   } catch (error: any) {

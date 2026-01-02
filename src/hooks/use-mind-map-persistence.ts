@@ -115,37 +115,41 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             const thumbnailPrompt = `A cinematic, highly detailed 3D visualization representing the concept: ${mapToSave.topic}. Mind-map theme, futuristic aesthetics, elegant purple and indigo lighting, premium quality, 8k resolution.`;
 
             // Generate thumbnail using internal API (which enhances prompts)
-            let thumbnailUrl = '';
-            try {
-                const response = await fetch('/api/generate-image', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: thumbnailPrompt,
-                        style: 'Cinematic', // Use a high-quality style
-                        provider: 'bytez', // Prefer high-quality provider
-                        size: '512x288'   // Fixed small size to prevent Firestore 1MB limit
-                    })
-                });
+            let thumbnailUrl = mapToSave.thumbnailUrl || '';
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.images && data.images[0]) {
-                        thumbnailUrl = data.images[0];
-                        console.log('✅ AI Thumbnail generated via API');
-                    }
-                }
-                if (thumbnailUrl && thumbnailUrl.length > 800000) {
-                    console.warn('⚠️ Thumbnail too large for Firestore (>800KB), dropping base64 data to prevent save failure.');
-                    thumbnailUrl = '';
-                }
-            } catch (imageError) {
-                console.warn('⚠️ Thumbnail generation failed:', imageError);
-            }
-
-            // Fallback for thumbnailUrl if generation failed OR if it was too large
+            // Only generate thumbnail if it doesn't exist
             if (!thumbnailUrl) {
-                thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
+                try {
+                    const response = await fetch('/api/generate-image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: thumbnailPrompt,
+                            style: 'Cinematic', // Use a high-quality style
+                            provider: 'pollinations', // Use high-quality provider
+                            size: '512x288'   // Fixed small size to prevent Firestore 1MB limit
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.images && data.images[0]) {
+                            thumbnailUrl = data.images[0];
+                            console.log('✅ AI Thumbnail generated via API');
+                        }
+                    }
+                    if (thumbnailUrl && thumbnailUrl.length > 800000) {
+                        console.warn('⚠️ Thumbnail too large for Firestore (>800KB), dropping base64 data to prevent save failure.');
+                        thumbnailUrl = '';
+                    }
+                } catch (imageError) {
+                    console.warn('⚠️ Thumbnail generation failed:', imageError);
+                }
+
+                // Fallback for thumbnailUrl if generation failed OR if it was too large
+                if (!thumbnailUrl) {
+                    thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
+                }
             }
 
             // SPLIT SCHEMA: Metadata vs Content
@@ -260,12 +264,12 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
     }, [user, firestore]);
 
     // 6. Debounced Auto-Save
-    const setupAutoSave = useCallback((mindMap: MindMapData | undefined, hasUnsavedChanges: boolean, isPublic: boolean, isSelfReference: boolean, persistFn: (silent: boolean) => void) => {
-        if (!user || !mindMap || isPublic || isSelfReference || !hasUnsavedChanges) return () => { };
+    const setupAutoSave = useCallback((mindMap: MindMapData | undefined, hasUnsavedChanges: boolean, isSelfReference: boolean, persistFn: (silent: boolean) => void) => {
+        if (!user || !mindMap || isSelfReference || !hasUnsavedChanges) return () => { };
 
         const timer = setTimeout(() => {
             persistFn(true);
-        }, 15000);
+        }, 60000); // 1 minute auto-save threshold
 
         return () => clearTimeout(timer);
     }, [user]);

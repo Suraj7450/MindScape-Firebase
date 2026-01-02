@@ -108,7 +108,7 @@ function MindMapPageContent() {
   const [initialError, setInitialError] = useState<string | null>(null);
   const [localGeneratingNodeId, setLocalGeneratingNodeId] = useState<string | null>(null);
 
-  const isLoading = (hookStatus === 'generating' && generationScope === 'foreground') || hookStatus === 'syncing' || isInitialLoading;
+  const isLoading = (hookStatus === 'generating' && generationScope === 'foreground') || isInitialLoading;
   const error = hookError || initialError;
   const activeGeneratingNodeId = generatingNodeId || localGeneratingNodeId;
 
@@ -138,8 +138,8 @@ function MindMapPageContent() {
       // BUT bypass this if we are specifically asked to regenerate (_r param)
       const existingMapIndex = mindMaps.findIndex(m => {
         if (params.mapId && (m as any).id === params.mapId) return true;
-        if (params.topic && m.topic === params.topic) return true;
-        if (params.isSelfReference && m.topic === 'MindScape') return true;
+        if (params.topic && m.topic?.toLowerCase() === params.topic.toLowerCase()) return true;
+        if (params.isSelfReference && m.topic?.toLowerCase() === 'mindscape') return true;
         return false;
       });
 
@@ -165,7 +165,7 @@ function MindMapPageContent() {
         if (params.isSelfReference) {
           currentMode = 'self-reference';
           result.data = mindscapeMap as GenerateMindMapOutput;
-        } else if (params.mapId && params.isRegenerating && !params.isPublic) {
+        } else if (params.mapId && params.isRegenerating) {
           currentMode = 'saved';
           // 1. Get topic from state or fetch it
           let topicToRegen = params.topic || (mindMaps.find(m => (m as any).id === params.mapId)?.topic);
@@ -193,16 +193,8 @@ function MindMapPageContent() {
             await handleSaveMap(result.data, params.mapId);
           }
         } else if (params.mapId) {
-          currentMode = params.isPublic ? 'public-saved' : 'saved';
-          if (params.isPublic) {
-            const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
-            const docSnap = await getDoc(publicDocRef);
-            if (docSnap.exists()) {
-              result.data = { ...(docSnap.data() as GenerateMindMapOutput), id: docSnap.id };
-            } else {
-              result.error = 'Could not find the public mind map.';
-            }
-          } else if (user) {
+          currentMode = 'saved';
+          if (user) {
             // Fetch from user's collection (Metadata + Conditional Content)
             const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
             const docSnap = await getDoc(docRef);
@@ -309,9 +301,9 @@ function MindMapPageContent() {
         if (result.data) {
           // Add to stack if not already there and set active index
           setMindMaps(prevMaps => {
-            const exists = prevMaps.some(m => m.topic === result.data!.topic);
+            const exists = prevMaps.some(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
             if (exists) {
-              const newIndex = prevMaps.findIndex(m => m.topic === result.data!.topic);
+              const newIndex = prevMaps.findIndex(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
               if (newIndex !== -1) setActiveMindMapIndex(newIndex);
               return prevMaps;
             }
@@ -320,9 +312,9 @@ function MindMapPageContent() {
             return newMaps;
           });
 
-          const isNewlyGenerated = !['saved', 'public-saved', 'self-reference'].includes(currentMode);
+          const isNewlyGenerated = !['saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user) {
-            const existingMapWithId = mindMaps.find(m => m.topic === result.data!.topic && m.id);
+            const existingMapWithId = mindMaps.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
             const savedId = await handleSaveMap(result.data, existingMapWithId?.id);
 
             // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
@@ -333,6 +325,8 @@ function MindMapPageContent() {
 
               // Also update the current map directly to ensure isSaved shows immediately
               handleUpdateCurrentMap({ id: savedId });
+
+              navigateToMap(savedId);
             }
           }
         }
@@ -362,8 +356,8 @@ function MindMapPageContent() {
       await handleSaveMapFromHook(silent);
       setHasUnsavedChanges(false);
     };
-    return setupAutoSave(mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, persistFn);
-  }, [mindMap, hasUnsavedChanges, params.isPublic, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
+    return setupAutoSave(mindMap, hasUnsavedChanges, params.isSelfReference, persistFn);
+  }, [mindMap, hasUnsavedChanges, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
 
   const onMapUpdate = useCallback((updatedData: Partial<MindMapData>) => {
     if (!mindMap) return;
@@ -515,7 +509,6 @@ function MindMapPageContent() {
             data={mindMap}
             isSaved={isSaved}
             hasUnsavedChanges={hasUnsavedChanges}
-            isPublic={params.isPublic}
             onSaveMap={onManualSave}
             onExplainInChat={handleExplainInChat}
             onGenerateNewMap={handleGenerateAndOpenSubMap}
@@ -527,7 +520,7 @@ function MindMapPageContent() {
             aiPersona={aiPersona}
             onRegenerate={regenerate}
             isRegenerating={isLoading}
-            canRegenerate={!params.isPublic && mode !== 'self-reference'}
+            canRegenerate={mode !== 'self-reference'}
             nestedExpansions={mindMap?.nestedExpansions || []}
             mindMapStack={mindMaps}
             activeStackIndex={activeMindMapIndex}

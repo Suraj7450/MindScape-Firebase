@@ -79,8 +79,6 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('recent');
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
-  const [mapToPublish, setMapToPublish] = useState<SavedMindMap | null>(null);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [deletingMapIds, setDeletingMapIds] = useState<Set<string>>(new Set());
 
 
@@ -162,39 +160,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleConfirmPublish = async () => {
-    if (!user || !mapToPublish) return;
-    setIsPublishing(true);
 
-    try {
-      const publicMapsCollection = collection(firestore, 'publicMindmaps');
-      // The summary is already available in mapToPublish
-      const { id, createdAt, updatedAt, ...plainMindMapData } = mapToPublish;
-
-      await addDoc(publicMapsCollection, {
-        ...plainMindMapData,
-        originalAuthorId: user.uid,
-        authorName: user.displayName || 'Anonymous',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      toast({
-        title: 'Map Published!',
-        description: `"${mapToPublish.topic}" is now available for the community to view.`,
-      });
-    } catch (error: any) {
-      console.error('Failed to publish mind map:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Publishing Failed',
-        description: error.message || 'An error occurred while trying to publish your map.',
-      });
-    } finally {
-      setIsPublishing(false);
-      setMapToPublish(null);
-    }
-  };
 
   if (isUserLoading) {
     return <DashboardLoadingSkeleton />;
@@ -280,21 +246,7 @@ export default function DashboardPage() {
                     )}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
 
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-white"
-                            onClick={() => setMapToPublish(map)}
-                          >
-                            <Share2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Publish</p>
-                        </TooltipContent>
-                      </Tooltip>
+
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -347,22 +299,7 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!mapToPublish} onOpenChange={(open) => !open && setMapToPublish(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Publish Mind Map</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to publish "{mapToPublish?.topic}"? It will be visible to everyone in the Public Maps gallery.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmPublish} disabled={isPublishing}>
-              {isPublishing ? 'Publishing...' : 'Publish'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
 
 
     </TooltipProvider>

@@ -33,10 +33,6 @@ export interface MindMap {
   shortTitle: string;
   icon: string;
   subTopics: SubTopic[];
-  heroImages?: {
-    left: string;
-    right: string;
-  };
   isSubMap?: boolean;
   parentMapId?: string;
 }
@@ -66,16 +62,12 @@ export type MindMapWithId = MindMap & {
   id?: string;
   uid?: string;
   userId?: string;
-  isPublic?: boolean;
-  originalAuthorId?: string;
-  authorName?: string;
-  lastPublishedAt?: Timestamp | number;
-  unpublishedAt?: Timestamp | number;
   createdAt?: Timestamp | number;
   updatedAt?: Timestamp | number;
   summary?: string;
   thumbnailUrl?: string;
   thumbnailPrompt?: string;
+  explanations?: Record<string, string[]>;
   nestedExpansions?: NestedExpansionItem[];
   savedImages?: GeneratedImage[];
 };

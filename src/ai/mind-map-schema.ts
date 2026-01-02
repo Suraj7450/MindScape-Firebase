@@ -114,10 +114,6 @@ export const MindMapSchema = z.object({
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").'
     ),
   subTopics: z.array(SubTopicSchema).min(3).describe('A list of main sub-topics.'),
-  heroImages: z.object({
-    left: z.string(),
-    right: z.string()
-  }).optional().describe('Saved hero section background images'),
   isSubMap: z.boolean().optional().describe('Whether this map is a nested sub-map'),
   parentMapId: z.string().optional().describe('The ID of the parent mind map'),
   id: z.string().optional(),

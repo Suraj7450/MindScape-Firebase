@@ -1,9 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { generateContentWithPollinations } from './pollinations-client';
-import { generateContentWithBytez } from './bytez-client';
-import { providerMonitor } from './provider-monitor';
-
-export type AIProvider = 'gemini' | 'pollinations' | 'bytez';
+export type AIProvider = 'gemini' | 'pollinations';
 
 interface GenerateContentOptions {
     provider?: AIProvider;
@@ -71,6 +68,42 @@ function disablePollinations(minutes = 10) {
 }
 
 /**
+ * Health monitor for AI providers to enable smart fallback
+ */
+class ProviderMonitor {
+    private health: Record<AIProvider, { success: number; failure: number; status: 'healthy' | 'degraded' | 'down' }> = {
+        gemini: { success: 0, failure: 0, status: 'healthy' },
+        pollinations: { success: 0, failure: 0, status: 'healthy' }
+    };
+
+    recordSuccess(provider: AIProvider) {
+        if (!this.health[provider]) return;
+        this.health[provider].success++;
+        this.health[provider].failure = 0; // Reset failures on success
+        this.updateStatus(provider);
+    }
+
+    recordFailure(provider: AIProvider) {
+        if (!this.health[provider]) return;
+        this.health[provider].failure++;
+        this.updateStatus(provider);
+    }
+
+    getStatus(provider: AIProvider) {
+        return this.health[provider]?.status || 'healthy';
+    }
+
+    private updateStatus(provider: AIProvider) {
+        const p = this.health[provider];
+        if (p.failure > 5) p.status = 'down';
+        else if (p.failure > 2) p.status = 'degraded';
+        else p.status = 'healthy';
+    }
+}
+
+const providerMonitor = new ProviderMonitor();
+
+/**
  * Unified AI Client Dispatcher
  * Routes requests to the appropriate provider (Gemini or Pollinations)
  * based on the user's configuration.
@@ -85,7 +118,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         if (status !== 'healthy') {
             console.warn(`🔄 Preferred provider ${provider} is ${status}. Attempting auto-fallback.`);
             // Choose a fallback
-            if (provider === 'pollinations' || provider === 'bytez') {
+            if (provider === 'pollinations') {
                 provider = 'gemini';
             } else if (provider === 'gemini') {
                 provider = 'pollinations';
@@ -129,27 +162,6 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             }
             console.warn("⚠️ Pollinations is temporarily disabled. Falling back to Gemini.");
             provider = 'gemini';
-        }
-    }
-
-    // 2. Bytez (if selected)
-    if (provider === 'bytez') {
-        const effectiveApiKey = apiKey || process.env.BYTEZ_API_KEY;
-        if (!effectiveApiKey) {
-            throw new Error("Bytez provider requires an API Key.");
-        }
-        try {
-            const raw = await retry(() => generateContentWithBytez(effectiveSystemPrompt, userPrompt, effectiveApiKey));
-            const result = validateAndParse(raw, schema);
-            providerMonitor.recordSuccess('bytez');
-            return result;
-        } catch (error: any) {
-            providerMonitor.recordFailure('bytez');
-            console.warn("⚠️ Bytez failed.", error.message);
-            if (strict) {
-                throw new Error(`Bytez failed and strict mode is enabled: ${error.message}`);
-            }
-            provider = 'gemini'; // Fallback to Gemini
         }
     }
 

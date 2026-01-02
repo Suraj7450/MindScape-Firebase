@@ -54,7 +54,6 @@ export function Navbar() {
   const navItems = [
     { href: '/', label: 'Home' },
     { href: '/dashboard', label: 'My Maps' },
-    { href: '/public-maps', label: 'Public Maps' },
     { href: '/mind-gpt', label: 'MindGPT' },
   ];
 

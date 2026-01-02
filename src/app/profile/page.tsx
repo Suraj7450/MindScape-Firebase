@@ -506,7 +506,7 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
 
-                                <Select value={activeMode} onValueChange={(v: any) => setAIConfig(v)}>
+                                <Select value={activeMode === 'bytez' ? 'default' : activeMode} onValueChange={(v: any) => setAIConfig(v)}>
                                     <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -521,46 +521,6 @@ export default function ProfilePage() {
                                             <div className="flex flex-col">
                                                 <span className="font-medium">Pollinations.ai</span>
                                                 <span className="text-[10px] text-zinc-400">Free Open Source Models • No Key</span>
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="bytez">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Bytez API</span>
-                                                <span className="text-[10px] text-zinc-400">High-Performance Open Source Models</span>
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="flex flex-col gap-3 py-2.5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-1.5 rounded-md bg-blue-500/10">
-                                        <Globe className="h-3.5 w-3.5 text-blue-400" />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm text-zinc-300">Image Engine</span>
-                                        <span className="text-[10px] text-zinc-500">
-                                            Choose your visual generation engine
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <Select value={activeImageMode} onValueChange={(v: any) => setImageConfig(v)}>
-                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pollinations">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Pollinations (Default)</span>
-                                                <span className="text-[10px] text-zinc-400">High Speed • Flux & SD Models</span>
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="bytez">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Bytez Image API</span>
-                                                <span className="text-[10px] text-zinc-400">Stable Diffusion v1.5 • Premium Infrastructure</span>
                                             </div>
                                         </SelectItem>
                                     </SelectContent>
