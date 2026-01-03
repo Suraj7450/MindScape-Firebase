@@ -128,12 +128,11 @@ const LucideIcons = {
   ExternalLink,
 };
 import {
-  explainNodeAction,
-  explainWithExampleAction,
-  translateMindMapAction,
-  expandNodeAction,
   enhanceImagePromptAction,
+  generateQuizAction,
 } from '@/app/actions';
+import { QuizComponent } from './quiz/quiz-component';
+import { Quiz } from '@/ai/schemas/quiz-schema';
 import {
   MindMapData,
   NestedExpansionItem,
@@ -148,6 +147,8 @@ import { MindMapStatus } from '@/hooks/use-mind-map-stack';
 import { LeafNodeCard } from './mind-map/leaf-node-card';
 import { ExplanationDialog } from './mind-map/explanation-dialog';
 import { MindMapToolbar } from './mind-map/mind-map-toolbar';
+import { Quiz } from '@/ai/schemas/quiz-schema';
+import { QuizComponent } from './quiz/quiz-component';
 import { TopicHeader } from './mind-map/topic-header';
 import { MindMapRadialView } from './mind-map/mind-map-radial-view';
 import { cn } from '@/lib/utils';
@@ -219,6 +220,7 @@ interface MindMapProps {
   status: MindMapStatus;
   aiHealth?: { name: string, status: string }[];
   hasUnsavedChanges?: boolean;
+  onQuizReady?: (quiz: Quiz) => void;
 }
 
 /**
@@ -261,7 +263,8 @@ export const MindMap = ({
   onUpdate,
   status,
   aiHealth,
-  hasUnsavedChanges
+  hasUnsavedChanges,
+  onQuizReady,
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -282,7 +285,7 @@ export const MindMap = ({
   const providerOptions = useMemo(() => ({
     provider: config.provider,
     apiKey: config.apiKey,
-    strict: true
+    strict: false
   }), [config.provider, config.apiKey]);
 
   const imageProviderOptions = useMemo(() => ({
@@ -368,6 +371,9 @@ export const MindMap = ({
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(data.savedImages || []);
   const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(propNestedExpansions || data.nestedExpansions || []);
   const [explanations, setExplanations] = useState<Record<string, string[]>>(data.explanations || {});
+
+  // Quiz State
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   // Sync images and expansions
   useEffect(() => {
@@ -851,6 +857,52 @@ export const MindMap = ({
     }
   };
 
+  const handleStartQuiz = async () => {
+    if (isGeneratingQuiz) return;
+
+    setIsGeneratingQuiz(true);
+    const { id: toastId, update } = toast({
+      title: 'Preparing Your Quiz...',
+      description: 'AI is hand-crafting questions based on this map.',
+      duration: Infinity,
+    });
+
+    try {
+      const { data: quizData, error } = await generateQuizAction({
+        topic: data.topic,
+        mindMapData: toPlainObject(data),
+        targetLang: selectedLanguage
+      }, providerOptions);
+
+      if (error) throw new Error(error);
+      if (!quizData) throw new Error("Failed to generate quiz data.");
+
+      if (onQuizReady) {
+        onQuizReady(quizData);
+      } else {
+        // Fallback or legacy
+        toast({ title: "Quiz Ready", description: "You can find it in the chat panel." });
+      }
+
+      update({
+        id: toastId,
+        title: 'Quiz Ready!',
+        description: 'Time to test your knowledge.',
+        duration: 3000,
+      });
+    } catch (err: any) {
+      update({
+        id: toastId,
+        title: 'Quiz Generation Failed',
+        description: err.message || 'An unknown error occurred.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
   const collapseAll = () => {
     setOpenSubTopics([]);
     setOpenCategories([]);
@@ -898,6 +950,7 @@ export const MindMap = ({
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
               onStackSelect={onStackSelect as any}
+              onStartQuiz={handleStartQuiz}
             />
 
             <MindMapAccordion

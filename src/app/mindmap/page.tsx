@@ -13,6 +13,7 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   ssr: false,
   loading: () => null
 });
+import { Quiz } from '@/ai/schemas/quiz-schema';
 import { Button } from '@/components/ui/button';
 import {
   RefreshCw, Sparkles, Loader2, ZapOff
@@ -57,6 +58,7 @@ function MindMapPageContent() {
   const [mode, setMode] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
+  const [activeQuiz, setActiveQuiz] = useState<Quiz | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const aiHealth = useAIHealth();
@@ -408,6 +410,11 @@ function MindMapPageContent() {
     setIsChatOpen(true);
   }, []);
 
+  const handleQuizReady = useCallback((quiz: Quiz) => {
+    setActiveQuiz(quiz);
+    setIsChatOpen(true);
+  }, []);
+
   const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string, mode: 'foreground' | 'background' = 'background') => {
     try {
       if (user) {
@@ -547,6 +554,7 @@ function MindMapPageContent() {
             activeStackIndex={activeMindMapIndex}
             onStackSelect={handleBreadcrumbSelect}
             onUpdate={onMapUpdate}
+            onQuizReady={handleQuizReady}
             status={hookStatus}
             aiHealth={aiHealth}
           />
@@ -564,9 +572,11 @@ function MindMapPageContent() {
         onClose={() => {
           setIsChatOpen(false);
           setChatInitialMessage(undefined);
+          setActiveQuiz(undefined);
         }}
         topic={mindMap?.topic || 'Mind Map Details'}
         initialMessage={chatInitialMessage}
+        quizToStart={activeQuiz}
       />
     </>
   );

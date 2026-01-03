@@ -2,7 +2,8 @@
 
 import React from 'react';
 import {
-    ChevronRight
+    ChevronRight,
+    BrainCircuit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MindMapData } from '@/types/mind-map';
@@ -13,6 +14,7 @@ interface TopicHeaderProps {
     mindMapStack: MindMapData[];
     activeStackIndex: number;
     onStackSelect?: (index: number) => void;
+    onStartQuiz?: () => void;
 }
 
 export const TopicHeader = ({
@@ -20,6 +22,7 @@ export const TopicHeader = ({
     mindMapStack,
     activeStackIndex,
     onStackSelect,
+    onStartQuiz,
 }: TopicHeaderProps) => {
     return (
         <div className="relative mb-12">
@@ -73,6 +76,17 @@ export const TopicHeader = ({
                         <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none transition-transform duration-500">
                             {mindMap.topic}
                         </h1>
+
+                        {/* Quiz Action */}
+                        <div className="pt-2">
+                            <button
+                                onClick={onStartQuiz}
+                                className="group/btn flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/40 transition-all duration-300"
+                            >
+                                <BrainCircuit className="w-5 h-5 text-primary group-hover/btn:scale-110 transition-transform" />
+                                <span className="text-sm font-bold text-primary/90">Test Your Knowledge</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

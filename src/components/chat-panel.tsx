@@ -21,6 +21,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
+import { QuizComponent } from '@/components/quiz/quiz-component';
+import { Quiz } from '@/ai/schemas/quiz-schema';
 
 import { doc, getDoc } from 'firebase/firestore';
 import {
@@ -54,6 +56,8 @@ interface ChatSession {
   topic: string;
   messages: Message[];
   timestamp: number;
+  type?: 'chat' | 'quiz';
+  quiz?: Quiz;
 }
 
 type Persona = 'Standard' | 'Teacher' | 'Concise' | 'Creative';
@@ -73,6 +77,7 @@ interface ChatPanelProps {
   onClose: () => void;
   topic: string;
   initialMessage?: string;
+  quizToStart?: Quiz;
 }
 
 const allSuggestionPrompts = [
@@ -110,8 +115,15 @@ export function ChatPanel({
   onClose,
   topic,
   initialMessage,
+  quizToStart,
 }: ChatPanelProps) {
   const [sessions, setSessions] = useLocalStorage<ChatSession[]>('chat-sessions', []);
+
+  useEffect(() => {
+    if (quizToStart) {
+      startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
+    }
+  }, [quizToStart]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -253,12 +265,14 @@ export function ChatPanel({
   /**
    * Starts a new chat session.
    */
-  const startNewChat = (newTopic: string = 'General Conversation') => {
+  const startNewChat = (newTopic: string = 'General Conversation', type: 'chat' | 'quiz' = 'chat', quiz?: Quiz) => {
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       topic: newTopic,
       messages: [],
       timestamp: Date.now(),
+      type: type,
+      quiz: quiz
     };
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
@@ -780,6 +794,24 @@ export function ChatPanel({
             </div>
           ))}
           <div ref={messagesEndRef} />
+
+          {activeSession?.type === 'quiz' && activeSession.quiz && (
+            <div className="mt-4 px-1 pb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <QuizComponent
+                quiz={activeSession.quiz}
+                onClose={() => {
+                  // Just mark as finished or close panel? 
+                  // User said "finish", maybe we just keep it in history.
+                  toast({ title: "Quiz Finished", description: "You've completed the knowledge check." });
+                }}
+                onRestart={() => {
+                  // Logic to restart quiz - maybe just reset some state?
+                  // For now, let's just show a toast.
+                  toast({ title: "Restarting...", description: "Feature coming soon!" });
+                }}
+              />
+            </div>
+          )}
           {isLoading && (
             <div className="flex items-center gap-3 justify-start">
               <Avatar className="h-8 w-8 border">
