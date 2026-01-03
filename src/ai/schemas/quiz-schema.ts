@@ -6,6 +6,9 @@ export const QuizQuestionSchema = z.object({
     options: z.array(z.string()).min(4).max(4).describe('Four possible answers'),
     correctAnswer: z.string().describe('The exact string of the correct answer'),
     explanation: z.string().describe('A brief explanation of why this answer is correct'),
+    difficulty: z.enum(['basic', 'intermediate', 'advanced']).describe('Complexity level of the question'),
+    conceptTag: z.string().describe('The specific concept this question tests (e.g., "Closure", "State Management")'),
+    questionType: z.enum(['conceptual', 'application', 'trap']).describe('Purpose of the question'),
 });
 
 export const QuizSchema = z.object({

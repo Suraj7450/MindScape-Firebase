@@ -9,6 +9,7 @@ const GenerateQuizInputSchema = z.object({
   mindMapData: z.any().optional().describe('Optional mind map data to provide more context for the quiz.'),
   targetLang: z.string().optional().describe('The target language for the quiz content (e.g., "es").'),
   count: z.number().optional().default(5).describe('Number of questions to generate.'),
+  wrongConcepts: z.array(z.string()).optional().describe('Concepts the user has struggled with previously.'),
 });
 
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
@@ -16,7 +17,7 @@ export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 export async function generateQuiz(
   input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<z.infer<typeof QuizSchema>> {
-  const { topic, mindMapData, targetLang, count, provider, apiKey, strict } = input;
+  const { topic, mindMapData, targetLang, count, wrongConcepts, provider, apiKey, strict } = input;
 
   const prompt = `You are an expert educator creating a quiz to test a student's knowledge on a specific topic.
 
@@ -28,6 +29,7 @@ export async function generateQuiz(
 
   TASK:
   Generate a high-quality, challenging but fair multiple-choice quiz with exactly ${count} questions.
+  ${wrongConcepts && wrongConcepts.length > 0 ? `REINFORCEMENT: Focus more on these concepts that the student struggled with: ${wrongConcepts.join(', ')}.` : ''}
   Each question must have 4 options, one correct answer, and a clear explanation for the correct answer.
 
   ${targetLang ? `The entire quiz content MUST be in the following language: ${targetLang}.` : 'The entire quiz content MUST be in English.'}
@@ -37,7 +39,11 @@ export async function generateQuiz(
   2. Options should be plausible but distinct.
   3. The explanation should be informative and help the student learn.
   4. Ensure the output is a valid JSON object matching the QuizSchema.
-  5. Do NOT include markdown formatting.
+  5. ADAPTIVE METADATA: Each question MUST include:
+     - "difficulty": "basic" | "intermediate" | "advanced"
+     - "conceptTag": A short label of the concept being tested (e.g., "Closure", "Syntax")
+     - "questionType": "conceptual" (theory) | "application" (puzzles/code snippets) | "trap" (common mistakes)
+  6. Do NOT include markdown formatting.
 
   OUTPUT STRUCTURE:
   {
@@ -48,7 +54,10 @@ export async function generateQuiz(
         "question": "...",
         "options": ["...", "...", "...", "..."],
         "correctAnswer": "...",
-        "explanation": "..."
+        "explanation": "...",
+        "difficulty": "...",
+        "conceptTag": "...",
+        "questionType": "..."
       },
       ...
     ]

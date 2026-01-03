@@ -20,7 +20,7 @@ import { Quiz, QuizQuestion } from '@/ai/schemas/quiz-schema';
 interface QuizComponentProps {
     quiz: Quiz;
     onClose: () => void;
-    onRestart: () => void;
+    onRestart: (wrongConcepts?: string[]) => void;
 }
 
 export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) => {
@@ -30,6 +30,15 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
     const [score, setScore] = useState(0);
     const [showResults, setShowResults] = useState(false);
     const [answers, setAnswers] = useState<{ questionId: string, selected: string, isCorrect: boolean }[]>([]);
+
+    useEffect(() => {
+        setCurrentQuestionIndex(0);
+        setSelectedOption(null);
+        setIsAnswerShowing(false);
+        setScore(0);
+        setShowResults(false);
+        setAnswers([]);
+    }, [quiz]);
 
     const currentQuestion = quiz.questions[currentQuestionIndex];
     const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
@@ -184,6 +193,26 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
                                 <p className="text-zinc-400 text-sm">Score: <span className="text-primary font-bold">{score}</span> / {quiz.questions.length}</p>
                             </div>
 
+                            {answers.some(a => !a.isCorrect) && (
+                                <div className="space-y-2 text-left">
+                                    <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 px-1">Focus Areas</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[...new Set(answers
+                                            .filter(a => !a.isCorrect)
+                                            .map(a => quiz.questions.find(q => q.id === a.questionId)?.conceptTag)
+                                            .filter(Boolean)
+                                        )].map((concept, idx) => (
+                                            <span
+                                                key={idx}
+                                                className="px-2 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-[10px] text-red-400 font-medium"
+                                            >
+                                                {concept}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
                                 <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-zinc-500">
                                     <span>Accuracy</span>
@@ -194,7 +223,14 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
 
                             <div className="flex gap-2">
                                 <Button
-                                    onClick={onRestart}
+                                    onClick={() => {
+                                        const wrongConcepts = [...new Set(answers
+                                            .filter(a => !a.isCorrect)
+                                            .map(a => quiz.questions.find(q => q.id === a.questionId)?.conceptTag)
+                                            .filter(Boolean)
+                                        )] as string[];
+                                        onRestart(wrongConcepts);
+                                    }}
                                     variant="outline"
                                     className="flex-1 rounded-xl h-11 border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 gap-1.5 text-xs font-bold"
                                 >

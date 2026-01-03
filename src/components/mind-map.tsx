@@ -221,6 +221,7 @@ interface MindMapProps {
   aiHealth?: { name: string, status: string }[];
   hasUnsavedChanges?: boolean;
   onQuizReady?: (quiz: Quiz) => void;
+  onQuizLoading?: (topic: string) => void;
 }
 
 /**
@@ -265,6 +266,7 @@ export const MindMap = ({
   aiHealth,
   hasUnsavedChanges,
   onQuizReady,
+  onQuizLoading
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -859,6 +861,10 @@ export const MindMap = ({
 
   const handleStartQuiz = async () => {
     if (isGeneratingQuiz) return;
+
+    if (onQuizLoading) {
+      onQuizLoading(data.topic);
+    }
 
     setIsGeneratingQuiz(true);
     const { id: toastId, update } = toast({

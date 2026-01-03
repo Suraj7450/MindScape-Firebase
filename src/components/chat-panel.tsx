@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sheet,
   SheetContent,
@@ -78,6 +79,9 @@ interface ChatPanelProps {
   topic: string;
   initialMessage?: string;
   quizToStart?: Quiz;
+  isQuizLoading?: boolean;
+  quizTopic?: string;
+  onRegenerateQuiz?: (topic: string, wrongConcepts?: string[]) => void;
 }
 
 const allSuggestionPrompts = [
@@ -116,14 +120,12 @@ export function ChatPanel({
   topic,
   initialMessage,
   quizToStart,
+  isQuizLoading,
+  quizTopic,
+  onRegenerateQuiz,
 }: ChatPanelProps) {
   const [sessions, setSessions] = useLocalStorage<ChatSession[]>('chat-sessions', []);
 
-  useEffect(() => {
-    if (quizToStart) {
-      startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
-    }
-  }, [quizToStart]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -132,16 +134,107 @@ export function ChatPanel({
   const [persona, setPersona] = useState<Persona>('Standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
-  // Use 'pollinations' | 'gemini' options object. Default to empty (implies default action behavior) or explicit default.
-  // Actually default action behavior is now Pollinations if undefined passed? No, default arg is { provider: 'pollinations' }.
-  // So undefined -> Pollinations.
-  // If we want Gemini Default, we must pass { provider: 'gemini' }.
   const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
 
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
+
+  /**
+   * Starts a new chat session.
+   */
+  const startNewChat = useCallback((newTopic: string = 'General Conversation', type: 'chat' | 'quiz' = 'chat', quiz?: Quiz) => {
+    const newSession: ChatSession = {
+      id: `session-${Date.now()}`,
+      topic: newTopic,
+      messages: [],
+      timestamp: Date.now(),
+      type: type,
+      quiz: quiz
+    };
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newSession.id);
+    setView('chat');
+  }, [setSessions]);
+
+  const activeSession = useMemo(() => {
+    return sessions.find(s => s.id === activeSessionId) || null;
+  }, [sessions, activeSessionId]);
+
+  /**
+   * Sends a message to the AI assistant and updates the current session.
+   */
+  const handleSend = useCallback(async (messageToSend?: string) => {
+    const content = (messageToSend || input).trim();
+    if (!content || !activeSessionId) return;
+
+    const newMessage: Message = { role: 'user', content };
+
+    // Update the state optimistically
+    const currentMessages = activeSession?.messages ?? [];
+    const updatedMessages = [...currentMessages, newMessage];
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: updatedMessages, timestamp: Date.now() }
+        : s
+    ));
+
+    if (!messageToSend) {
+      setInput('');
+    }
+    setIsLoading(true);
+
+    // Prepare history (last 10 messages)
+    const history = updatedMessages.slice(-10).map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    const { response, error } = await chatAction({
+      question: content,
+      topic,
+      history,
+      persona
+    }, providerOptions);
+    setIsLoading(false);
+
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: error ? `Sorry, I ran into an error: ${error}` : response!.answer,
+    };
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: [...updatedMessages, assistantMessage] }
+        : s
+    ));
+  }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions]);
+
+  useEffect(() => {
+    if (!quizToStart) return;
+
+    // Check if we already have a quiz session for this topic (case-insensitive)
+    const targetTopic = `Quiz: ${quizToStart.topic}`.toLowerCase();
+    const existingQuizSession = sessions.find(s => s.topic.toLowerCase() === targetTopic);
+
+    if (existingQuizSession) {
+      // Update existing session with new quiz data if it's different
+      if (existingQuizSession.quiz !== quizToStart) {
+        setSessions(prev => prev.map(s =>
+          s.id === existingQuizSession.id
+            ? { ...s, quiz: quizToStart, timestamp: Date.now() }
+            : s
+        ));
+        // Ensure this session is active
+        setActiveSessionId(existingQuizSession.id);
+      }
+    } else {
+      // No existing quiz session for this topic, start a new one
+      startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
+    }
+  }, [quizToStart, sessions, startNewChat]);
 
   // Load persona and provider preference from user profile
   useEffect(() => {
@@ -177,10 +270,6 @@ export function ChatPanel({
       loadPreferences();
     }
   }, [isOpen, user, firestore]);
-
-  const activeSession = useMemo(() => {
-    return sessions.find(s => s.id === activeSessionId) || null;
-  }, [sessions, activeSessionId]);
 
   const messages = activeSession?.messages ?? [];
 
@@ -230,7 +319,11 @@ export function ChatPanel({
    */
   useEffect(() => {
     if (isOpen) {
-      const existingSession = sessions.find(s => s.topic === topic);
+      // Find matching session, checking both plain topic and Quiz prefix
+      const existingSession = sessions.find(s =>
+        s.topic === topic || s.topic === `Quiz: ${topic}`
+      );
+
       if (existingSession) {
         setActiveSessionId(existingSession.id);
       } else {
@@ -262,22 +355,7 @@ export function ChatPanel({
   }, [isOpen, initialMessage, activeSession]);
 
 
-  /**
-   * Starts a new chat session.
-   */
-  const startNewChat = (newTopic: string = 'General Conversation', type: 'chat' | 'quiz' = 'chat', quiz?: Quiz) => {
-    const newSession: ChatSession = {
-      id: `session-${Date.now()}`,
-      topic: newTopic,
-      messages: [],
-      timestamp: Date.now(),
-      type: type,
-      quiz: quiz
-    };
-    setSessions(prev => [newSession, ...prev]);
-    setActiveSessionId(newSession.id);
-    setView('chat');
-  };
+
 
   /**
    * Exports the current chat session to a PDF file.
@@ -325,11 +403,34 @@ export function ChatPanel({
       doc.text(`Topic: ${activeSession.topic}`, 20, 34);
       doc.text(`Date: ${new Date(activeSession.timestamp).toLocaleString()}`, 20, 40);
 
-      // Messages
       let yPosition = 55;
+      const margin = 20;
+
+      // Add Quiz Summary if it's a quiz session
+      if (activeSession.type === 'quiz' && activeSession.quiz) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Quiz Summary', margin, yPosition);
+        yPosition += 8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+
+        // Simple heuristic: count occurrences of assistant messages in history to see if quiz was "taken", 
+        // but it's better to just show the quiz metadata we have.
+        doc.text(`Total Questions: ${activeSession.quiz.questions.length}`, margin, yPosition);
+        yPosition += 6;
+
+        // Add a note about adaptive learning
+        doc.setFont('helvetica', 'italic');
+        doc.text('This quiz was generated using MindScape Adaptive Learning Intelligence.', margin, yPosition);
+        yPosition += 10;
+        doc.setFont('helvetica', 'normal');
+      }
+
+      // Messages
       const pageHeight = doc.internal.pageSize.height;
       const pageWidth = doc.internal.pageSize.width;
-      const margin = 20;
       const maxWidth = pageWidth - (margin * 2);
 
       activeSession.messages.forEach((msg, index) => {
@@ -425,55 +526,7 @@ export function ChatPanel({
     }
   };
 
-  /**
-   * Sends a message to the AI assistant and updates the current session.
-   */
-  const handleSend = async (messageToSend?: string) => {
-    const content = (messageToSend || input).trim();
-    if (!content || !activeSessionId) return;
 
-    const newMessage: Message = { role: 'user', content };
-
-    // Update the state optimistically
-    const currentMessages = activeSession?.messages ?? [];
-    const updatedMessages = [...currentMessages, newMessage];
-
-    setSessions(prev => prev.map(s =>
-      s.id === activeSessionId
-        ? { ...s, messages: updatedMessages, timestamp: Date.now() }
-        : s
-    ));
-
-    if (!messageToSend) {
-      setInput('');
-    }
-    setIsLoading(true);
-
-    // Prepare history (last 10 messages)
-    const history = updatedMessages.slice(-10).map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
-
-    const { response, error } = await chatAction({
-      question: content,
-      topic,
-      history,
-      persona
-    }, providerOptions);
-    setIsLoading(false);
-
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: error ? `Sorry, I ran into an error: ${error}` : response!.answer,
-    };
-
-    setSessions(prev => prev.map(s =>
-      s.id === activeSessionId
-        ? { ...s, messages: [...updatedMessages, assistantMessage] }
-        : s
-    ));
-  };
 
   /**
    * Copies a message to clipboard.
@@ -793,6 +846,49 @@ export function ChatPanel({
               )}
             </div>
           ))}
+
+          {isQuizLoading && (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                  className="relative w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <Sparkles className="h-8 w-8 text-primary shadow-glow" />
+                  </motion.div>
+                </motion.div>
+                <div className="absolute -top-1 -right-1">
+                  <span className="flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                  </span>
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-sm font-bold text-white tracking-tight">Generating Quiz</h3>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-medium">
+                  {quizTopic || topic}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                    className="w-1 h-1 bg-primary rounded-full"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
 
           {activeSession?.type === 'quiz' && activeSession.quiz && (
@@ -804,10 +900,12 @@ export function ChatPanel({
                   // User said "finish", maybe we just keep it in history.
                   toast({ title: "Quiz Finished", description: "You've completed the knowledge check." });
                 }}
-                onRestart={() => {
-                  // Logic to restart quiz - maybe just reset some state?
-                  // For now, let's just show a toast.
-                  toast({ title: "Restarting...", description: "Feature coming soon!" });
+                onRestart={(wrongConcepts) => {
+                  if (onRegenerateQuiz && activeSession.topic) {
+                    onRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''), wrongConcepts);
+                  } else {
+                    toast({ title: "Restarting...", description: "Feature coming soon!" });
+                  }
                 }}
               />
             </div>
@@ -924,7 +1022,13 @@ export function ChatPanel({
               </Button>
             )}
             <SheetTitle className="text-lg font-semibold pl-2">
-              {view === 'history' ? 'Chat History' : activeSession?.topic ?? 'AI Chat'}
+              {view === 'history'
+                ? 'Chat History'
+                : isQuizLoading
+                  ? `Quiz: ${quizTopic || topic}`
+                  : activeSession?.type === 'quiz'
+                    ? `Quiz: ${activeSession.topic.replace('Quiz: ', '')}`
+                    : activeSession?.topic ?? 'AI Chat'}
             </SheetTitle>
           </div>
           <div className='flex items-center gap-1'>
@@ -1007,6 +1111,28 @@ export function ChatPanel({
                   <History className="h-5 w-5" />
                   <span className="sr-only">Chat History</span>
                 </Button>
+
+                {activeSession?.type === 'quiz' && onRegenerateQuiz && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''))}
+                          disabled={isQuizLoading}
+                        >
+                          <RefreshCw className={cn("h-5 w-5", isQuizLoading && "animate-spin")} />
+                          <span className="sr-only">Regenerate Quiz</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>Regenerate Quiz</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
                 <Button variant="ghost" size="icon" onClick={() => startNewChat(topic)}>
                   <Plus className="h-5 w-5" />
                   <span className="sr-only">New Chat</span>

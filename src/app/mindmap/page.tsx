@@ -32,7 +32,9 @@ import {
   generateMindMapAction,
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
+  generateQuizAction,
 } from '@/app/actions';
+import { toPlainObject } from '@/lib/serialize';
 import { mindscapeMap } from '@/lib/mindscape-data';
 import { useMindMapStack } from '@/hooks/use-mind-map-stack';
 import { useAIConfig } from '@/contexts/ai-config-context';
@@ -59,6 +61,8 @@ function MindMapPageContent() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | undefined>(undefined);
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [quizTopic, setQuizTopic] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const aiHealth = useAIHealth();
@@ -412,8 +416,48 @@ function MindMapPageContent() {
 
   const handleQuizReady = useCallback((quiz: Quiz) => {
     setActiveQuiz(quiz);
+    setIsQuizLoading(false);
     setIsChatOpen(true);
   }, []);
+
+  const handleQuizLoading = useCallback((topic: string) => {
+    setQuizTopic(topic);
+    setIsQuizLoading(true);
+    setIsChatOpen(true);
+  }, []);
+
+  const handleRegenerateQuiz = useCallback(async (topic: string, wrongConcepts?: string[]) => {
+    if (isQuizLoading) return;
+
+    setIsQuizLoading(true);
+    setQuizTopic(topic);
+
+    try {
+      const { data: quizData, error } = await generateQuizAction({
+        topic: topic,
+        mindMapData: mindMap ? toPlainObject(mindMap) : undefined,
+        targetLang: params.lang,
+        wrongConcepts: wrongConcepts
+      }, {
+        provider: config.provider,
+        apiKey: config.apiKey,
+        strict: false
+      });
+
+      if (error) throw new Error(error);
+      if (!quizData) throw new Error("Failed to generate quiz data.");
+
+      setActiveQuiz(quizData);
+    } catch (err: any) {
+      toast({
+        title: 'Regeneration Failed',
+        description: err.message || 'An unknown error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsQuizLoading(false);
+    }
+  }, [mindMap, params.lang, config, isQuizLoading, toast]);
 
   const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string, mode: 'foreground' | 'background' = 'background') => {
     try {
@@ -555,6 +599,7 @@ function MindMapPageContent() {
             onStackSelect={handleBreadcrumbSelect}
             onUpdate={onMapUpdate}
             onQuizReady={handleQuizReady}
+            onQuizLoading={handleQuizLoading}
             status={hookStatus}
             aiHealth={aiHealth}
           />
@@ -577,6 +622,9 @@ function MindMapPageContent() {
         topic={mindMap?.topic || 'Mind Map Details'}
         initialMessage={chatInitialMessage}
         quizToStart={activeQuiz}
+        isQuizLoading={isQuizLoading}
+        quizTopic={quizTopic}
+        onRegenerateQuiz={handleRegenerateQuiz}
       />
     </>
   );
