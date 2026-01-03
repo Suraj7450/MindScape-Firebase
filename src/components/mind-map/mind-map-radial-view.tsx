@@ -370,10 +370,10 @@ export const MindMapRadialView = ({ data, onNodeClick, onGenerateNewMap, generat
 
                             <div className="flex flex-col min-w-0">
                                 <span className={cn(
-                                    "block", // Ensure block display for wrapping
-                                    node.type === 'root' ? "text-xl font-medium tracking-tight" :
-                                        node.type === 'subtopic' ? "text-sm font-normal" :
-                                            "text-xs font-normal"
+                                    "block font-orbitron", // Ensure block display for wrapping
+                                    node.type === 'root' ? "text-xl font-bold tracking-tight" :
+                                        node.type === 'subtopic' ? "text-sm font-bold uppercase tracking-wide" :
+                                            "text-xs font-medium"
                                 )}>
                                     {node.data.label}
                                 </span>
@@ -402,7 +402,7 @@ export const MindMapRadialView = ({ data, onNodeClick, onGenerateNewMap, generat
                 </button>
             </div>
 
-            <div className="absolute top-6 left-6 z-50 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs font-bold text-zinc-400 flex items-center gap-2 pointer-events-none">
+            <div className="absolute top-6 left-6 z-50 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-400 flex items-center gap-2 pointer-events-none uppercase tracking-[0.2em] font-orbitron">
                 <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                 MINDFLOW VIEW
             </div>

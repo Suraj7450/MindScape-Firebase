@@ -70,6 +70,12 @@ export type MindMapWithId = MindMap & {
   explanations?: Record<string, string[]>;
   nestedExpansions?: NestedExpansionItem[];
   savedImages?: GeneratedImage[];
+  isPublic?: boolean;
+  publicCategories?: string[];
+  views?: number;
+  originalAuthorId?: string;
+  authorName?: string;
+  authorAvatar?: string;
 };
 
 export type MindMapData = MindMapWithId;

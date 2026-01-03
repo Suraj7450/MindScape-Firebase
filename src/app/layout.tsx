@@ -6,12 +6,12 @@ import { cn } from '@/lib/utils';
 import { Navbar } from '@/components/navbar';
 import { FirebaseClientProvider } from '@/firebase';
 import { Icons } from '@/components/icons';
-import { Inter, Orbitron } from 'next/font/google';
+import { Space_Grotesk, Orbitron } from 'next/font/google';
 import { AIConfigProvider } from '@/contexts/ai-config-context';
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-space-grotesk',
   display: 'swap',
 });
 
@@ -52,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('dark', inter.variable, orbitron.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn('dark', spaceGrotesk.variable, orbitron.variable)} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/MindScape-Logo.png" sizes="any" />
       </head>
@@ -62,7 +62,7 @@ export default function RootLayout({
           <AIConfigProvider>
             <BackgroundGlow />
             <Navbar />
-            <main className="h-full pt-16">{children}</main>
+            <main className="h-full">{children}</main>
             <Toaster />
           </AIConfigProvider>
         </FirebaseClientProvider>

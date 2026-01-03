@@ -72,6 +72,9 @@ interface MindMapToolbarProps {
     aiHealth?: { name: string, status: string }[];
     viewMode: 'accordion' | 'map';
     onViewModeChange: (mode: 'accordion' | 'map') => void;
+    onPublish: () => void;
+    isPublishing: boolean;
+    isPublic: boolean;
 }
 
 export const MindMapToolbar = ({
@@ -101,7 +104,10 @@ export const MindMapToolbar = ({
     status,
     aiHealth = [],
     viewMode,
-    onViewModeChange
+    onViewModeChange,
+    onPublish,
+    isPublishing,
+    isPublic
 }: MindMapToolbarProps) => {
     const isBusy = status !== 'idle';
     const isSyncing = status === 'syncing';
@@ -150,25 +156,25 @@ export const MindMapToolbar = ({
                 {viewMode === 'accordion' && (
                     <div className="flex items-center gap-1.5 px-1.5 pr-3 border-r border-white/10">
                         <Select value={languageUI} onValueChange={onLanguageChange} disabled={isTranslating || isBusy}>
-                            <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200 disabled:opacity-50">
-                                <Languages className="w-4 h-4 mr-2 text-primary" />
-                                <SelectValue placeholder="Lang" />
+                            <SelectTrigger className="h-9 w-fit min-w-[70px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest">
+                                <Languages className="w-3.5 h-3.5 mr-2 text-primary" />
+                                <span className="mr-1">{(languages.find(l => l.code === languageUI)?.code || 'EN').toUpperCase()}</span>
                             </SelectTrigger>
                             <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
                                 {languages.map(l => (
-                                    <SelectItem key={l.code} value={l.code} className="text-xs">{l.name}</SelectItem>
+                                    <SelectItem key={l.code} value={l.code} className="text-xs font-space-grotesk">{l.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
 
                         <Select value={personaUI} onValueChange={onPersonaChange} disabled={isBusy}>
-                            <SelectTrigger className="h-9 w-[110px] bg-white/5 border-none text-xs rounded-xl hover:bg-white/10 transition-all font-bold text-zinc-200 disabled:opacity-50">
-                                <Zap className="w-4 h-4 mr-2 text-amber-400" />
+                            <SelectTrigger className="h-9 w-fit min-w-[100px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest">
+                                <Zap className="w-3.5 h-3.5 mr-2 text-amber-400" />
                                 <SelectValue placeholder="Mode" />
                             </SelectTrigger>
                             <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
                                 {['Standard', 'Teacher', 'Concise', 'Creative'].map(p => (
-                                    <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
+                                    <SelectItem key={p} value={p} className="text-xs font-space-grotesk">{p}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -184,7 +190,7 @@ export const MindMapToolbar = ({
                                     variant="ghost"
                                     size="sm"
                                     onClick={onToggleExpandAll}
-                                    className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
+                                    className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
                                 >
                                     {isAllExpanded ? (
                                         <>
@@ -203,7 +209,7 @@ export const MindMapToolbar = ({
                                     variant="ghost"
                                     size="sm"
                                     onClick={onCopyPath}
-                                    className="h-9 gap-2 text-xs font-bold px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
+                                    className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95"
                                 >
                                     {isCopied ? (
                                         <>
@@ -254,7 +260,7 @@ export const MindMapToolbar = ({
                                 onClick={onSave}
                                 disabled={isBusy}
                                 className={cn(
-                                    "h-9 gap-2 text-xs font-bold px-5 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-70",
+                                    "h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-5 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-70",
                                     !isSaved
                                         ? "bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
                                         : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
@@ -264,6 +270,22 @@ export const MindMapToolbar = ({
                                 {isSyncing ? 'Saving...' : (!isSaved ? 'Save Map' : 'Syncing...')}
                             </Button>
                         )}
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onPublish}
+                            disabled={isBusy || isPublishing || !isSaved}
+                            className={cn(
+                                "h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50",
+                                isPublic
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
+                                    : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
+                            )}
+                        >
+                            {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className={cn("h-4 w-4", isPublic && "text-emerald-400 fill-emerald-400/20")} />}
+                            {isPublic ? 'Public' : 'Publish'}
+                        </Button>
                     </div>
                 </div>
 

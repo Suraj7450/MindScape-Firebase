@@ -25,7 +25,7 @@ import {
   useUser,
   useFirestore,
 } from '@/firebase';
-import { collection, getDocs, query, where, doc, getDoc, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, limit, increment, updateDoc } from 'firebase/firestore';
 import {
   generateComparisonMapAction,
   generateMindMapAction,
@@ -220,8 +220,19 @@ function MindMapPageContent() {
                 handleSaveMap(result.data, params.mapId, true);
               }
             } else {
-              // If it doesn't exist yet, it might be being saved right now
-              // We'll let the initial loading handle it
+              // Not found in user's collection, check public collection
+              const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
+              const publicSnap = await getDoc(publicDocRef);
+              if (publicSnap.exists()) {
+                result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
+              }
+            }
+          } else {
+            // Not logged in but has mapId, check public collection
+            const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
+            const publicSnap = await getDoc(publicDocRef);
+            if (publicSnap.exists()) {
+              result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
             }
           }
         } else if (params.topic) {
@@ -347,6 +358,16 @@ function MindMapPageContent() {
 
     fetchMindMapData();
   }, [getParamKey, user, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
+
+  // Track views for public maps
+  useEffect(() => {
+    if (mindMap?.id && (mindMap as any).isPublic && firestore) {
+      const publicDocRef = doc(firestore, 'publicMindmaps', mindMap.id);
+      updateDoc(publicDocRef, {
+        views: increment(1)
+      }).catch(err => console.warn("Failed to increment views:", err));
+    }
+  }, [mindMap?.id, (mindMap as any)?.isPublic, firestore]);
 
 
   // 4. Auto-Save Effect

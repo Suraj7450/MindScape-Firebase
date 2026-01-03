@@ -8,12 +8,14 @@ import { GenerationLoading } from '@/components/generation-loading';
 
 function MindGptPageContent() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <ChatInterface />
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="pt-20 h-screen overflow-hidden flex flex-col">
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <ChatInterface />
+        </SidebarInset>
+      </SidebarProvider>
+    </div>
   );
 }
 

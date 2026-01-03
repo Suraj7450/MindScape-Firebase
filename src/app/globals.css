@@ -91,7 +91,7 @@
 
   body {
     @apply bg-background text-foreground antialiased transition-colors duration-500;
-    font-family: var(--font-inter), sans-serif;
+    font-family: var(--font-space-grotesk), sans-serif;
     font-weight: 400;
     background-image:
       radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.08), transparent 45%),
@@ -101,6 +101,25 @@
 
   .prose {
     @apply text-foreground/90 max-w-none;
+    font-family: var(--font-space-grotesk), sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  input,
+  select,
+  textarea,
+  kbd {
+    font-family: var(--font-space-grotesk), sans-serif !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-orbitron), sans-serif;
+    @apply tracking-tight;
   }
 
   .prose h1,
@@ -109,8 +128,7 @@
   .prose h4,
   .prose h5,
   .prose h6 {
-    @apply text-foreground font-bold tracking-tight;
-    font-family: var(--font-orbitron), sans-serif;
+    @apply text-foreground font-bold;
   }
 
   .prose h1 {
@@ -146,6 +164,26 @@
     @apply font-bold text-primary;
   }
 
+
+  /* Tooltip and Popover Typography */
+  [data-radix-popper-content-wrapper] {
+    font-family: var(--font-space-grotesk), sans-serif;
+  }
+
+  .glassmorphism {
+    font-family: var(--font-space-grotesk), sans-serif;
+  }
+
+  /* Specific futuristic UI elements */
+  .font-orbitron {
+    font-family: var(--font-orbitron), sans-serif;
+  }
+
+  button,
+  .button-tech {
+    @apply uppercase tracking-wider font-bold;
+    font-family: var(--font-orbitron), sans-serif;
+  }
 
   /* Custom Scrollbar Styling */
   ::-webkit-scrollbar {
@@ -192,7 +230,7 @@
   }
 
   .soft-glass-card {
-    @apply rounded-2xl bg-zinc-950/40 backdrop-blur-3xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/10;
+    @apply rounded-2xl bg-zinc-950/40 backdrop-blur-3xl border border-white/5 shadow-[0_20px_50px_rgba(0, 0, 0, 0.5)] ring-1 ring-white/10;
   }
 }
 

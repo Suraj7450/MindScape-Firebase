@@ -81,7 +81,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                         <Icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h4 className="text-base font-bold text-zinc-100 leading-snug truncate group-hover/item:text-white transition-colors">
+                        <h4 className="text-base font-semibold text-zinc-100 leading-snug group-hover/item:text-white transition-colors">
                             {node.name}
                         </h4>
                         <div className="flex items-center mt-1 gap-2">
@@ -90,7 +90,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                     </div>
                 </div>
 
-                <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3 mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
+                <p className="text-sm text-zinc-400 leading-relaxed mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
                     {node.description}
                 </p>
 

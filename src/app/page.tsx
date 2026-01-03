@@ -126,7 +126,7 @@ function Hero({
   };
 
   return (
-    <section className="relative mx-auto max-w-7xl px-6 pt-8 pb-24 overflow-hidden">
+    <section className="relative mx-auto max-w-7xl px-6 pt-32 pb-24 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -327,7 +327,7 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
       icon: Globe,
       title: 'Public Maps',
       desc: 'Explore a gallery of mind maps created and shared by the community.',
-      href: '/public-maps',
+      href: '/community',
     },
   ];
 

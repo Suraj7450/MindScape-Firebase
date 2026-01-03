@@ -25,6 +25,9 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { Rocket, Filter } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,6 +83,7 @@ export default function DashboardPage() {
   const [sortOption, setSortOption] = useState<SortOption>('recent');
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
   const [deletingMapIds, setDeletingMapIds] = useState<Set<string>>(new Set());
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
 
 
@@ -94,6 +98,14 @@ export default function DashboardPage() {
 
   const { data: savedMaps, isLoading: isMindMapsLoading } = useCollection<SavedMindMap>(mindMapsQuery);
 
+  const categories = useMemo(() => {
+    const cats = new Set<string>(['All']);
+    savedMaps?.forEach(map => {
+      (map as any).publicCategories?.forEach((cat: string) => cats.add(cat));
+    });
+    return Array.from(cats);
+  }, [savedMaps]);
+
   const filteredAndSortedMaps = useMemo(() => {
     // Filter out sub-maps: either explicitly marked OR has a parentMapId
     let maps = (savedMaps || []).filter(map => {
@@ -106,6 +118,10 @@ export default function DashboardPage() {
 
     if (searchQuery) {
       maps = maps.filter((map) => map.topic.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+
+    if (selectedCategory !== 'All') {
+      maps = maps.filter((map: any) => map.publicCategories?.includes(selectedCategory));
     }
 
     switch (sortOption) {
@@ -172,7 +188,7 @@ export default function DashboardPage() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="container mx-auto p-4 sm:p-8">
+      <div className="container mx-auto px-4 sm:px-8 pt-24 pb-8">
         <div
           className="text-center mb-12"
         >
@@ -204,6 +220,27 @@ export default function DashboardPage() {
           </Select>
         </div>
 
+        {/* Categories Filter */}
+        {categories.length > 1 && (
+          <div className="flex items-center justify-center gap-2 mb-8 overflow-x-auto pb-4 scrollbar-hide">
+            <Filter className="h-4 w-4 text-gray-500 mr-2 shrink-0" />
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap",
+                  selectedCategory === cat
+                    ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20"
+                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isMindMapsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
@@ -231,6 +268,14 @@ export default function DashboardPage() {
                         e.currentTarget.src = `https://placehold.co/400x225/1a1a1a/666666?text=${encodeURIComponent(map.topic)}`;
                       }}
                     />
+                    {(map as any).isPublic && (
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-emerald-500/80 backdrop-blur-md text-[10px] uppercase tracking-wider border-none gap-1">
+                          <Rocket className="h-2.5 w-2.5" />
+                          Public
+                        </Badge>
+                      </div>
+                    )}
                   </div>
 
                   <h3 className="font-bold text-lg text-white mb-2 truncate" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>

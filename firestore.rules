@@ -10,10 +10,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
-    }
-
     /* =========================
        USER PRIVATE DATA
     ========================== */
@@ -21,26 +17,16 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
 
       match /mindmaps/{mindmapId} {
-
-        // CREATE: must be signed in & owner
         allow create: if isOwner(userId)
           && request.resource.data.userId == userId;
-
-        // READ: only owner
         allow read: if isOwner(userId);
-
-        // UPDATE: only owner (path-based ownership is sufficient)
-        allow update: if isOwner(userId);
-
-        // DELETE: path-based ownership (secure since path contains userId)
+        allow update: if isOwner(userId)
+          && (!('userId' in resource.data) || resource.data.userId == userId);
         allow delete: if isOwner(userId);
 
-        // Optional nested collection
         match /nodes/{nodeId} {
           allow read, write: if isOwner(userId);
         }
-
-        // Content subcollection (for split schema)
         match /content/{docId} {
           allow read, write: if isOwner(userId);
         }
@@ -48,21 +34,25 @@ service cloud.firestore {
     }
 
     /* =========================
-       AUDIT & ACTIVITY LOGS
+       PUBLIC MIND MAPS
     ========================== */
-    match /activityLogs/{logId} {
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
-      
-      allow read, update, delete: if false; 
-    }
+    match /publicMindmaps/{mindmapId} {
+      // Anyone can read public maps
+      allow read: if true;
 
-    /* =========================
-       ADMIN ACTIONS
-    ========================== */
-    match /adminActions/{actionId} {
-      allow create, read: if isAdmin();
-      allow update, delete: if false;
+      // Create: signed-in users only
+      allow create: if isSignedIn()
+        && request.resource.data.originalAuthorId == request.auth.uid;
+
+      // Update: Author can update their own map, others can only update views
+      allow update: if isSignedIn() && (
+        (resource.data.originalAuthorId == request.auth.uid) // Author can update everything
+        || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])) // Others can only update views
+      );
+
+      // Delete: only author
+      allow delete: if isSignedIn() && resource.data.originalAuthorId == request.auth.uid;
     }
   }
 }

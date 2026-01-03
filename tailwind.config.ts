@@ -1,5 +1,5 @@
 
-import type {Config} from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 const plugin = require('tailwindcss/plugin')
 
 export default {
@@ -15,10 +15,12 @@ export default {
         glow: '0 0 8px hsl(var(--primary))',
       },
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        logo: ['Orbitron', 'sans-serif'],
+        body: ['var(--font-space-grotesk)', 'sans-serif'],
+        headline: ['var(--font-orbitron)', 'sans-serif'],
+        logo: ['var(--font-orbitron)', 'sans-serif'],
         code: ['monospace'],
+        sans: ['var(--font-space-grotesk)', 'sans-serif'],
+        orbitron: ['var(--font-orbitron)', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -109,7 +111,7 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
-    plugin(function({ theme, addUtilities }: {theme: any, addUtilities: any}) {
+    plugin(function ({ theme, addUtilities }: { theme: any, addUtilities: any }) {
       const newUtilities = {
         '.text-shadow-glow': {
           textShadow: theme('textShadow.glow'),

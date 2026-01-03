@@ -144,6 +144,7 @@ import {
   ExplainableNode,
   ExplanationMode
 } from '@/types/mind-map';
+import { categorizeMindMapAction } from '@/app/actions/community';
 import { MindMapStatus } from '@/hooks/use-mind-map-stack';
 import { LeafNodeCard } from './mind-map/leaf-node-card';
 import { ExplanationDialog } from './mind-map/explanation-dialog';
@@ -186,7 +187,7 @@ import { Badge } from './ui/badge';
 import { toPascalCase } from '@/lib/utils';
 import { toPlainObject } from '@/lib/serialize';
 
-import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc, deleteDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
@@ -363,6 +364,7 @@ export const MindMap = ({
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Nested expansion state - load from saved data if available
   const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
@@ -799,6 +801,86 @@ export const MindMap = ({
     setIsAllExpanded(true);
   };
 
+  const handlePublish = async () => {
+    if (!user || !firestore || isPublishing) return;
+
+    // 1. Check if it's already public
+    if (data.isPublic) {
+      toast({ title: "Already Public", description: "This mind map is already in the community dashboard." });
+      return;
+    }
+
+    setIsPublishing(true);
+    const { id: toastId, update } = toast({
+      title: 'Publishing to Community...',
+      description: 'AI is categorizing your mind map for the community.',
+      duration: Infinity,
+    });
+
+    try {
+      // 2. AI Categorization
+      const { categories, error: catError } = await categorizeMindMapAction({
+        topic: data.topic,
+        summary: data.summary,
+      }, providerOptions);
+
+      if (catError) throw new Error(catError);
+
+      update({ id: toastId, title: 'Uploading Data...', description: 'Saving your mind map to the public repository.' });
+
+      // 3. Prepare Public Data
+      const publicData: any = {
+        ...toPlainObject(data),
+        isPublic: true,
+        publicCategories: categories,
+        originalMapId: data.id,
+        originalAuthorId: user.uid,
+        authorName: user.displayName || 'Explorer',
+        authorAvatar: user.photoURL || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        views: 0,
+      };
+
+      // 4. Save to publicMindmaps (use document ID from private map for consistency)
+      const publicDocRef = doc(firestore, 'publicMindmaps', data.id!);
+      await setDoc(publicDocRef, publicData);
+
+      // 5. Update Local Status
+      if (onUpdate) {
+        onUpdate({ isPublic: true, publicCategories: categories });
+      }
+
+      // 6. Update Private Document Status
+      const privateDocRef = doc(firestore, 'users', user.uid, 'mindmaps', data.id!);
+      await updateDoc(privateDocRef, { isPublic: true, publicCategories: categories });
+
+      update({
+        id: toastId,
+        title: 'Mind Map Published!',
+        description: 'Your mind map is now live on the Community Dashboard.',
+        duration: 5000,
+        action: (
+          <Button size="sm" onClick={() => router.push('/community')}>
+            Browse Community
+          </Button>
+        )
+      });
+
+    } catch (err: any) {
+      console.error('Publish error:', err);
+      update({
+        id: toastId,
+        title: 'Publishing Failed',
+        description: err.message || 'An unknown error occurred.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const collapseAll = () => {
     setOpenSubTopics([]);
     setOpenCategories([]);
@@ -834,6 +916,9 @@ export const MindMap = ({
         aiHealth={aiHealth}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onPublish={handlePublish}
+        isPublishing={isPublishing}
+        isPublic={!!data.isPublic}
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">

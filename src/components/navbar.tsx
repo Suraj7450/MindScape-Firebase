@@ -54,6 +54,7 @@ export function Navbar() {
   const navItems = [
     { href: '/', label: 'Home' },
     { href: '/dashboard', label: 'My Maps' },
+    { href: '/community', label: 'Community' },
     { href: '/mind-gpt', label: 'MindGPT' },
   ];
 
@@ -166,7 +167,7 @@ export function Navbar() {
                 </div>
 
                 {/* Brand Name */}
-                <span className="text-xl font-black text-white tracking-tighter">
+                <span className="text-xl font-black text-white tracking-widest font-orbitron">
                   Mind<span className="text-primary group-hover:text-accent transition-colors duration-500">Scape</span>
                 </span>
               </Link>
@@ -178,7 +179,7 @@ export function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="relative rounded-lg px-4 py-1.5 text-sm font-semibold text-zinc-400 transition-all hover:text-zinc-100"
+                  className="relative rounded-lg px-4 py-1.5 text-xs font-bold text-zinc-400 transition-all hover:text-zinc-100 uppercase tracking-wider font-orbitron"
                 >
                   {pathname === item.href && (
                     <motion.span

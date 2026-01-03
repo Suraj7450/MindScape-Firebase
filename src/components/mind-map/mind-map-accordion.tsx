@@ -98,11 +98,11 @@ export const MindMapAccordion = ({
                                     <SubTopicIcon className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">
+                                    <h3 className="text-2xl font-semibold text-zinc-100 tracking-tight group-hover/subtopic:translate-x-1 transition-transform duration-300">
                                         {subTopic.name}
                                     </h3>
                                     <div className="flex gap-4 mt-1">
-                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                                             {subTopic.categories.length} Concept Categories
                                         </span>
@@ -162,7 +162,7 @@ export const MindMapAccordion = ({
                                                         <div className="w-10 h-10 flex items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 border border-white/10 group-hover/cat:bg-primary group-hover/cat:text-white transition-all duration-500">
                                                             <CategoryIcon className="h-5 w-5" />
                                                         </div>
-                                                        <h4 className="text-lg font-bold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
+                                                        <h4 className="text-lg font-semibold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
                                                         <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
                                                     </div>
 
