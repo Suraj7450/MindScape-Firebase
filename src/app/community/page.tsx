@@ -85,7 +85,7 @@ export default function CommunityPage() {
                         Community Hub
                     </Badge>
                     <h1 className="text-4xl font-bold tracking-tight mb-2">
-                        Explore Public MindMaps
+                        Explore Community MindMaps
                     </h1>
                     <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                         Discover and learn from the collective knowledge of the MindScape community.
@@ -99,7 +99,7 @@ export default function CommunityPage() {
                     <div className="relative w-full md:max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                         <Input
-                            placeholder="Search public mindmaps..."
+                            placeholder="Search community mindmaps..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-10 h-11 bg-white/5 border-white/10 rounded-xl focus:ring-purple-600/50"

@@ -6,7 +6,6 @@ import '@/ai/flows/generate-mind-map.ts';
 import '@/ai/flows/generate-mind-map-from-image.ts';
 import '@/ai/flows/generate-mind-map-from-text.ts';
 import '@/ai/flows/explain-mind-map-node.ts';
-import '@/ai/flows/generate-quiz.ts';
 import '@/ai/flows/chat-with-assistant.ts';
 import '@/ai/flows/translate-mind-map.ts';
 import '@/ai/flows/generate-comparison-map.ts';

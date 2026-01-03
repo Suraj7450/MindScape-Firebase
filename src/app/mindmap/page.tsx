@@ -359,7 +359,7 @@ function MindMapPageContent() {
     fetchMindMapData();
   }, [getParamKey, user, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
 
-  // Track views for public maps
+  // Track views for community maps
   useEffect(() => {
     if (mindMap?.id && (mindMap as any).isPublic && firestore) {
       const publicDocRef = doc(firestore, 'publicMindmaps', mindMap.id);

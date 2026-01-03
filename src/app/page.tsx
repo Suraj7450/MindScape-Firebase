@@ -325,7 +325,7 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
     },
     {
       icon: Globe,
-      title: 'Public Maps',
+      title: 'Community Maps',
       desc: 'Explore a gallery of mind maps created and shared by the community.',
       href: '/community',
     },

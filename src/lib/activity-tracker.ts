@@ -14,8 +14,6 @@ export async function updateUserStatistics(
         mapsCreated?: number;
         nestedExpansions?: number;
         imagesGenerated?: number;
-        quizQuestions?: number;
-        quizCorrectAnswers?: number;
         studyTimeMinutes?: number;
     }
 ) {
@@ -28,8 +26,6 @@ export async function updateUserStatistics(
         if (updates.mapsCreated) statisticsUpdates['statistics.totalMapsCreated'] = increment(updates.mapsCreated);
         if (updates.nestedExpansions) statisticsUpdates['statistics.totalNestedExpansions'] = increment(updates.nestedExpansions);
         if (updates.imagesGenerated) statisticsUpdates['statistics.totalImagesGenerated'] = increment(updates.imagesGenerated);
-        if (updates.quizQuestions) statisticsUpdates['statistics.totalQuizQuestions'] = increment(updates.quizQuestions);
-        if (updates.quizCorrectAnswers) statisticsUpdates['statistics.quizCorrectAnswers'] = increment(updates.quizCorrectAnswers);
         if (updates.studyTimeMinutes) statisticsUpdates['statistics.totalStudyTimeMinutes'] = increment(updates.studyTimeMinutes);
 
         statisticsUpdates['statistics.lastActiveDate'] = today;
@@ -43,7 +39,6 @@ export async function updateUserStatistics(
         if (updates.mapsCreated) activityUpdates[`activity.${today}.mapsCreated`] = increment(updates.mapsCreated);
         if (updates.nestedExpansions) activityUpdates[`activity.${today}.nestedExpansions`] = increment(updates.nestedExpansions);
         if (updates.imagesGenerated) activityUpdates[`activity.${today}.imagesGenerated`] = increment(updates.imagesGenerated);
-        if (updates.quizQuestions) activityUpdates[`activity.${today}.quizQuestions`] = increment(updates.quizQuestions);
         if (updates.studyTimeMinutes) activityUpdates[`activity.${today}.studyTimeMinutes`] = increment(updates.studyTimeMinutes);
 
         if (Object.keys(activityUpdates).length > 0) {
@@ -139,20 +134,6 @@ export async function trackImageGenerated(firestore: Firestore, userId: string) 
 }
 
 /**
- * Track quiz question answered
- */
-export async function trackQuizQuestion(
-    firestore: Firestore,
-    userId: string,
-    isCorrect: boolean
-) {
-    await updateUserStatistics(firestore, userId, {
-        quizQuestions: 1,
-        quizCorrectAnswers: isCorrect ? 1 : 0,
-    });
-}
-
-/**
  * Track study time (call periodically)
  */
 export async function trackStudyTime(firestore: Firestore, userId: string, minutes: number) {
@@ -188,8 +169,6 @@ export async function initializeUserProfile(
             totalMapsCreated: 0,
             totalNestedExpansions: 0,
             totalImagesGenerated: 0,
-            totalQuizQuestions: 0,
-            quizCorrectAnswers: 0,
             totalStudyTimeMinutes: 0,
             lastActiveDate: today,
             currentStreak: 0,

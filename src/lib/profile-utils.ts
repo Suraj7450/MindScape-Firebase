@@ -27,8 +27,6 @@ export interface UserStatistics {
     totalMapsCreated: number;
     totalNestedExpansions: number;
     totalImagesGenerated: number;
-    totalQuizQuestions: number;
-    quizCorrectAnswers: number;
     totalStudyTimeMinutes: number;
     lastActiveDate: string; // YYYY-MM-DD
     currentStreak: number;
@@ -50,7 +48,6 @@ export interface DailyActivity {
     mapsCreated: number;
     expansionsMade: number;
     imagesGenerated: number;
-    quizQuestions: number;
     studyTimeMinutes: number;
 }
 
@@ -119,7 +116,6 @@ function hasActivity(activity: DailyActivity): boolean {
         activity.mapsCreated > 0 ||
         activity.expansionsMade > 0 ||
         activity.imagesGenerated > 0 ||
-        activity.quizQuestions > 0 ||
         activity.studyTimeMinutes > 0
     );
 }
@@ -143,7 +139,6 @@ export function getActivityHeatmapData(
             ? activity.mapsCreated * 5 +
             activity.expansionsMade * 2 +
             activity.imagesGenerated * 1 +
-            activity.quizQuestions * 0.5 +
             activity.studyTimeMinutes * 0.1
             : 0;
 
@@ -172,13 +167,6 @@ export function getMostExploredTopics(
         .slice(0, 10);
 }
 
-/**
- * Calculate quiz accuracy percentage
- */
-export function calculateQuizAccuracy(stats: UserStatistics): number {
-    if (stats.totalQuizQuestions === 0) return 0;
-    return Math.round((stats.quizCorrectAnswers / stats.totalQuizQuestions) * 100);
-}
 
 /**
  * Format study time in human-readable format
@@ -223,8 +211,6 @@ export function getDefaultStatistics(): UserStatistics {
         totalMapsCreated: 0,
         totalNestedExpansions: 0,
         totalImagesGenerated: 0,
-        totalQuizQuestions: 0,
-        quizCorrectAnswers: 0,
         totalStudyTimeMinutes: 0,
         lastActiveDate: format(new Date(), 'yyyy-MM-dd'),
         currentStreak: 0,

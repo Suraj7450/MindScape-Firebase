@@ -129,7 +129,6 @@ const LucideIcons = {
 };
 import {
   explainNodeAction,
-  generateQuizAction,
   explainWithExampleAction,
   translateMindMapAction,
   expandNodeAction,
@@ -159,8 +158,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
-import { QuizDialog } from './quiz-dialog';
-import type { QuizQuestion } from '@/ai/flows/generate-quiz';
 import { useAIConfig } from '@/contexts/ai-config-context';
 import {
   Tooltip,
@@ -311,10 +308,6 @@ export const MindMap = ({
 
   const [explanationMode, setExplanationMode] =
     useLocalStorage<ExplanationMode>('explanationMode', 'Intermediate');
-
-  const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
-  const [isQuizLoading, setIsQuizLoading] = useState(false);
 
   const [openSubTopics, setOpenSubTopics] = useState<string[]>(
     data.subTopics && data.subTopics.length > 0 ? ['topic-0'] : []
@@ -685,29 +678,6 @@ export const MindMap = ({
     });
   };
 
-  const handleQuizClick = async () => {
-    setIsQuizDialogOpen(true);
-    setIsQuizLoading(true);
-
-    // Create a plain object for the server action to avoid serialization errors with Firestore timestamps
-    const plainMindMapData = toPlainObject(data);
-
-    const { quiz, error } = await generateQuizAction({
-      mindMapData: plainMindMapData,
-    }, providerOptions);
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Quiz Generation Failed',
-        description: error,
-      });
-      setIsQuizDialogOpen(false);
-    } else if (quiz) {
-      setQuizQuestions(quiz.questions);
-    }
-    setIsQuizLoading(false);
-  };
 
 
 
@@ -826,9 +796,9 @@ export const MindMap = ({
 
       if (catError) throw new Error(catError);
 
-      update({ id: toastId, title: 'Uploading Data...', description: 'Saving your mind map to the public repository.' });
+      update({ id: toastId, title: 'Uploading Data...', description: 'Saving your mind map to the community repository.' });
 
-      // 3. Prepare Public Data
+      // 3. Prepare Community Data
       const publicData: any = {
         ...toPlainObject(data),
         isPublic: true,
@@ -904,7 +874,6 @@ export const MindMap = ({
         onOpenAiContent={() => setIsAiContentDialogOpen(true)}
         onOpenNestedMaps={() => setIsNestedMapsDialogOpen(true)}
         onOpenGallery={() => setIsGalleryOpen(true)}
-        onOpenQuiz={handleQuizClick}
         onDuplicate={handleDuplicate}
         isDuplicating={isDuplicating}
         onRegenerate={onRegenerate}
@@ -928,7 +897,7 @@ export const MindMap = ({
               mindMap={data}
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
-              onStackSelect={onStackSelect}
+              onStackSelect={onStackSelect as any}
             />
 
             <MindMapAccordion
@@ -982,15 +951,6 @@ export const MindMap = ({
         isGlobalBusy={status !== 'idle'}
       />
 
-      <QuizDialog
-        isOpen={isQuizDialogOpen}
-        onClose={() => setIsQuizDialogOpen(false)}
-        questions={quizQuestions}
-        isLoading={isQuizLoading}
-        topic={data.topic}
-        onRestart={handleQuizClick}
-        isGlobalBusy={status !== 'idle'}
-      />
 
       <AiContentDialog
         isOpen={isAiContentDialogOpen}

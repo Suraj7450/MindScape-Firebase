@@ -272,7 +272,7 @@ export default function DashboardPage() {
                       <div className="absolute top-2 right-2">
                         <Badge className="bg-emerald-500/80 backdrop-blur-md text-[10px] uppercase tracking-wider border-none gap-1">
                           <Rocket className="h-2.5 w-2.5" />
-                          Public
+                          Community
                         </Badge>
                       </div>
                     )}

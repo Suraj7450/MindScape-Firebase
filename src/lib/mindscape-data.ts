@@ -72,13 +72,6 @@ export const mindscapeMap: GenerateMindMapOutput = {
                             icon: "git-branch",
                             tags: ["Recursive", "Deep Dive", "Exploration"],
                             isExpanded: false
-                        },
-                        {
-                            name: "Quiz Me",
-                            description: "Test your knowledge with AI-generated multiple-choice quizzes based on the mind map content.",
-                            icon: "test-tube-2",
-                            tags: ["Assessment", "Learning", "Practice"],
-                            isExpanded: false
                         }
                     ]
                 },
@@ -109,7 +102,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
                         },
                         {
                             name: "Download & Share",
-                            description: "Export maps as PNG images or share via public links for collaboration and presentations.",
+                            description: "Export maps as PNG images or share via community links for collaboration and presentations.",
                             icon: "share-2",
                             tags: ["Export", "Collaboration", "Sharing"],
                             isExpanded: false
@@ -256,7 +249,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
                         },
                         {
                             name: "Feature Cards",
-                            description: "Deep exploration cards for My Maps, MindGPT, and Public Maps with hover effects and navigation.",
+                            description: "Deep exploration cards for My Maps, MindGPT, and Community Maps with hover effects and navigation.",
                             icon: "layers",
                             tags: ["Navigation", "Discovery", "Interactive"],
                             isExpanded: false
@@ -275,7 +268,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
                             isExpanded: false
                         },
                         {
-                            name: "Public Gallery",
+                            name: "Community Gallery",
                             description: "Explore and duplicate mind maps created and shared by the community for inspiration and learning.",
                             icon: "gallery-vertical",
                             tags: ["Community", "Sharing", "Discovery"],
@@ -302,8 +295,8 @@ export const mindscapeMap: GenerateMindMapOutput = {
                             isExpanded: false
                         },
                         {
-                            name: "Duplicate Public Maps",
-                            description: "Save any public map to your personal dashboard as an editable copy for customization.",
+                            name: "Duplicate Community Maps",
+                            description: "Save any community map to your personal dashboard as an editable copy for customization.",
                             icon: "copy",
                             tags: ["Remix", "Learning", "Customization"],
                             isExpanded: false

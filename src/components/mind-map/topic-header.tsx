@@ -12,7 +12,7 @@ interface TopicHeaderProps {
     mindMap: MindMapData;
     mindMapStack: MindMapData[];
     activeStackIndex: number;
-    onStackSelect: (index: number) => void;
+    onStackSelect?: (index: number) => void;
 }
 
 export const TopicHeader = ({
@@ -50,7 +50,7 @@ export const TopicHeader = ({
                             {mindMapStack.slice(0, activeStackIndex + 1).map((stackItem, idx) => (
                                 <React.Fragment key={idx}>
                                     <button
-                                        onClick={() => onStackSelect(idx)}
+                                        onClick={() => onStackSelect?.(idx)}
                                         className={cn(
                                             "text-[10px] font-black uppercase tracking-widest transition-all",
                                             idx === activeStackIndex

@@ -60,7 +60,6 @@ interface MindMapToolbarProps {
     onOpenAiContent: () => void;
     onOpenNestedMaps: () => void;
     onOpenGallery: () => void;
-    onOpenQuiz: () => void;
     onDuplicate: () => void;
     isDuplicating: boolean;
     onRegenerate: () => void;
@@ -93,7 +92,6 @@ export const MindMapToolbar = ({
     onOpenAiContent,
     onOpenNestedMaps,
     onOpenGallery,
-    onOpenQuiz,
     onDuplicate,
     isDuplicating,
     onRegenerate,
@@ -284,7 +282,7 @@ export const MindMapToolbar = ({
                             )}
                         >
                             {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className={cn("h-4 w-4", isPublic && "text-emerald-400 fill-emerald-400/20")} />}
-                            {isPublic ? 'Public' : 'Publish'}
+                            {isPublic ? 'Community' : 'Publish'}
                         </Button>
                     </div>
                 </div>
@@ -332,14 +330,6 @@ export const MindMapToolbar = ({
                                 <TooltipContent className="glassmorphism"><p>Image Gallery</p></TooltipContent>
                             </Tooltip>
 
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={onOpenQuiz} className="h-9 w-9 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-amber-400">
-                                        <TestTube2 className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="glassmorphism"><p>Quiz Me</p></TooltipContent>
-                            </Tooltip>
 
                             <Tooltip>
                                 <TooltipTrigger asChild>

@@ -31,7 +31,6 @@ interface UserProfile {
     };
     statistics: {
         currentStreak: number;
-        totalQuizQuestions: number;
     };
     apiSettings?: {
         provider?: 'gemini' | 'pollinations' | 'bytez';
@@ -46,7 +45,7 @@ interface Achievement {
     description: string;
     icon: React.ElementType;
     gradient: string;
-    check: (stats: { maps: number; questions: number; streak: number }) => boolean;
+    check: (stats: { maps: number; streak: number }) => boolean;
 }
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -65,14 +64,6 @@ const ACHIEVEMENTS: Achievement[] = [
         icon: Target,
         gradient: 'from-violet-500 to-purple-400',
         check: (stats) => stats.maps >= 5,
-    },
-    {
-        id: 'quiz_master',
-        name: 'Quiz Master',
-        description: 'Answer 10 quiz questions',
-        icon: Brain,
-        gradient: 'from-emerald-500 to-green-400',
-        check: (stats) => stats.questions >= 10,
     },
     {
         id: 'week_warrior',
@@ -124,7 +115,6 @@ export default function ProfilePage() {
                             },
                             statistics: {
                                 currentStreak: data.statistics?.currentStreak || 0,
-                                totalQuizQuestions: data.statistics?.totalQuizQuestions || 0,
                             },
                             apiSettings: {
                                 provider: data.apiSettings?.provider || 'gemini',
@@ -141,7 +131,7 @@ export default function ProfilePage() {
                             apiSettings: {
                                 provider: 'gemini',
                             },
-                            statistics: { currentStreak: 0, totalQuizQuestions: 0 },
+                            statistics: { currentStreak: 0 },
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
@@ -305,7 +295,6 @@ export default function ProfilePage() {
 
     const stats = {
         maps: activeMapsCount,
-        questions: profile.statistics.totalQuizQuestions,
         streak: profile.statistics.currentStreak,
     };
     const unlockedCount = ACHIEVEMENTS.filter(a => a.check(stats)).length;
@@ -377,18 +366,18 @@ export default function ProfilePage() {
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
                                     <Map className="h-4 w-4 text-blue-400 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-white">{stats.maps}</p>
+                                    <p className="text-xl font-bold text-white">{activeMapsCount}</p>
                                     <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Maps</p>
-                                </div>
-                                <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                                    <Brain className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-white">{stats.questions}</p>
-                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Quiz</p>
                                 </div>
                                 <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
                                     <Flame className="h-4 w-4 text-orange-400 mx-auto mb-1" />
                                     <p className="text-xl font-bold text-white">{stats.streak}</p>
                                     <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Streak</p>
+                                </div>
+                                <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                                    <Trophy className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+                                    <p className="text-xl font-bold text-white">{unlockedCount}</p>
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Awards</p>
                                 </div>
                             </div>
                         </CardContent>

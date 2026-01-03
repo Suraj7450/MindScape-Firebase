@@ -15,8 +15,6 @@ export interface UserStatistics {
     totalMapsCreated: number;
     totalNestedExpansions: number;
     totalImagesGenerated: number;
-    totalQuizQuestions: number;
-    quizCorrectAnswers: number;
     totalStudyTimeMinutes: number;
     currentStreak: number;
     longestStreak: number;
@@ -161,39 +159,6 @@ export const ACHIEVEMENTS: Achievement[] = [
         progress: (stats) => ({ current: stats.totalImagesGenerated, target: 200, label: 'images' }),
     },
 
-    // Quiz Mastery
-    {
-        id: 'quiz_novice',
-        name: 'Quiz Novice',
-        description: 'Answer 50 quiz questions',
-        icon: 'help-circle',
-        category: 'Knowledge',
-        tier: 'bronze',
-        condition: (stats) => stats.totalQuizQuestions >= 50,
-        progress: (stats) => ({ current: stats.totalQuizQuestions, target: 50, label: 'questions' }),
-    },
-    {
-        id: 'quiz_expert',
-        name: 'Quiz Expert',
-        description: 'Answer 200 quiz questions',
-        icon: 'brain',
-        category: 'Knowledge',
-        tier: 'silver',
-        condition: (stats) => stats.totalQuizQuestions >= 200,
-        progress: (stats) => ({ current: stats.totalQuizQuestions, target: 200, label: 'questions' }),
-    },
-    {
-        id: 'quiz_master',
-        name: 'Quiz Master',
-        description: 'Answer 500 quiz questions with 80%+ accuracy',
-        icon: 'trophy',
-        category: 'Knowledge',
-        tier: 'gold',
-        condition: (stats) =>
-            stats.totalQuizQuestions >= 500 &&
-            stats.quizCorrectAnswers / stats.totalQuizQuestions >= 0.8,
-        progress: (stats) => ({ current: stats.totalQuizQuestions, target: 500, label: 'questions' }),
-    },
 
     // Study Time
     {

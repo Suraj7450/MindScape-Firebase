@@ -22,11 +22,6 @@ import {
   ExplainMindMapNodeOutput,
 } from '@/ai/flows/explain-mind-map-node';
 import {
-  generateQuiz,
-  GenerateQuizOutput,
-  GenerateQuizInput,
-} from '@/ai/flows/generate-quiz';
-import {
   chatWithAssistant,
   ChatWithAssistantInput,
   ChatWithAssistantOutput,
@@ -210,34 +205,6 @@ export async function explainNodeAction(
   }
 }
 
-/**
- * Server action to generate a quiz based on the mind map data.
- * @param {GenerateQuizInput} input - The input containing the mind map data.
- * @returns {Promise<{ quiz: GenerateQuizOutput | null; error: string | null }>} An object with either the generated quiz or an error message.
- */
-export async function generateQuizAction(
-  input: GenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
-): Promise<{ quiz: GenerateQuizOutput | null; error: string | null }> {
-  try {
-    const result = await generateQuiz({ ...input, ...options });
-    return { quiz: result, error: null };
-  } catch (error) {
-    console.error(error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      quiz: null,
-      error: `Failed to generate quiz. ${errorMessage}`,
-    };
-  }
-}
-
-/**
- * Server action to handle a chat conversation with the AI assistant.
- * @param {ChatWithAssistantInput} input - The input containing the user's question and the current topic context.
- * @returns {Promise<{ response: ChatWithAssistantOutput | null; error: string | null }>} An object with either the chat response or an error message.
- */
 /**
  * Server action to handle a chat conversation with the AI assistant.
  * @param {ChatWithAssistantInput} input - The input containing the user's question, topic, chat history, and persona.
