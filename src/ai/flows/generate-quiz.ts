@@ -8,16 +8,16 @@ const GenerateQuizInputSchema = z.object({
   topic: z.string().describe('The main topic for the quiz.'),
   mindMapData: z.any().optional().describe('Optional mind map data to provide more context for the quiz.'),
   targetLang: z.string().optional().describe('The target language for the quiz content (e.g., "es").'),
-  count: z.number().optional().default(5).describe('Number of questions to generate.'),
+  count: z.number().optional().describe('Number of questions to generate.'),
   wrongConcepts: z.array(z.string()).optional().describe('Concepts the user has struggled with previously.'),
 });
 
-export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
+export type GenerateQuizInput = z.input<typeof GenerateQuizInputSchema>;
 
 export async function generateQuiz(
   input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<z.infer<typeof QuizSchema>> {
-  const { topic, mindMapData, targetLang, count, wrongConcepts, provider, apiKey, strict } = input;
+  const { topic, mindMapData, targetLang, count = 5, wrongConcepts, provider, apiKey, strict } = input;
 
   const prompt = `You are an expert educator creating a quiz to test a student's knowledge on a specific topic.
 

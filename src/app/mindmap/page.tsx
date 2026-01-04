@@ -620,6 +620,7 @@ function MindMapPageContent() {
           setActiveQuiz(undefined);
         }}
         topic={mindMap?.topic || 'Mind Map Details'}
+        mindMapData={mindMap}
         initialMessage={chatInitialMessage}
         quizToStart={activeQuiz}
         isQuizLoading={isQuizLoading}

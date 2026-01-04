@@ -1,0 +1,75 @@
+'use server';
+
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { RelatedQuestionsOutputSchema, RelatedQuestionsOutput } from '@/ai/schemas/related-questions-schema';
+import { generateContent, AIProvider } from '@/ai/client-dispatcher';
+
+const RelatedQuestionsInputSchema = z.object({
+    topic: z.string().describe('The primary topic of the mind map.'),
+    mindMapData: z.any().optional().describe('The current mind map structure for context.'),
+    history: z.array(z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+    })).optional().describe('Recent chat history.'),
+});
+
+export type RelatedQuestionsInput = z.infer<typeof RelatedQuestionsInputSchema>;
+
+export async function generateRelatedQuestions(
+    input: RelatedQuestionsInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
+): Promise<RelatedQuestionsOutput> {
+    const { topic, mindMapData, history, provider, apiKey, strict } = input;
+
+    const historyText = history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
+
+    // Extract some nodes from mindMapData to keep context concise but relevant
+    const mindMapContext = mindMapData ?
+        `Mind Map Structure: ${JSON.stringify(mindMapData).substring(0, 2000)}...` :
+        'No additional mind map structure provided.';
+
+    const systemPrompt = `You are **MindSpark** ✨, an intelligent assistant focused on deepening user understanding within the **MindScape** application.
+Your goal is to suggest 3-4 natural, engaging, and relevant follow-up questions that a user might want to ask next based on their current mind map and conversation.
+
+🧠 **Main Topic**: ${topic}
+
+${mindMapContext}
+
+${historyText ? `**Recent conversation**:\n${historyText}` : ''}
+
+---
+
+## 🎯 Your Task
+Generate 3-4 questions that:
+1. Are directly related to the current topic and specific mind map nodes.
+2. Encourage deeper exploration of the subject matter.
+3. Feel like a natural continuation of the conversation.
+4. Are concise (max 12 words per question).
+5. Address parts of the mind map not yet discussed, or follow up on the last assistant response.
+
+The output MUST be a valid JSON object:
+{
+  "questions": ["Question 1?", "Question 2?", "Question 3?"]
+}
+
+IMPORTANT: Return ONLY the raw JSON object.`;
+
+    const userPrompt = "Generate the related questions.";
+
+    try {
+        const result = await generateContent({
+            provider,
+            apiKey,
+            systemPrompt,
+            userPrompt,
+            schema: RelatedQuestionsOutputSchema,
+            strict
+        });
+
+        return result;
+    } catch (e: any) {
+        console.error(`❌ Related questions generation failed:`, e.message);
+        // Return empty array on failure instead of crashing the UI
+        return { questions: [] };
+    }
+}

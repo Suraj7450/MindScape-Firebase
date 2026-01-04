@@ -31,13 +31,17 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
     const [showResults, setShowResults] = useState(false);
     const [answers, setAnswers] = useState<{ questionId: string, selected: string, isCorrect: boolean }[]>([]);
 
-    useEffect(() => {
+    const resetQuiz = () => {
         setCurrentQuestionIndex(0);
         setSelectedOption(null);
         setIsAnswerShowing(false);
         setScore(0);
         setShowResults(false);
         setAnswers([]);
+    };
+
+    useEffect(() => {
+        resetQuiz();
     }, [quiz]);
 
     const currentQuestion = quiz.questions[currentQuestionIndex];
@@ -223,14 +227,7 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
 
                             <div className="flex gap-2">
                                 <Button
-                                    onClick={() => {
-                                        const wrongConcepts = [...new Set(answers
-                                            .filter(a => !a.isCorrect)
-                                            .map(a => quiz.questions.find(q => q.id === a.questionId)?.conceptTag)
-                                            .filter(Boolean)
-                                        )] as string[];
-                                        onRestart(wrongConcepts);
-                                    }}
+                                    onClick={resetQuiz}
                                     variant="outline"
                                     className="flex-1 rounded-xl h-11 border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 gap-1.5 text-xs font-bold"
                                 >

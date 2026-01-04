@@ -64,6 +64,11 @@ import {
   ExpandNodeInput,
   ExpandNodeOutput,
 } from '@/ai/flows/expand-node';
+import {
+  generateRelatedQuestions,
+  RelatedQuestionsInput,
+} from '@/ai/flows/generate-related-questions';
+import { RelatedQuestionsOutput } from '@/ai/schemas/related-questions-schema';
 import { addDoc, collection } from 'firebase/firestore';
 
 export interface GenerateMindMapFromImageInput {
@@ -400,6 +405,28 @@ export async function generateQuizAction(
     return {
       data: null,
       error: `Failed to generate quiz: ${errorMessage}`,
+    };
+  }
+}
+
+/**
+ * Server action to generate related questions based on the current context.
+ * @param {RelatedQuestionsInput} input - The context for generating related questions.
+ * @returns {Promise<{ data: RelatedQuestionsOutput | null; error: string | null }>} The generated questions or an error.
+ */
+export async function generateRelatedQuestionsAction(
+  input: RelatedQuestionsInput,
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
+): Promise<{ data: RelatedQuestionsOutput | null; error: string | null }> {
+  try {
+    const result = await generateRelatedQuestions({ ...input, ...options });
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('Error in generateRelatedQuestionsAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return {
+      data: null,
+      error: `Failed to generate related questions: ${errorMessage}`,
     };
   }
 }

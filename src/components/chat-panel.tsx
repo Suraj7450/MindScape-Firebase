@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -12,8 +11,38 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, User, Bot, X, Wand2, HelpCircle, FileQuestion, TestTube2, GitCompareArrows, Save, Plus, History, ArrowLeft, MessageSquare, Trash2, Copy, Check, RefreshCw, Sparkles, GraduationCap, Zap, Palette, Mic, MicOff, Download, Eraser, Github } from 'lucide-react';
-import { chatAction, summarizeChatAction } from '@/app/actions';
+import {
+  Loader2,
+  Send,
+  User,
+  Bot,
+  X,
+  Wand2,
+  HelpCircle,
+  FileQuestion,
+  TestTube2,
+  GitCompareArrows,
+  Save,
+  Plus,
+  History,
+  ArrowLeft,
+  MessageSquare,
+  Trash2,
+  Copy,
+  Check,
+  RefreshCw,
+  Sparkles,
+  GraduationCap,
+  Zap,
+  Palette,
+  Mic,
+  MicOff,
+  Download,
+  Eraser,
+  Github,
+  ChevronRight
+} from 'lucide-react';
+import { chatAction, summarizeChatAction, generateRelatedQuestionsAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText } from '@/lib/utils';
 import { Separator } from './ui/separator';
@@ -24,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 import { QuizComponent } from '@/components/quiz/quiz-component';
 import { Quiz } from '@/ai/schemas/quiz-schema';
+import { MindMapData } from '@/types/mind-map';
 
 import { doc, getDoc } from 'firebase/firestore';
 import {
@@ -82,6 +112,7 @@ interface ChatPanelProps {
   isQuizLoading?: boolean;
   quizTopic?: string;
   onRegenerateQuiz?: (topic: string, wrongConcepts?: string[]) => void;
+  mindMapData?: MindMapData;
 }
 
 const allSuggestionPrompts = [
@@ -123,6 +154,7 @@ export function ChatPanel({
   isQuizLoading,
   quizTopic,
   onRegenerateQuiz,
+  mindMapData
 }: ChatPanelProps) {
   const [sessions, setSessions] = useLocalStorage<ChatSession[]>('chat-sessions', []);
 
@@ -135,6 +167,9 @@ export function ChatPanel({
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
   const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
+  const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
+  const [isGeneratingRelated, setIsGeneratingRelated] = useState(false);
+  const [showRelatedQuestions, setShowRelatedQuestions] = useState(true);
 
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
@@ -155,6 +190,7 @@ export function ChatPanel({
     };
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
+    setRelatedQuestions([]);
     setView('chat');
   }, [setSessions]);
 
@@ -170,6 +206,7 @@ export function ChatPanel({
     if (!content || !activeSessionId) return;
 
     const newMessage: Message = { role: 'user', content };
+    setRelatedQuestions([]); // Clear previous questions when a new one is sent
 
     // Update the state optimistically
     const currentMessages = activeSession?.messages ?? [];
@@ -210,31 +247,30 @@ export function ChatPanel({
         ? { ...s, messages: [...updatedMessages, assistantMessage] }
         : s
     ));
-  }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions]);
+
+    // After a successful response, generate related questions if we have mindMapData
+    if (!error && response) {
+      setIsGeneratingRelated(true);
+      const { data: relatedData } = await generateRelatedQuestionsAction({
+        topic,
+        mindMapData: mindMapData,
+        history: [...updatedMessages, assistantMessage]
+      }, providerOptions);
+
+      if (relatedData?.questions) {
+        setRelatedQuestions(relatedData.questions);
+      }
+      setIsGeneratingRelated(false);
+    }
+  }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions, mindMapData]);
 
   useEffect(() => {
     if (!quizToStart) return;
 
-    // Check if we already have a quiz session for this topic (case-insensitive)
-    const targetTopic = `Quiz: ${quizToStart.topic}`.toLowerCase();
-    const existingQuizSession = sessions.find(s => s.topic.toLowerCase() === targetTopic);
-
-    if (existingQuizSession) {
-      // Update existing session with new quiz data if it's different
-      if (existingQuizSession.quiz !== quizToStart) {
-        setSessions(prev => prev.map(s =>
-          s.id === existingQuizSession.id
-            ? { ...s, quiz: quizToStart, timestamp: Date.now() }
-            : s
-        ));
-        // Ensure this session is active
-        setActiveSessionId(existingQuizSession.id);
-      }
-    } else {
-      // No existing quiz session for this topic, start a new one
-      startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
-    }
-  }, [quizToStart, sessions, startNewChat]);
+    // The user wants a new chat card for every regeneration.
+    // Instead of finding and updating, we always start a new one.
+    startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
+  }, [quizToStart, startNewChat]);
 
   // Load persona and provider preference from user profile
   useEffect(() => {
@@ -289,8 +325,13 @@ export function ChatPanel({
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (isOpen && view === 'chat') {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, view, messages, isGeneratingRelated, relatedQuestions]);
 
   // Summarize chat to generate a topic title
   useEffect(() => {
@@ -570,6 +611,8 @@ export function ChatPanel({
     ));
 
     setIsLoading(true);
+    setRelatedQuestions([]); // Clear when regenerating
+
     const { response, error } = await chatAction({
       question: userMessage,
       topic,
@@ -587,6 +630,21 @@ export function ChatPanel({
         ? { ...s, messages: [...updatedMessages, newAssistantMessage] }
         : s
     ));
+
+    // Also regenerate related questions
+    if (!error && response) {
+      setIsGeneratingRelated(true);
+      const { data: relatedData } = await generateRelatedQuestionsAction({
+        topic,
+        mindMapData: mindMapData,
+        history: [...updatedMessages, newAssistantMessage]
+      }, providerOptions);
+
+      if (relatedData?.questions) {
+        setRelatedQuestions(relatedData.questions);
+      }
+      setIsGeneratingRelated(false);
+    }
   };
 
   /**
@@ -594,6 +652,7 @@ export function ChatPanel({
    */
   const selectSession = (sessionId: string) => {
     setActiveSessionId(sessionId);
+    setRelatedQuestions([]);
     setView('chat');
   }
 
@@ -763,89 +822,160 @@ export function ChatPanel({
               </div>
             </div>
           )}
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                'flex items-start gap-3',
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              )}
-            >
-              {message.role === 'assistant' && (
-                <Avatar className="h-8 w-8 border">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    <Bot className="h-5 w-5" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <div
-                className={cn(
-                  'rounded-lg max-w-[80%]',
-                  message.role === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-br-none'
-                    : 'bg-secondary/80 rounded-bl-none'
-                )}
-              >
-                <div className="p-3">
-                  <div
-                    className="text-sm prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                  />
 
+          {/* Messages and Suggestions List */}
+          <div className="flex flex-col gap-6">
+            {messages.map((message, index) => (
+              <div key={index} className="flex flex-col gap-3">
+                <div
+                  className={cn(
+                    'flex items-start gap-3',
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  )}
+                >
+                  {message.role === 'assistant' ? (
+                    <Avatar className="h-8 w-8 border">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        <Bot className="h-5 w-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="order-2">
+                      <Avatar className="h-8 w-8 border shadow-sm">
+                        <AvatarFallback className="bg-secondary text-secondary-foreground">
+                          <User className="h-5 w-5 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      'rounded-lg max-w-[80%]',
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-none order-1'
+                        : 'bg-secondary/80 rounded-bl-none'
+                    )}
+                  >
+                    <div className="p-3">
+                      <div
+                        className="text-sm prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                      />
+                    </div>
+                    {message.role === 'assistant' && (
+                      <div className="flex items-center gap-1 px-3 pb-2 pt-0">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                onClick={() => handleCopy(message.content, index)}
+                              >
+                                {copiedIndex === index ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Copy</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                onClick={() => handleRegenerate(index)}
+                              >
+                                <RefreshCw className={cn("h-3 w-3", isLoading && index === messages.length - 1 && "animate-spin")} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Regenerate</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {message.role === 'assistant' && (
-                  <div className="flex items-center gap-1 px-3 pb-2 pt-0">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:bg-secondary"
-                            onClick={() => handleCopy(message.content, index)}
+
+                {/* Related Questions Section */}
+                {message.role === 'assistant' && index === messages.length - 1 && (
+                  <div className="ml-11 flex flex-col gap-3">
+                    {/* Toggle Header */}
+                    {(isGeneratingRelated || relatedQuestions.length > 0) && (
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setShowRelatedQuestions(!showRelatedQuestions)}
+                          className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
+                        >
+                          <Sparkles className={cn("h-3 w-3", isGeneratingRelated ? "animate-spin text-primary" : "text-primary/50 group-hover:text-primary")} />
+                          <span>Related Questions</span>
+                          <motion.div
+                            animate={{ rotate: showRelatedQuestions ? 0 : -90 }}
+                            transition={{ duration: 0.2 }}
                           >
-                            {copiedIndex === index ? (
-                              <Check className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>{copiedIndex === index ? 'Copied!' : 'Copy'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:bg-secondary"
-                            onClick={() => handleRegenerate(index)}
-                            disabled={isLoading}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Regenerate</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                            <ChevronRight className="h-3 w-3" />
+                          </motion.div>
+                        </button>
+
+                        {relatedQuestions.length > 0 && !isGeneratingRelated && (
+                          <div className="h-[1px] flex-grow bg-border/30 ml-3" />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Content Area */}
+                    <AnimatePresence mode="wait">
+                      {isGeneratingRelated ? (
+                        <motion.div
+                          key="loading"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse py-1"
+                        >
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                          <span>Finding relevant insights...</span>
+                        </motion.div>
+                      ) : showRelatedQuestions && relatedQuestions.length > 0 && (
+                        <motion.div
+                          key="questions"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          <div className="flex flex-col gap-2.5 pt-1">
+                            {relatedQuestions.map((q, qIndex) => (
+                              <motion.button
+                                key={qIndex}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: qIndex * 0.05 }}
+                                onClick={() => handleSend(q)}
+                                className="text-[11px] bg-secondary/40 hover:bg-secondary/60 text-muted-foreground hover:text-primary border border-border/50 py-2.5 px-4 rounded-2xl transition-all flex items-start gap-3 group text-left w-full sm:w-auto sm:max-w-md shadow-sm hover:shadow-md hover:border-primary/30"
+                              >
+                                <HelpCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 opacity-50 group-hover:opacity-100 text-primary/70" />
+                                <span className="flex-grow leading-relaxed font-medium">{q}</span>
+                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all mt-0.5" />
+                              </motion.button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
-              {message.role === 'user' && (
-                <Avatar className="h-8 w-8 border">
-                  <AvatarFallback className="bg-secondary text-secondary-foreground">
-                    <User className="h-5 w-5" />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
 
           {isQuizLoading && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in duration-500">
@@ -896,8 +1026,6 @@ export function ChatPanel({
               <QuizComponent
                 quiz={activeSession.quiz}
                 onClose={() => {
-                  // Just mark as finished or close panel? 
-                  // User said "finish", maybe we just keep it in history.
                   toast({ title: "Quiz Finished", description: "You've completed the knowledge check." });
                 }}
                 onRestart={(wrongConcepts) => {
@@ -1092,6 +1220,7 @@ export function ChatPanel({
                             setSessions(prev => prev.map(s =>
                               s.id === activeSessionId ? { ...s, messages: [] } : s
                             ));
+                            setRelatedQuestions([]);
                             toast({ title: 'Chat cleared', description: 'Messages have been cleared.' });
                           }
                         }}
