@@ -116,7 +116,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
             icon: "bot",
             categories: [
                 {
-                    name: "MindGPT",
+                    name: "Guided Brainstorming",
                     icon: "message-circle",
                     subCategories: [
                         {
@@ -135,7 +135,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
                         },
                         {
                             name: "Context-Aware",
-                            description: "MindGPT remembers your conversation history and provides contextually relevant follow-up questions and suggestions.",
+                            description: "The AI remembers your conversation history and provides contextually relevant follow-up questions and suggestions.",
                             icon: "brain",
                             tags: ["Memory", "Context", "Personalized"],
                             isExpanded: false
@@ -201,7 +201,7 @@ export const mindscapeMap: GenerateMindMapOutput = {
                     subCategories: [
                         {
                             name: "Dynamic Login Showcases",
-                            description: "Rotating content on each visit highlighting different MindScape capabilities: MindGPT, AI Generation, Infinite Exploration, and Vision Mode.",
+                            description: "Rotating content on each visit highlighting different MindScape capabilities: Guided Brainstorming, AI Generation, Infinite Exploration, and Vision Mode.",
                             icon: "shuffle",
                             tags: ["Dynamic", "Engaging", "Value Proposition"],
                             isExpanded: false
@@ -249,10 +249,15 @@ export const mindscapeMap: GenerateMindMapOutput = {
                         },
                         {
                             name: "Feature Cards",
-                            description: "Deep exploration cards for My Maps, MindGPT, and Community Maps with hover effects and navigation.",
-                            icon: "layers",
-                            tags: ["Navigation", "Discovery", "Interactive"],
-                            isExpanded: false
+                            title: 'My Maps',
+                            desc: 'Access, manage, and revisit all of your saved mind maps in one place.',
+                            href: '/dashboard',
+                        },
+                        {
+                            icon: "globe",
+                            title: 'Community Maps',
+                            desc: 'Explore a gallery of mind maps created and shared by the community.',
+                            href: '/community',
                         }
                     ]
                 },

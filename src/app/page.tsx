@@ -318,12 +318,6 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
       href: '/dashboard',
     },
     {
-      icon: Bot,
-      title: 'MindGPT',
-      desc: 'A brainstorming copilot that expands, refines, and organizes your thoughts.',
-      href: '/mind-gpt',
-    },
-    {
       icon: Globe,
       title: 'Community Maps',
       desc: 'Explore a gallery of mind maps created and shared by the community.',

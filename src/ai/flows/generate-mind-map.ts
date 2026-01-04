@@ -62,7 +62,7 @@ export async function generateMindMap(
   - Keep all text extremely brief and to the point.
     - Use fragments or high - impact keywords instead of long sentences.
     - Focus only on the most critical information.
-    - Descriptions should be very short(max 15 words).`;
+    - Descriptions should be concise and focused.`;
   } else if (persona === 'Creative') {
     personaInstruction = `
     ADOPT PERSONA: "Creative Visionary"
@@ -75,8 +75,7 @@ export async function generateMindMap(
     ADOPT PERSONA: "Standard Academic Assistant"
   - Provide a balanced, informative, and well - structured overview.
     - Use clear, professional, yet accessible language.
-    - Ensure comprehensive coverage of core concepts.
-    - Keep descriptions highly focused and exactly one sentence.`;
+    - Ensure comprehensive coverage of core concepts.`;
   }
 
   // Construct Prompt

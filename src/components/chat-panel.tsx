@@ -739,87 +739,131 @@ export function ChatPanel({
     <>
       <ScrollArea className="flex-grow px-4">
         <div className="flex flex-col gap-4 py-4">
-          {messages.length === 0 && topic === 'General Conversation' && (
-            <div className="text-center p-4 relative">
-              {/* Animated Gradient Background */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-56 h-56 rounded-full bg-gradient-to-r from-purple-500/15 via-blue-500/15 to-pink-500/15 blur-3xl animate-pulse-glow" />
-              </div>
-
-              {/* Floating Bot Avatar */}
-              <div className="relative z-10">
-                <Avatar className="h-16 w-16 border-2 border-primary mx-auto mb-4 shadow-lg shadow-primary/20">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    <Bot className="h-9 w-9" />
-                  </AvatarFallback>
-                </Avatar>
-
-                {/* Greeting with fade-in animation */}
-                <h2 className="text-2xl font-bold mb-6 animate-fade-in text-white">
-                  How can I help you?
-                </h2>
-              </div>
-
-              {/* Quick Resume Cards */}
-              {sessions.filter(s => s.topic !== 'General Conversation' && s.messages.length > 0).length > 0 && (
-                <div className="mb-6 animate-fade-in" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium text-left">Jump back in</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {sessions
-                      .filter(s => s.id !== activeSessionId && s.messages.length > 0 && s.topic !== 'General Conversation')
-                      .slice(0, 2)
-                      .map(session => (
-                        <button
-                          key={session.id}
-                          onClick={() => selectSession(session.id)}
-                          className="text-left p-3 rounded-lg bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all group hover:scale-[1.02] hover:-translate-y-0.5"
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <History className="h-3 w-3 text-primary" />
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(session.timestamp), { addSuffix: true })}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                            {session.topic}
-                          </p>
-                        </button>
-                      ))}
-                  </div>
+          {messages.length === 0 && (
+            <div className="text-center p-6 relative min-h-[400px] flex flex-col items-center justify-center">
+              {/* Dynamic Persona Indicator */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute top-0 right-0"
+              >
+                <div className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5 bg-white/5 transition-all shadow-sm",
+                  personas.find(p => p.id === persona)?.color
+                )}>
+                  <Sparkles className="w-3 h-3" />
+                  <span>{persona} Mode</span>
                 </div>
-              )}
+              </motion.div>
 
-              {/* Enhanced Suggestion Cards */}
-              <p className="text-sm text-muted-foreground/80 uppercase tracking-wider mb-4 font-semibold text-left animate-fade-in" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>Try asking...</p>
-              <div className="grid grid-cols-1 gap-4 text-sm">
-                {displayedPrompts.map((prompt, index) => (
-                  <button
+              {/* Enhanced Animated Gradient Background Layer */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-indigo-500/10 blur-[80px] animate-pulse-glow" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
+              </div>
+
+              {/* Central Hero Section */}
+              <div className="relative z-10 mb-10 w-full">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="relative inline-block mb-6">
+                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
+                    <Avatar className="h-20 w-20 border-2 border-primary/50 mx-auto shadow-2xl relative z-10 group-hover:scale-110 transition-transform duration-500">
+                      <AvatarFallback className="bg-zinc-950 text-primary">
+                        <Bot className="h-10 w-10 animate-float" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-2">
+                    {topic === 'General Conversation' ? "How can I help you?" : `Explore ${topic}`}
+                  </h2>
+                  <p className="text-zinc-500 text-xs font-medium uppercase tracking-[0.2em] animate-pulse">
+                    AI Knowledge Assistant Active
+                  </p>
+                </motion.div>
+              </div>
+
+              {/* Bento Grid Suggestions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg relative z-10">
+                {[
+                  {
+                    title: "Deep Dive",
+                    icon: Wand2,
+                    prompt: `Give me a comprehensive deep dive into ${topic === 'General Conversation' ? 'a random interesting topic' : topic}`,
+                    color: "bg-purple-500/10 hover:bg-purple-500/20",
+                    border: "border-purple-500/20",
+                    iconColor: "text-purple-400"
+                  },
+                  {
+                    title: "Quick Quiz",
+                    icon: TestTube2,
+                    prompt: `Challenge me with a quick quiz about ${topic === 'General Conversation' ? 'General Knowledge' : topic}`,
+                    color: "bg-emerald-500/10 hover:bg-emerald-500/20",
+                    border: "border-emerald-500/20",
+                    iconColor: "text-emerald-400"
+                  },
+                  {
+                    title: "Key Concepts",
+                    icon: GraduationCap,
+                    prompt: `What are the most important concepts to master in ${topic === 'General Conversation' ? 'Learning' : topic}?`,
+                    color: "bg-blue-500/10 hover:bg-blue-500/20",
+                    border: "border-blue-500/20",
+                    iconColor: "text-blue-400"
+                  },
+                  {
+                    title: "Fact Check",
+                    icon: History,
+                    prompt: `Surprise me with some incredible facts about ${topic === 'General Conversation' ? 'the universe' : topic}`,
+                    color: "bg-orange-500/10 hover:bg-orange-500/20",
+                    border: "border-orange-500/20",
+                    iconColor: "text-orange-400"
+                  }
+                ].map((item, index) => (
+                  <motion.button
                     key={index}
-                    onClick={() => handleSend(prompt.text)}
-                    className="group relative overflow-hidden rounded-xl p-4 text-left transition-all duration-300 bg-gradient-to-br from-secondary/30 to-secondary/10 border border-border/50 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/20 hover:scale-[1.03] hover:-translate-y-1 animate-fade-in"
-                    style={{ animationDelay: `${0.3 + index * 0.1}s`, animationFillMode: 'both' }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    onClick={() => handleSend(item.prompt)}
+                    className={cn(
+                      "group flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-lg active:scale-95",
+                      item.color,
+                      item.border
+                    )}
                   >
-                    {/* Shimmer effect on hover */}
-                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-
-                    {/* Content */}
-                    <div className="flex items-start gap-3 relative z-10">
-                      <div className={cn(
-                        "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/25 to-primary/10 group-hover:scale-110 transition-transform shadow-lg ring-1 ring-white/5",
-                        prompt.color
-                      )}>
-                        <prompt.icon className="h-5 w-5" />
-                      </div>
-                      <div className="flex-grow">
-                        <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-relaxed">
-                          {prompt.text}
-                        </p>
-                      </div>
-                      <Send className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center bg-zinc-950 border border-white/5 shadow-inner transition-transform group-hover:rotate-12",
+                      item.iconColor
+                    )}>
+                      <item.icon className="w-5 h-5" />
                     </div>
-                  </button>
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">{item.title}</h4>
+                      <p className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors line-clamp-1">
+                        Get started instantly
+                      </p>
+                    </div>
+                  </motion.button>
                 ))}
               </div>
+
+              {/* Quick Resume Link - Subtly placed at bottom */}
+              {sessions.filter(s => s.id !== activeSessionId && s.messages.length > 0).length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="mt-8 flex items-center gap-2 text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
+                  onClick={() => setView('history')}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">View Recent Sessions</span>
+                </motion.div>
+              )}
             </div>
           )}
 

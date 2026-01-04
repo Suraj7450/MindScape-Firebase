@@ -291,13 +291,6 @@ function MindMapPageContent() {
                 targetLang: params.lang,
                 persona: aiPersona,
               }, aiOptions);
-            } else if (sessionType === 'mindgpt') {
-              currentMode = 'mindgpt';
-              try {
-                result.data = JSON.parse(fileContent);
-              } catch (e) {
-                result.error = 'Could not process the MindGPT result. It might be corrupted.';
-              }
             }
             sessionStorage.removeItem(`session-type-${params.sessionId}`);
             sessionStorage.removeItem(`session-content-${params.sessionId}`);

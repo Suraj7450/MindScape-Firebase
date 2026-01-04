@@ -55,7 +55,6 @@ export function Navbar() {
     { href: '/', label: 'Home' },
     { href: '/dashboard', label: 'My Maps' },
     { href: '/community', label: 'Community' },
-    { href: '/mind-gpt', label: 'MindGPT' },
   ];
 
   const handleLogout = async () => {

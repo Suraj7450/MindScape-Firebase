@@ -99,7 +99,7 @@ export async function generateComparisonMap(
             - Each description MUST be concise and clearly explain the distinction in exactly one sentence.
         3.  **"Contextual Links / Overlap"**:
             - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to one sentence.
+            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and informative.
     
       Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
       Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.

@@ -10,7 +10,7 @@ export default function LoginVariantD() {
                 <div className="space-y-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-medium">
                         <MessageCircle className="w-4 h-4" />
-                        <span>Powered by MindGPT</span>
+                        <span>Guided Brainstorming</span>
                     </div>
 
                     <div className="space-y-4">

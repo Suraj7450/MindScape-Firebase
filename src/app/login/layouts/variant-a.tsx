@@ -20,8 +20,8 @@ export default function LoginVariantA() {
         },
         {
             icon: MessageCircle,
-            title: "MindGPT",
-            description: "Engage in a guided, conversational process to build maps from scratch with AI assistance."
+            title: "Guided Brainstorming",
+            description: "Engage in a guided, conversational process to build knowledge with AI assistance."
         },
         {
             icon: ImageIcon,

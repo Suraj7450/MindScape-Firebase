@@ -91,13 +91,6 @@ export async function generateMindMapFromText(
 
   const userPrompt = `Text to analyze:\n---\n${text}\n---`;
 
-  const rawResult = await generateContent({
-    provider,
-    apiKey,
-    systemPrompt,
-    userPrompt,
-    strict
-  });
 
   const maxAttempts = 2;
   let lastError = null;
