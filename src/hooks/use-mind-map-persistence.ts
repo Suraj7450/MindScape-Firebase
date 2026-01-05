@@ -52,6 +52,11 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
     }, [user, firestore]);
 
     // 3. Real-time Sync Listener
+    const onRemoteUpdateRef = useRef(options.onRemoteUpdate);
+    useEffect(() => {
+        onRemoteUpdateRef.current = options.onRemoteUpdate;
+    }, [options.onRemoteUpdate]);
+
     const subscribeToMap = useCallback((mapId: string, currentMap: MindMapData | undefined, isIdle: boolean) => {
         if (!user || !firestore || !mapId || !isIdle) return () => { };
 
@@ -67,13 +72,13 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 const remoteUpdatedAt = (remoteData as any).updatedAt?.toMillis?.() || 0;
                 const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
 
-                if (remoteUpdatedAt > localUpdatedAt && options.onRemoteUpdate) {
+                if (remoteUpdatedAt > localUpdatedAt && onRemoteUpdateRef.current) {
                     if (!remoteData.hasSplitContent) {
                         // Legacy Sync (full doc in metadata)
-                        options.onRemoteUpdate({ ...remoteData, id: snapshot.id } as MindMapData);
+                        onRemoteUpdateRef.current({ ...remoteData, id: snapshot.id } as MindMapData);
                     } else if (currentMap) {
                         // Split Schema Sync: Merge metadata (isPublic, stats, etc) into existing map
-                        options.onRemoteUpdate({ ...currentMap, ...remoteData, id: snapshot.id } as MindMapData);
+                        onRemoteUpdateRef.current({ ...currentMap, ...remoteData, id: snapshot.id } as MindMapData);
                     }
                 }
             }
@@ -86,8 +91,8 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 const remoteUpdatedAt = (contentData as any).updatedAt?.toMillis?.() || 0;
                 const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
 
-                if (remoteUpdatedAt > localUpdatedAt && options.onRemoteUpdate && currentMap) {
-                    options.onRemoteUpdate({ ...currentMap, ...contentData, id: mapId });
+                if (remoteUpdatedAt > localUpdatedAt && onRemoteUpdateRef.current && currentMap) {
+                    onRemoteUpdateRef.current({ ...currentMap, ...contentData, id: mapId });
                 }
             }
         });

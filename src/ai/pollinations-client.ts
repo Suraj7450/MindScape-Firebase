@@ -73,7 +73,32 @@ export async function generateContentWithPollinations(
                 return obj;
             }
 
-            // 2. Check known wrapper keys
+            // Debug: Log what we're checking
+            if (obj.tool_calls) {
+                console.log('🔍 Found tool_calls property. Is array?', Array.isArray(obj.tool_calls), 'Length:', obj.tool_calls?.length);
+                console.log('🔍 tool_calls[0]:', JSON.stringify(obj.tool_calls[0], null, 2).substring(0, 500));
+            }
+
+            // 2. Handle tool_calls format (new Pollinations response structure)
+            if (obj.tool_calls && Array.isArray(obj.tool_calls) && obj.tool_calls.length > 0) {
+                console.log('🔧 Detected tool_calls format, extracting arguments...');
+                const toolCall = obj.tool_calls[0];
+                if (toolCall.function?.arguments) {
+                    try {
+                        const args = typeof toolCall.function.arguments === 'string'
+                            ? JSON.parse(toolCall.function.arguments)
+                            : toolCall.function.arguments;
+                        console.log('📦 Extracted keys from tool_calls:', Object.keys(args));
+                        return deepExtract(args);
+                    } catch (e) {
+                        console.warn('⚠️ Failed to parse tool_calls arguments:', e);
+                    }
+                } else {
+                    console.warn('⚠️ tool_calls found but no function.arguments');
+                }
+            }
+
+            // 3. Check known wrapper keys
             const content = obj.content || obj.text || obj.message?.content || obj.message || (obj.choices && obj.choices[0]?.message?.content);
 
             if (content) {
@@ -90,7 +115,7 @@ export async function generateContentWithPollinations(
                 }
             }
 
-            // 3. Fallback: search all values for something that looks like mind map data
+            // 4. Fallback: search all values for something that looks like mind map data
             for (const key in obj) {
                 if (typeof obj[key] === 'object' && obj[key] !== null) {
                     const found = deepExtract(obj[key]);
@@ -103,6 +128,13 @@ export async function generateContentWithPollinations(
 
         const finalResult = deepExtract(parsedResponse) || parsedResponse;
         console.log('✨ Extraction complete. Final result keys:', Object.keys(finalResult || {}));
+
+        // Validate that we have the minimum required fields
+        if (finalResult && !finalResult.topic) {
+            console.error('❌ Missing required "topic" field!');
+            console.error('📋 Available keys:', Object.keys(finalResult));
+            console.error('🔍 First 1000 chars of response:', JSON.stringify(finalResult, null, 2).substring(0, 1000));
+        }
 
         return finalResult;
     } catch (error: any) {

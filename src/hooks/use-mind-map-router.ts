@@ -32,13 +32,13 @@ export function useMindMapRouter() {
     const changeLanguage = useCallback((langCode: string) => {
         const newParams = new URLSearchParams(searchParams.toString());
         newParams.set('lang', langCode);
-        router.push(`/mindmap?${newParams.toString()}`);
+        router.push(`/canvas?${newParams.toString()}`);
     }, [router, searchParams]);
 
     const regenerate = useCallback(() => {
         const newParams = new URLSearchParams(searchParams.toString());
         newParams.set('_r', Date.now().toString());
-        router.replace(`/mindmap?${newParams.toString()}`);
+        router.replace(`/canvas?${newParams.toString()}`);
     }, [router, searchParams]);
 
     const clearRegenFlag = useCallback(() => {

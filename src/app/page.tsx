@@ -56,9 +56,7 @@ function Hero({
   fileInputRef,
 }: {
   onGenerate: (
-    mode: string,
-    topic1: string,
-    topic2?: string,
+    topic: string,
     fileInfo?: { name: string; type: string }
   ) => void;
   lang: string;
@@ -67,9 +65,7 @@ function Hero({
   languageSelectRef: React.RefObject<HTMLButtonElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
 }) {
-  const [mode, setMode] = useState('single');
   const [topic, setTopic] = useState('');
-  const [topic2, setTopic2] = useState('');
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
@@ -85,21 +81,16 @@ function Hero({
   // Trigger generation when a file is uploaded
   useEffect(() => {
     if (uploadedFile) {
-      onGenerate(mode, topic, undefined, uploadedFile);
+      onGenerate(topic, uploadedFile);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadedFile]);
 
   const handleInternalSubmit = () => {
-    if (mode === 'compare') {
-      if (!topic || !topic2) return;
-      onGenerate(mode, topic, topic2);
-    } else {
-      if (!topic && !uploadedFile) return;
-      // For file uploads, generation is triggered by the useEffect
-      if (!uploadedFile) {
-        onGenerate(mode, topic, undefined, undefined);
-      }
+    if (!topic && !uploadedFile) return;
+    // For file uploads, generation is triggered by the useEffect
+    if (!uploadedFile) {
+      onGenerate(topic);
     }
   };
 
@@ -153,8 +144,7 @@ function Hero({
 
           <div className="relative rounded-3xl border border-white/10 bg-zinc-900/80 backdrop-blur-2xl p-2 shadow-2xl">
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center px-4 pt-2">
-                <ToggleTabs mode={mode} setMode={setMode} />
+              <div className="flex justify-end items-center px-4 pt-2">
                 <Select value={lang} onValueChange={setLang}>
                   <SelectTrigger
                     ref={languageSelectRef}
@@ -174,81 +164,46 @@ function Hero({
               </div>
 
               <div className="p-2">
-                {mode === 'single' ? (
-                  <div className="relative group/input">
-                    <input
-                      placeholder={uploadedFile ? 'Add context for your document...' : 'What sparks your curiosity?'}
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      className="w-full h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all text-lg"
+                <div className="relative group/input">
+                  <input
+                    placeholder={uploadedFile ? 'Add context for your document...' : 'What sparks your curiosity?'}
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    className="w-full h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all text-lg"
+                    disabled={isGenerating}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleInternalSubmit();
+                      }
+                    }}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {uploadedFile && (
+                      <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30">
+                        {uploadedFile.name}
+                        <button onClick={handleRemoveFile} className="ml-2 hover:text-white transition">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleFileIconClick}
                       disabled={isGenerating}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleInternalSubmit();
-                        }
-                      }}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      {uploadedFile && (
-                        <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30">
-                          {uploadedFile.name}
-                          <button onClick={handleRemoveFile} className="ml-2 hover:text-white transition">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleFileIconClick}
-                        disabled={isGenerating}
-                        className="rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition"
-                      >
-                        <Paperclip className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        onClick={handleInternalSubmit}
-                        disabled={isGenerating || !!uploadedFile}
-                        className="h-10 px-6 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold shadow-lg shadow-primary/20"
-                      >
-                        {isGenerating ? '...' : <ArrowRight className="w-5 h-5" />}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <input
-                      placeholder="First concept"
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      className="flex-1 h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleInternalSubmit();
-                        }
-                      }}
-                    />
-                    <div className="text-zinc-500 font-bold italic">VS</div>
-                    <input
-                      placeholder="Second concept"
-                      value={topic2}
-                      onChange={(e) => setTopic2(e.target.value)}
-                      className="flex-1 h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleInternalSubmit();
-                        }
-                      }}
-                    />
+                      className="rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition"
+                    >
+                      <Paperclip className="h-5 w-5" />
+                    </Button>
                     <Button
                       onClick={handleInternalSubmit}
-                      disabled={isGenerating}
-                      className="h-14 px-6 rounded-2xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold"
+                      disabled={isGenerating || !!uploadedFile}
+                      className="h-10 px-6 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold shadow-lg shadow-primary/20"
                     >
-                      Compare
+                      {isGenerating ? '...' : <ArrowRight className="w-5 h-5" />}
                     </Button>
                   </div>
-                )}
+                </div>
               </div>
             </div>
             <input
@@ -265,46 +220,7 @@ function Hero({
   );
 }
 
-function ToggleTabs({
-  mode,
-  setMode,
-}: {
-  mode: string;
-  setMode: (m: string) => void;
-}) {
-  return (
-    <div className="relative inline-flex rounded-2xl bg-zinc-900/70 p-1 ring-1 ring-white/10">
-      <button
-        onClick={() => setMode('single')}
-        className={`relative z-10 rounded-xl px-4 py-2 text-sm transition ${mode === 'single' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-      >
-        {mode === 'single' && (
-          <motion.span
-            layoutId="toggle-pill"
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="absolute inset-0 z-0 rounded-xl bg-zinc-800/80"
-          />
-        )}
-        <span className="relative z-10">Single Topic</span>
-      </button>
-      <button
-        onClick={() => setMode('compare')}
-        className={`relative z-10 rounded-xl px-4 py-2 text-sm transition ${mode === 'compare' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-      >
-        {mode === 'compare' && (
-          <motion.span
-            layoutId="toggle-pill"
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="absolute inset-0 z-0 rounded-xl bg-zinc-800/80"
-          />
-        )}
-        <span className="relative z-10">Compare Concepts</span>
-      </button>
-    </div>
-  );
-}
+
 
 // ---------- FEATURES ----------
 function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
@@ -313,9 +229,9 @@ function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
   const items = [
     {
       icon: List,
-      title: 'My Maps',
+      title: 'Library',
       desc: 'Access, manage, and revisit all of your saved mind maps in one place.',
-      href: '/dashboard',
+      href: '/library',
     },
     {
       icon: Globe,
@@ -463,17 +379,15 @@ export default function Home() {
 
 
   const handleGenerate = async (
-    mode: string,
-    topic1: string,
-    topic2?: string,
+    topic: string,
     fileInfo?: { name: string; type: string }
   ) => {
     setIsGenerating(true);
 
     // Check if user is searching for "MindScape" itself
-    if (topic1.toLowerCase().trim() === 'mindscape' && !topic2 && !fileInfo) {
+    if (topic.toLowerCase().trim() === 'mindscape' && !fileInfo) {
       // Redirect to mindmap page with special flag
-      router.push(`/mindmap?selfReference=true&lang=${lang}`);
+      router.push(`/canvas?selfReference=true&lang=${lang}`);
       return;
     }
 
@@ -529,7 +443,7 @@ export default function Home() {
         const finalSessionType = sessionType === 'pdf' ? 'text' : sessionType;
         const contentToStore = JSON.stringify({
           file: sessionContent,
-          text: topic1, // User-typed context
+          text: topic, // User-typed context
         });
 
         sessionStorage.setItem(`session-content-${sessionId}`, contentToStore);
@@ -537,7 +451,7 @@ export default function Home() {
 
 
 
-        router.push(`/mindmap?sessionId=${sessionId}&lang=${lang}`);
+        router.push(`/canvas?sessionId=${sessionId}&lang=${lang}`);
       } catch (error: any) {
         toast({
           variant: 'destructive',
@@ -550,13 +464,8 @@ export default function Home() {
     }
 
     // Handle regular text-based generation
-    let query;
-    if (mode === 'compare' && topic2) {
-      query = new URLSearchParams({ topic1, topic2, lang }).toString();
-    } else {
-      query = new URLSearchParams({ topic: topic1, lang }).toString();
-    }
-    router.push(`/mindmap?${query}`);
+    const query = new URLSearchParams({ topic, lang }).toString();
+    router.push(`/canvas?${query}`);
   };
 
 

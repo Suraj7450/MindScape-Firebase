@@ -26,9 +26,8 @@ import {
   useUser,
   useFirestore,
 } from '@/firebase';
-import { collection, getDocs, query, where, doc, getDoc, limit, increment, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, limit, increment, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
-  generateComparisonMapAction,
   generateMindMapAction,
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
@@ -60,15 +59,16 @@ function MindMapPageContent() {
   const [mode, setMode] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
-  const [activeQuiz, setActiveQuiz] = useState<Quiz | undefined>(undefined);
-  const [isQuizLoading, setIsQuizLoading] = useState(false);
-  const [quizTopic, setQuizTopic] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const aiHealth = useAIHealth();
-  const { aiPersona, updatePersona: handlePersonaChange, subscribeToMap, saveMap: handleSaveMap, setupAutoSave } = useMindMapPersistence({
-    onRemoteUpdate: (data) => handleUpdateCurrentMap(data)
-  });
+  const handleUpdateRef = useRef<(data: Partial<MindMapData>) => void>(() => { });
+
+  const persistenceOptions = useMemo(() => ({
+    onRemoteUpdate: (data: MindMapData) => handleUpdateRef.current(data)
+  }), []);
+
+  const { aiPersona, updatePersona: handlePersonaChange, subscribeToMap, saveMap: handleSaveMap, setupAutoSave } = useMindMapPersistence(persistenceOptions);
 
   // 1. ADAPTERS
   const expansionAdapter = useMemo(() => ({
@@ -109,6 +109,11 @@ function MindMapPageContent() {
     }
   });
 
+  // Sync ref with actual function
+  useEffect(() => {
+    handleUpdateRef.current = handleUpdateCurrentMap;
+  }, [handleUpdateCurrentMap]);
+
   // Local state for initial fetch/regenerate only
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [initialError, setInitialError] = useState<string | null>(null);
@@ -135,6 +140,10 @@ function MindMapPageContent() {
 
   /* Safe auto-save with race condition lock */
   const lastFetchedParamsRef = useRef<string>('');
+
+  // Refs to avoid effect dependencies
+  const mindMapsRef = useRef(mindMaps);
+  useEffect(() => { mindMapsRef.current = mindMaps; }, [mindMaps]);
 
   useEffect(() => {
     const fetchMindMapData = async () => {
@@ -174,7 +183,7 @@ function MindMapPageContent() {
         } else if (params.mapId && params.isRegenerating) {
           currentMode = 'saved';
           // 1. Get topic from state or fetch it
-          let topicToRegen = params.topic || (mindMaps.find(m => (m as any).id === params.mapId)?.topic);
+          let topicToRegen = params.topic || (mindMapsRef.current.find(m => (m as any).id === params.mapId)?.topic);
           if (!topicToRegen) {
             // Fallback to fetching it if not in stack
             if (user) {
@@ -250,15 +259,6 @@ function MindMapPageContent() {
             targetLang: params.lang,
             persona: aiPersona,
           }, aiOptions);
-        } else if (params.topic1 && params.topic2) {
-          currentMode = 'compare';
-          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
-          result = await generateComparisonMapAction({
-            topic1: params.topic1,
-            topic2: params.topic2,
-            targetLang: params.lang,
-            persona: aiPersona,
-          }, aiOptions);
         } else if (params.sessionId) {
           const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
           const sessionContent = sessionStorage.getItem(`session-content-${params.sessionId}`);
@@ -324,7 +324,7 @@ function MindMapPageContent() {
 
           const isNewlyGenerated = !['saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user) {
-            const existingMapWithId = mindMaps.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
+            const existingMapWithId = mindMapsRef.current.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
             const savedId = await handleSaveMap(result.data, existingMapWithId?.id);
 
             // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
@@ -356,7 +356,7 @@ function MindMapPageContent() {
     };
 
     fetchMindMapData();
-  }, [getParamKey, user, handleSaveMap, toast, firestore, mindMaps, activeMindMapIndex, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
+  }, [getParamKey, user, handleSaveMap, toast, firestore, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
 
   // Track views for community maps
   useEffect(() => {
@@ -379,13 +379,18 @@ function MindMapPageContent() {
     return setupAutoSave(mindMap, hasUnsavedChanges, params.isSelfReference, persistFn);
   }, [mindMap, hasUnsavedChanges, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
 
+  // Ref to track mindMap for stable callbacks
+  const mindMapRef = useRef(mindMap);
+  useEffect(() => { mindMapRef.current = mindMap; }, [mindMap]);
+
   const onMapUpdate = useCallback((updatedData: Partial<MindMapData>) => {
-    if (!mindMap) return;
+    const currentMap = mindMapRef.current;
+    if (!currentMap) return;
 
     // Deep-ish check to see if anything actually changed
     let hasActualChanges = false;
     for (const key in updatedData) {
-      if (JSON.stringify((updatedData as any)[key]) !== JSON.stringify((mindMap as any)[key])) {
+      if (JSON.stringify((updatedData as any)[key]) !== JSON.stringify((currentMap as any)[key])) {
         hasActualChanges = true;
         break;
       }
@@ -395,7 +400,7 @@ function MindMapPageContent() {
       handleUpdateCurrentMap(updatedData);
       setHasUnsavedChanges(true);
     }
-  }, [handleUpdateCurrentMap, mindMap]);
+  }, [handleUpdateCurrentMap]);
 
   const onManualSave = useCallback(async () => {
     await handleSaveMapFromHook();
@@ -407,50 +412,7 @@ function MindMapPageContent() {
     setIsChatOpen(true);
   }, []);
 
-  const handleQuizReady = useCallback((quiz: Quiz) => {
-    setActiveQuiz(quiz);
-    setIsQuizLoading(false);
-    setIsChatOpen(true);
-  }, []);
 
-  const handleQuizLoading = useCallback((topic: string) => {
-    setQuizTopic(topic);
-    setIsQuizLoading(true);
-    setIsChatOpen(true);
-  }, []);
-
-  const handleRegenerateQuiz = useCallback(async (topic: string, wrongConcepts?: string[]) => {
-    if (isQuizLoading) return;
-
-    setIsQuizLoading(true);
-    setQuizTopic(topic);
-
-    try {
-      const { data: quizData, error } = await generateQuizAction({
-        topic: topic,
-        mindMapData: mindMap ? toPlainObject(mindMap) : undefined,
-        targetLang: params.lang,
-        wrongConcepts: wrongConcepts
-      }, {
-        provider: config.provider,
-        apiKey: config.apiKey,
-        strict: false
-      });
-
-      if (error) throw new Error(error);
-      if (!quizData) throw new Error("Failed to generate quiz data.");
-
-      setActiveQuiz(quizData);
-    } catch (err: any) {
-      toast({
-        title: 'Regeneration Failed',
-        description: err.message || 'An unknown error occurred.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsQuizLoading(false);
-    }
-  }, [mindMap, params.lang, config, isQuizLoading, toast]);
 
   const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string, mode: 'foreground' | 'background' = 'background') => {
     try {
@@ -591,8 +553,6 @@ function MindMapPageContent() {
             activeStackIndex={activeMindMapIndex}
             onStackSelect={handleBreadcrumbSelect}
             onUpdate={onMapUpdate}
-            onQuizReady={handleQuizReady}
-            onQuizLoading={handleQuizLoading}
             status={hookStatus}
             aiHealth={aiHealth}
           />
@@ -610,15 +570,10 @@ function MindMapPageContent() {
         onClose={() => {
           setIsChatOpen(false);
           setChatInitialMessage(undefined);
-          setActiveQuiz(undefined);
         }}
         topic={mindMap?.topic || 'Mind Map Details'}
         mindMapData={mindMap}
         initialMessage={chatInitialMessage}
-        quizToStart={activeQuiz}
-        isQuizLoading={isQuizLoading}
-        quizTopic={quizTopic}
-        onRegenerateQuiz={handleRegenerateQuiz}
       />
     </>
   );

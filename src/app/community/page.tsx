@@ -72,7 +72,7 @@ export default function CommunityPage() {
     }, [publicMaps, selectedCategory, searchQuery]);
 
     const handleMapClick = (id: string) => {
-        router.push(`/mindmap?mapId=${id}`);
+        router.push(`/canvas?mapId=${id}`);
     };
 
     return (

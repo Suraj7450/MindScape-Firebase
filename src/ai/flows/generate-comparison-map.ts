@@ -83,23 +83,23 @@ export async function generateComparisonMap(
     
     ${targetLangInstruction}
     
-    The mind map must have the following structure:
-      - Topic: A main topic like "${input.topic1} vs. ${input.topic2}".
-      - ShortTitle: A condensed version like "${input.topic1} vs ${input.topic2}" (max 4 words).
-      - Icon: A relevant lucide-react icon for comparison, such as "scale".
-      - Sub-Topics: The map must include at least two sub-topics:
+    The mind map must have the following structure (use exact field names):
+      - topic: A main topic like "${input.topic1} vs. ${input.topic2}".
+      - shortTitle: A condensed version like "${input.topic1} vs ${input.topic2}" (max 4 words).
+      - icon: A relevant lucide-react icon for comparison, such as "scale" or "git-compare-arrows".
+      - subTopics: The map must include at least three sub-topics:
         1.  **"Similarities"**:
-            - Categories should represent 4-5 shared concepts, features, or principles.
-            - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one sentence.
+            - categories should represent 4-5 shared concepts, features, or principles.
+            - subCategories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one sentence.
         2.  **"Differences"**:
             - This sub-topic should contain exactly two categories: one for "${input.topic1}" and one for "${input.topic2}".
-            - The sub-categories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "${input.topic1}" and a corresponding sub-category under "${input.topic2}". 
+            - The subCategories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "${input.topic1}" and a corresponding sub-category under "${input.topic2}". 
             - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
             - Create 4-5 of these parallel comparison points.
             - Each description MUST be concise and clearly explain the distinction in exactly one sentence.
         3.  **"Contextual Links / Overlap"**:
-            - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-            - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and informative.
+            - categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
+            - subCategories should provide specific examples or explanations of these connections. The description for each MUST be concise and informative.
     
       Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
       Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.
@@ -152,7 +152,7 @@ const prompt = ai.definePrompt({
   The mind map must have the following structure:
   - Topic: A main topic like "{{{topic1}}} vs. {{{topic2}}}".
   - Icon: A relevant lucide-react icon for comparison, such as "git-compare-arrows" or "scale".
-  - Sub-Topics: The map must include at least two sub-topics:
+  - Sub-Topics: The map must include at least three sub-topics:
     1.  **"Similarities"**:
         - Categories should represent 4-5 shared concepts, features, or principles.
         - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one statement.

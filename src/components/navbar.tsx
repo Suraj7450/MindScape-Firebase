@@ -53,7 +53,7 @@ export function Navbar() {
 
   const navItems = [
     { href: '/', label: 'Home' },
-    { href: '/dashboard', label: 'My Maps' },
+    { href: '/library', label: 'Library' },
     { href: '/community', label: 'Community' },
   ];
 

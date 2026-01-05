@@ -249,15 +249,25 @@ export const mindscapeMap: GenerateMindMapOutput = {
                         },
                         {
                             name: "Feature Cards",
-                            title: 'My Maps',
-                            desc: 'Access, manage, and revisit all of your saved mind maps in one place.',
-                            href: '/dashboard',
+                            // @ts-ignore
+                            title: 'Library',
+                            description: 'Access, manage, and revisit all of your saved mind maps in one place.',
+                            // @ts-ignore
+                            href: '/library',
+                            icon: "list",
+                            tags: ["Management", "Library"],
+                            isExpanded: false
                         },
                         {
-                            icon: "globe",
+                            description: 'Explore a gallery of mind maps created and shared by the community.',
+                            // @ts-ignore
                             title: 'Community Maps',
-                            desc: 'Explore a gallery of mind maps created and shared by the community.',
+                            // @ts-ignore
                             href: '/community',
+                            name: "Community Explorer",
+                            icon: "globe",
+                            tags: ["Community", "Discovery"],
+                            isExpanded: false
                         }
                     ]
                 },

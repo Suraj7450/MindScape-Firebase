@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/tooltip';
 import { toPascalCase } from '@/lib/utils';
 import { LeafNodeCard } from './leaf-node-card';
-import { ComparisonView } from './comparison-view';
 import {
     MindMapData,
     SubCategory,
@@ -135,86 +134,72 @@ export const MindMapAccordion = ({
 
                         <AccordionContent className="px-8 pb-8 pt-2">
                             <div className="space-y-3">
-                                {subTopic.name === "Differences" && subTopic.categories.length === 2 ? (
-                                    <ComparisonView
-                                        categories={subTopic.categories}
-                                        onSubCategoryClick={handleSubCategoryClick}
-                                        onGenerateNewMap={onGenerateNewMap}
-                                        generatingNode={generatingNode}
-                                        onExplainWithExample={onExplainWithExample}
-                                        onExplainInChat={onExplainInChat}
-                                        mainTopic={mainTopic}
-                                        contextPath={`${mindMap.topic} > ${subTopic.name}`}
-                                        isGlobalBusy={isGlobalBusy}
-                                    />
-                                ) : (
-                                    subTopic.categories.map((category: any, catIndex: number) => {
-                                        const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
-                                        const catId = `cat-${index}-${catIndex}`;
+                                {subTopic.categories.map((category: any, catIndex: number) => {
+                                    const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
+                                    const catId = `cat-${index}-${catIndex}`;
 
-                                        return (
-                                            <div key={catIndex} className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
-                                                <div
-                                                    className="group/cat px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors cursor-pointer"
-                                                    onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
-                                                >
-                                                    <div className="flex items-center gap-5 flex-1">
-                                                        <div className="w-10 h-10 flex items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 border border-white/10 group-hover/cat:bg-primary group-hover/cat:text-white transition-all duration-500">
-                                                            <CategoryIcon className="h-5 w-5" />
-                                                        </div>
-                                                        <h4 className="text-lg font-semibold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
-                                                        <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
+                                    return (
+                                        <div key={catIndex} className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden shadow-inner">
+                                            <div
+                                                className="group/cat px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors cursor-pointer"
+                                                onClick={() => setOpenCategories(prev => prev.includes(catId) ? prev.filter(x => x !== catId) : [...prev, catId])}
+                                            >
+                                                <div className="flex items-center gap-5 flex-1">
+                                                    <div className="w-10 h-10 flex items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 border border-white/10 group-hover/cat:bg-primary group-hover/cat:text-white transition-all duration-500">
+                                                        <CategoryIcon className="h-5 w-5" />
                                                     </div>
-
-                                                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`, 'background')} disabled={isGlobalBusy}>
-                                                                        <Network className="h-4 w-4" />
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>Generate Sub-Map</TooltipContent>
-                                                            </Tooltip>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
-                                                                        <MessageCircle className="h-4 w-4" />
-                                                                    </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>AI Chat Assistant</TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </div>
+                                                    <h4 className="text-lg font-semibold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
+                                                    <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
                                                 </div>
 
-                                                {openCategories.includes(catId) && (
-                                                    <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                            {category.subCategories.map((sub: any, subIndex: number) => (
-                                                                <LeafNodeCard
-                                                                    key={subIndex}
-                                                                    node={sub}
-                                                                    onSubCategoryClick={handleSubCategoryClick}
-                                                                    onGenerateImage={handleGenerateImageClick}
-                                                                    onExplainInChat={onExplainInChat}
-                                                                    onGenerateNewMap={onGenerateNewMap}
-                                                                    isGeneratingMap={generatingNode === `node-${index}-${catIndex}-${subIndex}`}
-                                                                    mainTopic={mindMap.topic}
-                                                                    nodeId={`node-${index}-${catIndex}-${subIndex}`}
-                                                                    contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name} > ${sub.name}`}
-                                                                    existingExpansion={nestedExpansions.find(e => e.topic === sub.name)}
-                                                                    onOpenMap={onOpenNestedMap}
-                                                                    isGlobalBusy={isGlobalBusy}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`, 'background')} disabled={isGlobalBusy}>
+                                                                    <Network className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Generate Sub-Map</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
+                                                                    <MessageCircle className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>AI Chat Assistant</TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
                                             </div>
-                                        );
-                                    })
-                                )}
+
+                                            {openCategories.includes(catId) && (
+                                                <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                        {category.subCategories.map((sub: any, subIndex: number) => (
+                                                            <LeafNodeCard
+                                                                key={subIndex}
+                                                                node={sub}
+                                                                onSubCategoryClick={handleSubCategoryClick}
+                                                                onGenerateImage={handleGenerateImageClick}
+                                                                onExplainInChat={onExplainInChat}
+                                                                onGenerateNewMap={onGenerateNewMap}
+                                                                isGeneratingMap={generatingNode === `node-${index}-${catIndex}-${subIndex}`}
+                                                                mainTopic={mindMap.topic}
+                                                                nodeId={`node-${index}-${catIndex}-${subIndex}`}
+                                                                contextPath={`${mindMap.topic} > ${subTopic.name} > ${category.name} > ${sub.name}`}
+                                                                existingExpansion={nestedExpansions.find(e => e.topic === sub.name)}
+                                                                onOpenMap={onOpenNestedMap}
+                                                                isGlobalBusy={isGlobalBusy}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </AccordionContent>
                     </AccordionItem>

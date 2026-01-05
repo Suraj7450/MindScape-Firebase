@@ -144,7 +144,7 @@ export default function DashboardPage() {
   }, [savedMaps, searchQuery, sortOption, deletingMapIds]);
 
   const handleMindMapClick = (mapId: string) => {
-    router.push(`/mindmap?mapId=${mapId}`);
+    router.push(`/canvas?mapId=${mapId}`);
   };
 
   const handleDeleteMap = async () => {

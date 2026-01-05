@@ -31,11 +31,7 @@ import {
   TranslateMindMapInput,
   TranslateMindMapOutput,
 } from '@/ai/flows/translate-mind-map';
-import {
-  generateComparisonMap,
-  GenerateComparisonMapInput,
-  GenerateComparisonMapOutput,
-} from '@/ai/flows/generate-comparison-map';
+
 import {
   explainWithExample,
   ExplainWithExampleInput,
@@ -161,32 +157,7 @@ export async function generateMindMapFromTextAction(
   }
 }
 
-/**
- * Server action to generate a comparison mind map between two topics.
- * @param {GenerateComparisonMapInput} input - The input for the comparison map generation.
- * @returns {Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }>} An object with the generated map or an error.
- */
-export async function generateComparisonMapAction(
-  input: GenerateComparisonMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
-): Promise<{ data: GenerateComparisonMapOutput | null; error: string | null }> {
-  if (!input.topic1 || input.topic1.length < 1 || !input.topic2 || input.topic2.length < 1) {
-    return { data: null, error: 'Both topics must be at least 1 character long.' };
-  }
 
-  try {
-    const result = await generateComparisonMap({ ...input, ...options });
-    return { data: result, error: null };
-  } catch (error) {
-    console.error(error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      data: null,
-      error: `Failed to generate comparison map. ${errorMessage}`,
-    };
-  }
-}
 
 
 /**

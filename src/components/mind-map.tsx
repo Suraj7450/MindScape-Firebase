@@ -130,6 +130,9 @@ const LucideIcons = {
 import {
   enhanceImagePromptAction,
   generateQuizAction,
+  translateMindMapAction,
+  explainNodeAction,
+  explainWithExampleAction,
 } from '@/app/actions';
 import { QuizComponent } from './quiz/quiz-component';
 import { Quiz } from '@/ai/schemas/quiz-schema';
@@ -147,8 +150,6 @@ import { MindMapStatus } from '@/hooks/use-mind-map-stack';
 import { LeafNodeCard } from './mind-map/leaf-node-card';
 import { ExplanationDialog } from './mind-map/explanation-dialog';
 import { MindMapToolbar } from './mind-map/mind-map-toolbar';
-import { Quiz } from '@/ai/schemas/quiz-schema';
-import { QuizComponent } from './quiz/quiz-component';
 import { TopicHeader } from './mind-map/topic-header';
 import { MindMapRadialView } from './mind-map/mind-map-radial-view';
 import { cn } from '@/lib/utils';
@@ -185,7 +186,7 @@ import { Badge } from './ui/badge';
 import { toPascalCase } from '@/lib/utils';
 import { toPlainObject } from '@/lib/serialize';
 
-import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc, deleteDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, updateDoc, getDoc, deleteDoc, writeBatch, setDoc, limit } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
@@ -220,8 +221,6 @@ interface MindMapProps {
   status: MindMapStatus;
   aiHealth?: { name: string, status: string }[];
   hasUnsavedChanges?: boolean;
-  onQuizReady?: (quiz: Quiz) => void;
-  onQuizLoading?: (topic: string) => void;
 }
 
 /**
@@ -265,8 +264,6 @@ export const MindMap = ({
   status,
   aiHealth,
   hasUnsavedChanges,
-  onQuizReady,
-  onQuizLoading
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -374,44 +371,47 @@ export const MindMap = ({
   const [nestedExpansions, setNestedExpansions] = useState<NestedExpansionItem[]>(propNestedExpansions || data.nestedExpansions || []);
   const [explanations, setExplanations] = useState<Record<string, string[]>>(data.explanations || {});
 
-  // Quiz State
-  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   // Sync images and expansions
+  const lastSyncedImagesRef = useRef<string>('');
+  const lastSyncedExpansionsRef = useRef<string>('');
+  const lastSyncedExplanationsRef = useRef<string>('');
+
   useEffect(() => {
     if (data) {
-      if (data.savedImages) setGeneratedImages(data.savedImages);
-      if (data.nestedExpansions) setNestedExpansions(data.nestedExpansions);
-      if (data.explanations) setExplanations(data.explanations);
+      if (data.savedImages) {
+        const imagesStr = JSON.stringify(data.savedImages);
+        if (imagesStr !== lastSyncedImagesRef.current) {
+          lastSyncedImagesRef.current = imagesStr;
+          setGeneratedImages(data.savedImages);
+        }
+      }
+      if (data.nestedExpansions) {
+        const expansionsStr = JSON.stringify(data.nestedExpansions);
+        if (expansionsStr !== lastSyncedExpansionsRef.current) {
+          lastSyncedExpansionsRef.current = expansionsStr;
+          setNestedExpansions(data.nestedExpansions);
+        }
+      }
+      if (data.explanations) {
+        const explanationsStr = JSON.stringify(data.explanations);
+        if (explanationsStr !== lastSyncedExplanationsRef.current) {
+          lastSyncedExplanationsRef.current = explanationsStr;
+          setExplanations(data.explanations);
+        }
+      }
     }
   }, [data.savedImages, data.nestedExpansions, data.explanations]);
 
-  // Use refs to track previous prop values to avoid infinite loops
-  const prevPropNestedExpansionsRef = useRef<string>('');
-  const prevDataNestedExpansionsRef = useRef<string>('');
-  const prevDataSavedImagesRef = useRef<string>('');
-
   useEffect(() => {
-    // Only sync if props change externally and differ from local state
-    const propNestedExpansionsStr = JSON.stringify(propNestedExpansions);
-    const dataNestedExpansionsStr = JSON.stringify(data.nestedExpansions);
-    const dataSavedImagesStr = JSON.stringify(data.savedImages);
-
-    // Update nested expansions only if the prop actually changed
-    if (propNestedExpansions && propNestedExpansionsStr !== prevPropNestedExpansionsRef.current) {
-      prevPropNestedExpansionsRef.current = propNestedExpansionsStr;
-      setNestedExpansions(propNestedExpansions);
-    } else if (data.nestedExpansions && dataNestedExpansionsStr !== prevDataNestedExpansionsRef.current && !propNestedExpansions) {
-      prevDataNestedExpansionsRef.current = dataNestedExpansionsStr;
-      setNestedExpansions(data.nestedExpansions);
+    if (propNestedExpansions) {
+      const nestedStr = JSON.stringify(propNestedExpansions);
+      if (nestedStr !== lastSyncedExpansionsRef.current) {
+        lastSyncedExpansionsRef.current = nestedStr;
+        setNestedExpansions(propNestedExpansions);
+      }
     }
-
-    // Update saved images only if the data actually changed
-    if (data.savedImages && dataSavedImagesStr !== prevDataSavedImagesRef.current) {
-      prevDataSavedImagesRef.current = dataSavedImagesStr;
-      setGeneratedImages(data.savedImages);
-    }
-  }, [data.nestedExpansions, data.savedImages, propNestedExpansions]);
+  }, [propNestedExpansions]);
 
   // Notify parent of updates
   const lastNotifiedRef = useRef<string>('');
@@ -422,13 +422,22 @@ export const MindMap = ({
         savedImages: generatedImages,
         explanations: explanations
       };
+
+      // Check if this data is actually different from what we received in props
+      const hasMeaningfulChanges =
+        JSON.stringify(nestedExpansions) !== JSON.stringify(propNestedExpansions || data.nestedExpansions || []) ||
+        JSON.stringify(generatedImages) !== JSON.stringify(data.savedImages || []) ||
+        JSON.stringify(explanations) !== JSON.stringify(data.explanations || {});
+
+      if (!hasMeaningfulChanges) return;
+
       const stringified = JSON.stringify(dataToNotify);
       if (stringified !== lastNotifiedRef.current) {
         lastNotifiedRef.current = stringified;
         onUpdate(dataToNotify);
       }
     }
-  }, [generatedImages, nestedExpansions, explanations, onUpdate]);
+  }, [generatedImages, nestedExpansions, explanations, onUpdate, data.nestedExpansions, data.savedImages, data.explanations, propNestedExpansions]);
 
 
 
@@ -859,56 +868,6 @@ export const MindMap = ({
     }
   };
 
-  const handleStartQuiz = async () => {
-    if (isGeneratingQuiz) return;
-
-    if (onQuizLoading) {
-      onQuizLoading(data.topic);
-    }
-
-    setIsGeneratingQuiz(true);
-    const { id: toastId, update } = toast({
-      title: 'Preparing Your Quiz...',
-      description: 'AI is hand-crafting questions based on this map.',
-      duration: Infinity,
-    });
-
-    try {
-      const { data: quizData, error } = await generateQuizAction({
-        topic: data.topic,
-        mindMapData: toPlainObject(data),
-        targetLang: selectedLanguage
-      }, providerOptions);
-
-      if (error) throw new Error(error);
-      if (!quizData) throw new Error("Failed to generate quiz data.");
-
-      if (onQuizReady) {
-        onQuizReady(quizData);
-      } else {
-        // Fallback or legacy
-        toast({ title: "Quiz Ready", description: "You can find it in the chat panel." });
-      }
-
-      update({
-        id: toastId,
-        title: 'Quiz Ready!',
-        description: 'Time to test your knowledge.',
-        duration: 3000,
-      });
-    } catch (err: any) {
-      update({
-        id: toastId,
-        title: 'Quiz Generation Failed',
-        description: err.message || 'An unknown error occurred.',
-        variant: 'destructive',
-        duration: 5000,
-      });
-    } finally {
-      setIsGeneratingQuiz(false);
-    }
-  };
-
   const collapseAll = () => {
     setOpenSubTopics([]);
     setOpenCategories([]);
@@ -956,7 +915,6 @@ export const MindMap = ({
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
               onStackSelect={onStackSelect as any}
-              onStartQuiz={handleStartQuiz}
             />
 
             <MindMapAccordion

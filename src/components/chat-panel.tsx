@@ -55,7 +55,9 @@ import { QuizComponent } from '@/components/quiz/quiz-component';
 import { Quiz } from '@/ai/schemas/quiz-schema';
 import { MindMapData } from '@/types/mind-map';
 
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, limit, serverTimestamp, setDoc } from 'firebase/firestore';
+import { generateQuizAction } from '@/app/actions';
+import { toPlainObject } from '@/lib/serialize';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,10 +110,6 @@ interface ChatPanelProps {
   onClose: () => void;
   topic: string;
   initialMessage?: string;
-  quizToStart?: Quiz;
-  isQuizLoading?: boolean;
-  quizTopic?: string;
-  onRegenerateQuiz?: (topic: string, wrongConcepts?: string[]) => void;
   mindMapData?: MindMapData;
 }
 
@@ -150,13 +148,11 @@ export function ChatPanel({
   onClose,
   topic,
   initialMessage,
-  quizToStart,
-  isQuizLoading,
-  quizTopic,
-  onRegenerateQuiz,
   mindMapData
 }: ChatPanelProps) {
   const [sessions, setSessions] = useLocalStorage<ChatSession[]>('chat-sessions', []);
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [quizTopic, setQuizTopic] = useState<string | undefined>(undefined);
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -166,7 +162,7 @@ export function ChatPanel({
   const [persona, setPersona] = useState<Persona>('Standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
-  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' } | undefined>(undefined);
+  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' }>({ provider: 'gemini' });
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [isGeneratingRelated, setIsGeneratingRelated] = useState(false);
   const [showRelatedQuestions, setShowRelatedQuestions] = useState(true);
@@ -264,13 +260,108 @@ export function ChatPanel({
     }
   }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions, mindMapData]);
 
-  useEffect(() => {
-    if (!quizToStart) return;
+  const handleStartInteractiveQuiz = useCallback(async (quizTopicOverride?: string) => {
+    const quizTitle = quizTopicOverride || topic;
+    const normalizedTopic = quizTitle.trim();
 
-    // The user wants a new chat card for every regeneration.
-    // Instead of finding and updating, we always start a new one.
-    startNewChat(`Quiz: ${quizToStart.topic}`, 'quiz', quizToStart);
-  }, [quizToStart, startNewChat]);
+    setIsLoading(true);
+    const { id: toastId, update } = toast({
+      title: 'Preparing Your Quiz...',
+      description: 'Checking for existing knowledge checks...',
+      duration: Infinity,
+    });
+
+    try {
+      // 1. Check Firestore
+      if (user && firestore) {
+        const quizzesRef = collection(firestore, 'users', user.uid, 'quizzes');
+        const q = query(quizzesRef, where('topic', '==', normalizedTopic), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const existingQuiz = querySnapshot.docs[0].data() as Quiz;
+          startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', existingQuiz);
+          update({ id: toastId, title: 'Quiz Loaded!', description: 'Resuming your existing knowledge check.', duration: 3000 });
+          return;
+        }
+      }
+
+      // 2. Generate New
+      update({ id: toastId, title: 'Generating New Quiz...', description: `AI is hand-crafting questions for "${normalizedTopic}".` });
+      const { data: quizData, error } = await generateQuizAction({
+        topic: normalizedTopic,
+        mindMapData: mindMapData ? (toPlainObject(mindMapData) as any) : undefined,
+      }, providerOptions);
+
+      if (error) throw new Error(error);
+      if (!quizData) throw new Error("Failed to generate quiz data.");
+
+      // 3. Save to database
+      if (user && firestore) {
+        const quizRef = doc(collection(firestore, 'users', user.uid, 'quizzes'));
+        await setDoc(quizRef, {
+          ...quizData,
+          topic: normalizedTopic,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', quizData);
+      update({ id: toastId, title: 'Quiz Ready!', description: 'Time to test your knowledge.', duration: 3000 });
+    } catch (err: any) {
+      update({ id: toastId, title: 'Quiz Generation Failed', description: err.message, variant: 'destructive', duration: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [topic, user, firestore, mindMapData, providerOptions, startNewChat, toast]);
+
+  const handleRegenerateQuiz = useCallback(async (topicToRegen: string, wrongConcepts?: string[]) => {
+    if (isQuizLoading) return;
+
+    setIsQuizLoading(true);
+    const normalizedTopic = topicToRegen.trim();
+    setQuizTopic(normalizedTopic);
+
+    try {
+      const { data: quizData, error } = await generateQuizAction({
+        topic: normalizedTopic,
+        mindMapData: mindMapData ? (toPlainObject(mindMapData) as any) : undefined,
+        wrongConcepts: wrongConcepts
+      }, providerOptions);
+
+      if (error) throw new Error(error);
+      if (!quizData) throw new Error("Failed to generate quiz data.");
+
+      // Replace in database for next time
+      if (user && firestore) {
+        const quizzesRef = collection(firestore, 'users', user.uid, 'quizzes');
+        const q = query(quizzesRef, where('topic', '==', normalizedTopic), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const existingDocId = querySnapshot.docs[0].id;
+          const quizRef = doc(firestore, 'users', user.uid, 'quizzes', existingDocId);
+          await setDoc(quizRef, {
+            ...quizData,
+            topic: normalizedTopic,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+      }
+
+      // Add as a new session card as per usual flow
+      startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', quizData);
+    } catch (err: any) {
+      toast({
+        title: 'Regeneration Failed',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsQuizLoading(false);
+    }
+  }, [mindMapData, providerOptions, isQuizLoading, toast, user, firestore, startNewChat]);
 
   // Load persona and provider preference from user profile
   useEffect(() => {
@@ -828,7 +919,13 @@ export function ChatPanel({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 + index * 0.05 }}
-                    onClick={() => handleSend(item.prompt)}
+                    onClick={() => {
+                      if (item.title === "Quick Quiz") {
+                        handleStartInteractiveQuiz();
+                      } else {
+                        handleSend(item.prompt);
+                      }
+                    }}
                     className={cn(
                       "group flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-lg active:scale-95",
                       item.color,
@@ -1073,10 +1170,8 @@ export function ChatPanel({
                   toast({ title: "Quiz Finished", description: "You've completed the knowledge check." });
                 }}
                 onRestart={(wrongConcepts) => {
-                  if (onRegenerateQuiz && activeSession.topic) {
-                    onRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''), wrongConcepts);
-                  } else {
-                    toast({ title: "Restarting...", description: "Feature coming soon!" });
+                  if (activeSession.topic) {
+                    handleRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''), wrongConcepts);
                   }
                 }}
               />
@@ -1285,14 +1380,17 @@ export function ChatPanel({
                   <span className="sr-only">Chat History</span>
                 </Button>
 
-                {activeSession?.type === 'quiz' && onRegenerateQuiz && (
+                {activeSession?.type === 'quiz' && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''))}
+                          onClick={() => {
+                            const cleanTopic = activeSession.topic.replace('Quiz: ', '').trim();
+                            handleRegenerateQuiz(cleanTopic);
+                          }}
                           disabled={isQuizLoading}
                         >
                           <RefreshCw className={cn("h-5 w-5", isQuizLoading && "animate-spin")} />

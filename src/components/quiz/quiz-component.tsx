@@ -106,7 +106,7 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
                             </h4>
 
                             {/* Options */}
-                            <div className="grid gap-2">
+                            <div className="grid gap-2.5">
                                 {currentQuestion.options.map((option, idx) => {
                                     const isSelected = selectedOption === option;
                                     const isCorrect = isAnswershowing && option === currentQuestion.correctAnswer;
@@ -118,23 +118,40 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
                                             onClick={() => handleOptionSelect(option)}
                                             disabled={isAnswershowing}
                                             className={cn(
-                                                "group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 text-left relative",
-                                                isSelected ? "bg-primary/10 border-primary/40" : "bg-white/[0.03] border-white/5 hover:border-white/10",
-                                                isCorrect && "bg-emerald-500/10 border-emerald-500/40",
-                                                isWrong && "bg-red-500/10 border-red-500/40"
+                                                "group flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 text-left relative",
+                                                isSelected
+                                                    ? "bg-primary/10 border-primary/40 ring-1 ring-primary/20"
+                                                    : "bg-white/[0.03] border-white/5 hover:border-white/10",
+                                                isCorrect && "bg-emerald-500/10 border-emerald-500/40 ring-emerald-500/20",
+                                                isWrong && "bg-red-500/10 border-red-500/40 ring-red-500/20"
                                             )}
                                         >
+                                            {/* Tick/Selection Indicator */}
+                                            <div className={cn(
+                                                "w-5 h-5 rounded-full border flex items-center justify-center transition-all flex-shrink-0",
+                                                isSelected
+                                                    ? "bg-primary border-primary"
+                                                    : "bg-transparent border-white/10 group-hover:border-white/30",
+                                                isCorrect && "bg-emerald-500 border-emerald-500",
+                                                isWrong && "bg-red-500 border-red-500"
+                                            )}>
+                                                {isCorrect ? (
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                                                ) : isWrong ? (
+                                                    <XCircle className="w-3.5 h-3.5 text-white" />
+                                                ) : isSelected ? (
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-in zoom-in duration-300" />
+                                                ) : null}
+                                            </div>
+
                                             <span className={cn(
-                                                "text-sm transition-colors",
-                                                isSelected ? "text-white font-medium" : "text-zinc-400 group-hover:text-zinc-200",
+                                                "text-sm flex-grow transition-colors",
+                                                isSelected ? "text-white font-semibold" : "text-zinc-400 group-hover:text-zinc-200",
                                                 isCorrect && "text-emerald-400",
                                                 isWrong && "text-red-400"
                                             )}>
                                                 {option}
                                             </span>
-
-                                            {isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
-                                            {isWrong && <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
                                         </button>
                                     );
                                 })}
@@ -148,9 +165,14 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
                                         animate={{ opacity: 1, height: 'auto' }}
                                         className="overflow-hidden"
                                     >
-                                        <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-xs text-zinc-400 leading-relaxed italic">
-                                            <span className="text-zinc-200 font-bold not-italic mr-1.5 underline decoration-primary/30">Explanation:</span>
-                                            {currentQuestion.explanation}
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-xs text-zinc-300 leading-relaxed space-y-2">
+                                            <div className="flex items-center gap-2 font-bold text-primary uppercase tracking-widest text-[10px]">
+                                                <Sparkles className="w-3 h-3" />
+                                                Insight
+                                            </div>
+                                            <p className="italic">
+                                                {currentQuestion.explanation}
+                                            </p>
                                         </div>
                                     </motion.div>
                                 )}
@@ -163,17 +185,17 @@ export const QuizComponent = ({ quiz, onClose, onRestart }: QuizComponentProps) 
                                         onClick={handleConfirmAnswer}
                                         disabled={!selectedOption}
                                         size="sm"
-                                        className="rounded-lg bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 shadow-md shadow-primary/10"
+                                        className="rounded-lg bg-primary hover:bg-primary/90 text-white font-bold h-10 px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
                                     >
-                                        Confirm
+                                        Submit Answer
                                     </Button>
                                 ) : (
                                     <Button
                                         onClick={handleNextQuestion}
                                         size="sm"
-                                        className="rounded-lg bg-white text-black hover:bg-zinc-200 font-bold h-10 px-6 gap-2"
+                                        className="rounded-lg bg-white text-black hover:bg-zinc-200 font-bold h-10 px-8 gap-2 transition-all active:scale-95"
                                     >
-                                        {currentQuestionIndex < quiz.questions.length - 1 ? 'Next' : 'Results'}
+                                        {currentQuestionIndex < quiz.questions.length - 1 ? 'Next Question' : 'View Results'}
                                         <ArrowRight className="w-4 h-4" />
                                     </Button>
                                 )}
