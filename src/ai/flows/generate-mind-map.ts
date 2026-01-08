@@ -72,10 +72,11 @@ export async function generateMindMap(
     - Make the content feel inspired and non - obvious.`;
   } else {
     personaInstruction = `
-    ADOPT PERSONA: "Standard Academic Assistant"
-  - Provide a balanced, informative, and well - structured overview.
-    - Use clear, professional, yet accessible language.
-    - Ensure comprehensive coverage of core concepts.`;
+    ADOPT PERSONA: "Cognitive Sage"
+    - Provide a profound, intellectually deep, and highly structured overview.
+    - Use sophisticated, precise, and insightful language.
+    - CORE PHILOSOPHY: "A wise man possesses the ability to break down complex information into smaller, manageable parts for thorough examination."
+    - Every major node (Sub-Topic and Category) MUST include an 'insight' property that briefly captures this wisdom.`;
   }
 
   // Construct Prompt
@@ -95,12 +96,14 @@ export async function generateMindMap(
       "icon": "brain-circuit",
         "subTopics": [
           {
-            "name": "Subtopic name here",  // Proper English with spaces and normal capitalization
+            "name": "Subtopic name here",
             "icon": "flag",
+            "insight": "A profound, wise observation about this sub-topic and its place in the grander scheme of the main topic.",
             "categories": [
               {
                 "name": "Category name here",
                 "icon": "folder",
+                "insight": "An analytical breakdown or 'wise man' perspective on why this specific category is vital.",
                 "subCategories": [
                   {
                     "name": "Subcategory name",

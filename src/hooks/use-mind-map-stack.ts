@@ -35,7 +35,7 @@ export function useMindMapStack(options: {
         setStack(prev => {
             const newStack = [...prev];
             if (newStack[activeIndex]) {
-                newStack[activeIndex] = { ...newStack[activeIndex], ...updatedData };
+                newStack[activeIndex] = { ...newStack[activeIndex], ...updatedData } as MindMapData;
                 // We probably shouldn't auto-persist here to avoid infinite loops, 
                 // leave it to manual sync or debounced persist in the consuming component for now.
             }
@@ -90,19 +90,24 @@ export function useMindMapStack(options: {
 
             if (result.data) {
                 // Ensure all subcategories have isExpanded defaulted to false for type safety
-                const mapWithDefaults: MindMapData = {
-                    ...result.data,
-                    subTopics: result.data.subTopics.map(st => ({
-                        ...st,
-                        categories: st.categories.map(c => ({
-                            ...c,
-                            subCategories: c.subCategories.map(sc => ({
-                                ...sc,
-                                isExpanded: sc.isExpanded ?? false
+                // Only applicable for standard (single) mind maps
+                let mapWithDefaults: MindMapData = result.data;
+
+                if (result.data.mode === 'single') {
+                    mapWithDefaults = {
+                        ...result.data,
+                        subTopics: result.data.subTopics.map(st => ({
+                            ...st,
+                            categories: st.categories.map(c => ({
+                                ...c,
+                                subCategories: c.subCategories.map(sc => ({
+                                    ...sc,
+                                    isExpanded: sc.isExpanded ?? false
+                                }))
                             }))
                         }))
-                    }))
-                };
+                    };
+                }
 
                 const newMap = {
                     ...mapWithDefaults,
@@ -189,5 +194,6 @@ export function useMindMapStack(options: {
         replace,
         sync,
         setStack, // Escape hatch for initial load from page
+        setActiveIndex, // Direct access to setter for complex sync
     };
 }

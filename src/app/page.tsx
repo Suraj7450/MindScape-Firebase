@@ -15,8 +15,10 @@ import {
   Scan,
   Zap,
   Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import {
   Select,
@@ -49,6 +51,7 @@ import {
 // ---------- HERO ----------
 function Hero({
   onGenerate,
+  onCompare,
   lang,
   setLang,
   isGenerating,
@@ -59,6 +62,7 @@ function Hero({
     topic: string,
     fileInfo?: { name: string; type: string }
   ) => void;
+  onCompare: (topic1: string, topic2: string) => void;
   lang: string;
   setLang: (lang: string) => void;
   isGenerating: boolean;
@@ -66,6 +70,8 @@ function Hero({
   fileInputRef: React.RefObject<HTMLInputElement>;
 }) {
   const [topic, setTopic] = useState('');
+  const [topic2, setTopic2] = useState('');
+  const [isCompareMode, setIsCompareMode] = useState(false);
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
@@ -87,10 +93,22 @@ function Hero({
   }, [uploadedFile]);
 
   const handleInternalSubmit = () => {
-    if (!topic && !uploadedFile) return;
-    // For file uploads, generation is triggered by the useEffect
-    if (!uploadedFile) {
-      onGenerate(topic);
+    if (isCompareMode) {
+      if (!topic.trim() || !topic2.trim()) {
+        toast({
+          variant: 'destructive',
+          title: 'Topics Required',
+          description: 'Please enter both topics to generate a comparison.',
+        });
+        return;
+      }
+      onCompare(topic, topic2);
+    } else {
+      if (!topic && !uploadedFile) return;
+      // For file uploads, generation is triggered by the useEffect
+      if (!uploadedFile) {
+        onGenerate(topic);
+      }
     }
   };
 
@@ -140,17 +158,42 @@ function Hero({
 
         <div className="w-full max-w-3xl mx-auto relative group">
           {/* Input Glow Effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-[2.5rem] blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700" />
 
-          <div className="relative rounded-3xl border border-white/10 bg-zinc-900/80 backdrop-blur-2xl p-2 shadow-2xl">
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-end items-center px-4 pt-2">
+          <div className="relative rounded-[2.5rem] border border-white/5 bg-zinc-900/40 backdrop-blur-3xl p-3 shadow-2xl ring-1 ring-white/10">
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center px-4 pt-1">
+                <div className="flex items-center gap-1 p-1 bg-black/40 rounded-full border border-white/5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-5 h-8 transition-all duration-300",
+                      !isCompareMode ? "bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
+                    )}
+                    onClick={() => setIsCompareMode(false)}
+                  >
+                    Single Topic
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-5 h-8 transition-all duration-300",
+                      isCompareMode ? "bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
+                    )}
+                    onClick={() => setIsCompareMode(true)}
+                  >
+                    Compare Mode
+                  </Button>
+                </div>
+
                 <Select value={lang} onValueChange={setLang}>
                   <SelectTrigger
                     ref={languageSelectRef}
-                    className="w-[140px] h-9 border-none bg-white/5 text-xs text-zinc-300 rounded-full hover:bg-white/10 transition"
+                    className="w-auto min-w-[110px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group"
                   >
-                    <Globe className="w-3.5 h-3.5 mr-2" />
+                    <Globe className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
                     <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent className="glassmorphism border-white/10">
@@ -163,44 +206,66 @@ function Hero({
                 </Select>
               </div>
 
-              <div className="p-2">
-                <div className="relative group/input">
-                  <input
-                    placeholder={uploadedFile ? 'Add context for your document...' : 'What sparks your curiosity?'}
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    className="w-full h-14 rounded-2xl bg-white/5 px-6 text-zinc-100 outline-none placeholder:text-zinc-500 border border-white/5 focus:border-primary/50 transition-all text-lg"
-                    disabled={isGenerating}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleInternalSubmit();
-                      }
-                    }}
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <div className="p-1">
+                <div className="relative group/input flex gap-3">
+                  <div className={cn("flex flex-1 gap-3", isCompareMode ? "flex-col sm:flex-row" : "flex-row")}>
+                    <div className="flex-1 relative">
+                      <input
+                        placeholder={isCompareMode ? 'First topic...' : uploadedFile ? 'Add context...' : 'What sparks your curiosity?'}
+                        value={topic}
+                        onChange={(e) => setTopic(e.target.value)}
+                        className="w-full h-14 rounded-2xl bg-black/40 px-6 text-zinc-100 outline-none placeholder:text-zinc-600 border border-white/5 focus:border-primary/40 focus:bg-black/60 transition-all text-base font-medium pr-12"
+                        disabled={isGenerating}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleInternalSubmit();
+                        }}
+                      />
+                      {!isCompareMode && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleFileIconClick}
+                          disabled={isGenerating}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 hover:-translate-y-1/2 rounded-xl text-zinc-500 hover:text-primary hover:bg-primary/10 transition-all duration-200 h-10 w-10 flex items-center justify-center shadow-none"
+                        >
+                          <Paperclip className="h-5 w-5" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {isCompareMode && (
+                      <input
+                        placeholder="Second topic to compare..."
+                        value={topic2}
+                        onChange={(e) => setTopic2(e.target.value)}
+                        className="flex-1 h-14 rounded-2xl bg-black/40 px-6 text-zinc-100 outline-none placeholder:text-zinc-600 border border-white/5 focus:border-primary/40 focus:bg-black/60 transition-all text-base font-medium animate-in fade-in slide-in-from-left-2 duration-300"
+                        disabled={isGenerating}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleInternalSubmit();
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     {uploadedFile && (
-                      <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30">
-                        {uploadedFile.name}
+                      <Badge variant="secondary" className="hidden lg:flex bg-primary/20 text-primary-foreground border-primary/30 h-10 px-4 rounded-xl">
+                        <span className="max-w-[100px] truncate">{uploadedFile.name}</span>
                         <button onClick={handleRemoveFile} className="ml-2 hover:text-white transition">
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
                     )}
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleFileIconClick}
-                      disabled={isGenerating}
-                      className="rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition"
-                    >
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
-                    <Button
                       onClick={handleInternalSubmit}
-                      disabled={isGenerating || !!uploadedFile}
-                      className="h-10 px-6 rounded-xl bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold shadow-lg shadow-primary/20"
+                      disabled={isGenerating || (!!uploadedFile && !topic)}
+                      className="h-14 w-14 rounded-2xl bg-primary text-white hover:brightness-110 hover:scale-105 active:scale-95 transition-all font-bold shadow-lg shadow-primary/30 flex items-center justify-center p-0"
                     >
-                      {isGenerating ? '...' : <ArrowRight className="w-5 h-5" />}
+                      {isGenerating ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <ArrowRight className="w-6 h-6" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -470,6 +535,12 @@ export default function Home() {
 
 
 
+  const handleCompare = (topic1: string, topic2: string) => {
+    setIsGenerating(true);
+    const query = new URLSearchParams({ topic1, topic2, lang }).toString();
+    router.push(`/canvas?${query}`);
+  };
+
   const handleDocMapClick = () => {
     fileInputRef.current?.click();
   };
@@ -478,6 +549,7 @@ export default function Home() {
     <>
       <Hero
         onGenerate={handleGenerate}
+        onCompare={handleCompare}
         lang={lang}
         setLang={setLang}
         isGenerating={isGenerating}

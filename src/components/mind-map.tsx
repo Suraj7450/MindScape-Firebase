@@ -154,6 +154,7 @@ import { TopicHeader } from './mind-map/topic-header';
 import { MindMapRadialView } from './mind-map/mind-map-radial-view';
 import { cn } from '@/lib/utils';
 import { MindMapAccordion } from './mind-map/mind-map-accordion';
+import { CompareView } from './mind-map/compare-view';
 import { BreadcrumbNavigation } from './breadcrumb-navigation';
 import { NestedMapsDialog } from './nested-maps-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -908,32 +909,58 @@ export const MindMap = ({
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
-        {viewMode === 'accordion' ? (
+        {data.mode === 'compare' ? (
+          <CompareView
+            data={data}
+            onExplainNode={(node) => onExplainInChat(`Explain "${node.title}" in the context of the comparison "${data.compareData.root.title}".`)}
+            onGenerateNewMap={onGenerateNewMap}
+            onExplainInChat={onExplainInChat}
+            onSubCategoryClick={(node) => handleSubCategoryClick({ name: node.title, description: node.description || '' })}
+            onOpenMap={onOpenNestedMap}
+            onGenerateImage={handleGenerateImageClick}
+            generatingNode={generatingNode}
+            nestedExpansions={nestedExpansions}
+            isGlobalBusy={status !== 'idle'}
+          />
+        ) : viewMode === 'accordion' ? (
           <>
             <TopicHeader
               mindMap={data}
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
               onStackSelect={onStackSelect as any}
+              description={data.summary}
+              showBadge={true}
+              badgeText="Focused Intelligence"
             />
 
-            <MindMapAccordion
-              mindMap={data}
-              openSubTopics={openSubTopics}
-              setOpenSubTopics={setOpenSubTopics}
-              openCategories={openCategories}
-              setOpenCategories={setOpenCategories}
-              onGenerateNewMap={onGenerateNewMap}
-              handleSubCategoryClick={handleSubCategoryClick}
-              handleGenerateImageClick={handleGenerateImageClick}
-              onExplainInChat={onExplainInChat}
-              nestedExpansions={nestedExpansions}
-              onOpenNestedMap={onOpenNestedMap}
-              generatingNode={generatingNode}
-              mainTopic={data.topic}
-              onExplainWithExample={handleExplainWithExample}
-              status={status}
-            />
+            {(!data.subTopics || data.subTopics.length === 0) ? (
+              <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
+                <ZapOff className="h-12 w-12 text-zinc-700" />
+                <h3 className="text-xl font-bold text-zinc-400">No Content Found</h3>
+                <p className="text-sm text-zinc-600 max-w-xs">
+                  The AI didn't return a structured map for this topic. Try a different topic or regenerate.
+                </p>
+              </div>
+            ) : (
+              <MindMapAccordion
+                mindMap={data}
+                openSubTopics={openSubTopics}
+                setOpenSubTopics={setOpenSubTopics}
+                openCategories={openCategories}
+                setOpenCategories={setOpenCategories}
+                onGenerateNewMap={onGenerateNewMap}
+                handleSubCategoryClick={handleSubCategoryClick}
+                handleGenerateImageClick={handleGenerateImageClick}
+                onExplainInChat={onExplainInChat}
+                nestedExpansions={nestedExpansions}
+                onOpenNestedMap={onOpenNestedMap}
+                generatingNode={generatingNode}
+                mainTopic={data.topic}
+                onExplainWithExample={handleExplainWithExample}
+                status={status}
+              />
+            )}
           </>
         ) : (
           // Map Mode - Full Screen Portal (NO CONTAINER)

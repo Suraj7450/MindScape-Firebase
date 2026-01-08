@@ -57,7 +57,7 @@ export async function explainMindMapNode(
     - Intermediate: Conceptual depth, professional tone, practical context.
     - Expert: Technical details, nuance, advanced terminology.
     
-    Your task is to generate 5-7 distinct, high-quality explanation points for "${subCategoryName}". 
+    Your task is to generate 3-7 distinct, high-quality explanation points for "${subCategoryName}". 
     Each point should:
     1. Focus on a specific aspect (e.g., definition, use case, historical context, key feature, or relationship to "${mainTopic}").
     2. Be informative and provide knowledge beyond the current brief description.
@@ -68,15 +68,13 @@ export async function explainMindMapNode(
       "explanationPoints": [
         "First detailed point about the concept...",
         "Second detailed point focusing on a different aspect...",
-        "Third point providing context or an example...",
-        "Fourth point explaining a technical detail...",
-        "Fifth point linking it back to the main topic..."
+        "Third point providing context or an example..."
       ]
     }
     
-    IMPORTANT: Provide MINIMUM 5 points. Return ONLY the raw JSON object. No extra text.`;
+    IMPORTANT: Provide 3-7 points depending on the depth of the concept. Return ONLY the raw JSON object. No extra text, no markdown, no apologies, and no internal constraint markers.`;
 
-  const userPrompt = "Generate the explanation JSON with 5-7 detailed points.";
+  const userPrompt = `Generate a "${explanationMode}" level explanation JSON for "${subCategoryName}".`;
 
   const maxAttempts = 2;
   let lastError = null;
@@ -91,6 +89,18 @@ export async function explainMindMapNode(
         schema: ExplainMindMapNodeOutputSchema,
         strict
       });
+
+      // Post-process: Clean up any AI artifacts (leakage) in the explanation points
+      if (result && Array.isArray(result.explanationPoints)) {
+        result.explanationPoints = result.explanationPoints.map((point: string) => {
+          return point
+            .replace(/<\|[\s\S]*?\|>/g, '') // Remove <|constrain|> and similar markers
+            .replace(/\} \}/g, '')          // Remove leaked JSON closing brackets
+            .replace(/Sorry, but there's no problem\.?/gi, '') // Remove common AI filler
+            .replace(/"] }/g, '')           // Remove another common leakage pattern
+            .trim();
+        }).filter((p: string) => p.length > 5); // Filter out any empty/garbage points
+      }
 
       return result;
     } catch (e: any) {

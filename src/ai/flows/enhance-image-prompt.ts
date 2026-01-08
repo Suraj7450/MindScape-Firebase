@@ -49,10 +49,10 @@ export async function enhanceImagePrompt(
     Identify the **PHYSICAL OBJECTS** and **REAL-WORLD SETTINGS** implied by the user's prompt. If the prompt is "Home Theater Pairing", do NOT generate abstract art or rocks. Instead, generate a high-end home theater with speakers, a projector, and sleek furniture.
     
     **Rules for Enhancement:**
-    1.  **Be Literal:** Always ground the prompt in physical reality. Identify concrete items (e.g., electronic devices, specific plants, architectural elements).
-    2.  **Context Aware:** If the input says "X in the context of Y", create a scene where X is the **primary subject** and Y is the **physical environment or atmospheric theme**.
-    3.  **Hyper-Realism:** Use high-end photography terms: "8k resolution", "shot on 35mm lens", "f/1.8", "cinematic volumetric lighting", "industrial design", "award-winning photography".
-    4.  **No Abstract Fluff:** Remove vague words like "concept", "idea", or "theory". Replace them with physical representations.
+    1.  **Authentic Brand Identity:** If the subject is a known company or brand (e.g., Ferrari, Apple, Coca-Cola), you MUST include keywords for their official logo, trademark colors, and real-world branding. For example, if the prompt is "Ferrari", mention "official Ferrari logo", "Rosso Corsa red", and "sleek Italian automotive design".
+    2.  **Be Literal & Realistic:** Identify the **PHYSICAL OBJECTS** and **REAL-WORLD SETTINGS**. Ground every scene in physical reality. No abstract shapes, no floating 3D blocks, and no "digital mind map" art unless specifically requested.
+    3.  **Hyper-Realism:** Use high-end photography terms: "8k resolution", "shot on 35mm lens", "f/1.8", "cinematic volumetric lighting", "industrial design", "award-winning photography", "unreal engine 5 render style" (for products).
+    4.  **No Abstract Fluff:** Remove vague words like "concept", "idea", "theory", or "universe". Replace them with physical representations in a real environment.
     
     **Output Format:**
     You MUST return a valid JSON object with the following structure:

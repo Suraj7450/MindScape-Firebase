@@ -65,8 +65,9 @@ const CategorySchema = z.object({
     ),
   subCategories: z
     .array(SubCategorySchema)
-    .min(3)
+    .min(1)
     .describe('A list of detailed sub-categories.'),
+  insight: z.string().optional().describe('A deeper philosophical or analytical insight about this category.'),
 });
 
 const SubTopicSchema = z.object({
@@ -76,7 +77,8 @@ const SubTopicSchema = z.object({
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "flag").'
     ),
-  categories: z.array(CategorySchema).min(3).describe('A list of categories.'),
+  categories: z.array(CategorySchema).min(1).describe('A list of categories.'),
+  insight: z.string().optional().describe('A high-level philosophical or analytical insight about this sub-topic.'),
 });
 
 export const GeneratedImageSchema = z.object({
@@ -106,6 +108,7 @@ export const NestedExpansionItemSchema = z.object({
 });
 
 export const MindMapSchema = z.object({
+  mode: z.literal('single').default('single').describe('The mode of the mind map (single topic)'),
   topic: z.string().describe('The main topic of the mind map.'),
   shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words) for focused display.'),
   icon: z
@@ -113,7 +116,7 @@ export const MindMapSchema = z.object({
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").'
     ),
-  subTopics: z.array(SubTopicSchema).min(3).describe('A list of main sub-topics.'),
+  subTopics: z.array(SubTopicSchema).min(1).describe('A list of main sub-topics.'),
   isSubMap: z.boolean().optional().describe('Whether this map is a nested sub-map'),
   parentMapId: z.string().optional().describe('The ID of the parent mind map'),
   id: z.string().optional(),

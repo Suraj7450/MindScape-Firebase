@@ -107,8 +107,15 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
     const saveMap = useCallback(async (mapToSave: MindMapData, existingId?: string, isSilent: boolean = false) => {
         if (!mapToSave || !user || !firestore || isSavingRef.current) return;
 
-        if (!mapToSave.subTopics || mapToSave.subTopics.length === 0) {
+        const isCompare = (mapToSave as any).mode === 'compare';
+
+        if (!isCompare && (!mapToSave.subTopics || mapToSave.subTopics.length === 0)) {
             console.warn('Refused to save empty mind map');
+            return;
+        }
+
+        if (isCompare && !(mapToSave as any).compareData) {
+            console.warn('Refused to save empty comparison map');
             return;
         }
 
@@ -117,7 +124,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-            const thumbnailPrompt = `A cinematic, highly detailed 3D visualization representing the concept: ${mapToSave.topic}. Mind-map theme, futuristic aesthetics, elegant purple and indigo lighting, premium quality, 8k resolution.`;
+            const thumbnailPrompt = `High-end commercial photography of ${mapToSave.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`;
 
             // Generate thumbnail using internal API (which enhances prompts)
             let thumbnailUrl = mapToSave.thumbnailUrl || '';
@@ -158,7 +165,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             }
 
             // SPLIT SCHEMA: Metadata vs Content
-            const { subTopics, nodes, edges, id, ...metadata } = mapToSave as any;
+            const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;
 
             const metadataToSave: any = {
                 ...metadata,
@@ -178,6 +185,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
             const contentToSave = {
                 subTopics: subTopics || [],
+                compareData: compareData || null,
                 nodes: nodes || [],
                 edges: edges || [],
                 updatedAt: serverTimestamp(),

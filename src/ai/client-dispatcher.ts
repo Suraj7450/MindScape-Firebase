@@ -37,14 +37,22 @@ async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Prom
             const isTimeout = statusCode === 408 || errorMessage.toLowerCase().includes('timeout');
             const isRetryableServerErr = statusCode >= 500 || [502, 503, 504].includes(statusCode);
 
-            if (i < retries - 1 && (isRateLimit || isTimeout || isRetryableServerErr)) {
-                // For rate limits, we wait longer and add significant jitter
+            // AI-specific retryable errors: syntax errors in JSON and reasoning-only outputs
+            const isAISyntaxError = err instanceof StructuredOutputError && !err.zodError;
+            const isReasoningOnlyErr = errorMessage.includes('reasoning-only');
+
+            const shouldRetry = isRateLimit || isTimeout || isRetryableServerErr || isAISyntaxError || isReasoningOnlyErr;
+
+            if (i < retries - 1 && shouldRetry) {
+                // For rate limits or AI errors, we wait and retry
                 const jitter = Math.random() * 2000;
                 const waitTime = isRateLimit
-                    ? (5000 * (i + 1)) + jitter  // Wait 5s, 10s, 15s... + jitter
-                    : delayMs * Math.pow(2, i) + jitter;
+                    ? (5000 * (i + 1)) + jitter
+                    : (isAISyntaxError || isReasoningOnlyErr)
+                        ? 1000 + jitter // Short wait for AI to "think again"
+                        : delayMs * Math.pow(2, i) + jitter;
 
-                console.warn(`Attempt ${i + 1} failed (${isRateLimit ? 'Rate Limit' : 'Retryable Error'}), retrying in ${Math.round(waitTime)}ms...`, errorMessage);
+                console.warn(`Attempt ${i + 1} failed (${isRateLimit ? 'Rate Limit' : isAISyntaxError ? 'JSON Syntax' : isReasoningOnlyErr ? 'Reasoning Only' : 'Provider Error'}), retrying in ${Math.round(waitTime)}ms...`, errorMessage);
                 await new Promise(res => setTimeout(res, waitTime));
             } else {
                 // Non-retryable error or out of retries
@@ -104,6 +112,20 @@ class ProviderMonitor {
 const providerMonitor = new ProviderMonitor();
 
 /**
+ * Detects if a response object contains only AI reasoning/planning 
+ * but lacks the actual structured data fields.
+ */
+function isReasoningOnly(raw: any): boolean {
+    return (
+        typeof raw === 'object' &&
+        !!raw.reasoning_content &&
+        !raw.topic &&
+        !raw.subTopics &&
+        !raw.mode
+    );
+}
+
+/**
  * Unified AI Client Dispatcher
  * Routes requests to the appropriate provider (Gemini or Pollinations)
  * based on the user's configuration.
@@ -137,16 +159,33 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     if (provider === 'pollinations') {
         if (isPollinationsAvailable()) {
             try {
-                const raw = await retry(() => generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images));
-                const result = validateAndParse(raw, schema);
+                // MOVE validation INSIDE retry so malformed JSON or reasoning-only triggers a fresh AI attempt
+                const result = await retry(async () => {
+                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images);
+
+                    // Use reasoning-only check to trigger retry
+                    if (isReasoningOnly(raw)) {
+                        throw new Error('Pollinations returned reasoning-only output (retryable)');
+                    }
+
+                    return validateAndParse(raw, schema);
+                }, 3); // 3 attempts total
+
                 providerMonitor.recordSuccess('pollinations');
                 return result;
             } catch (error: any) {
                 providerMonitor.recordFailure('pollinations');
-                console.warn("⚠️ Pollinations failed.", error.message);
+                console.warn("⚠️ Pollinations failed after retries:", error.message);
 
+                // If it's a schema mismatch and we're NOT strict, attempt fallback to Gemini
+                // instead of failing immediately. This makes schema "optional enforcement".
                 if (strict) {
-                    throw new Error(`Pollinations failed and strict mode is enabled: ${error.message}`);
+                    throw error;
+                }
+
+                // If it's a schema error but we're leniant, log it and fallback
+                if (error instanceof StructuredOutputError && error.zodError) {
+                    console.error("🔍 Schema mismatch but continuing with fallback:", error.zodError);
                 }
 
                 // Trip circuit breaker if it's a 500-level error
@@ -215,11 +254,10 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
 /**
  * Validates and parses the AI response text.
- * Handles markdown stripping and schema validation.
+ * Handles markdown stripping, robust JSON extraction, and schema validation.
  */
 function validateAndParse(raw: any, schema?: any): any {
     if (typeof raw !== 'string') {
-        // If it's already an object (from some internal parsers), validate it
         if (schema) {
             const result = schema.safeParse(raw);
             if (!result.success) {
@@ -230,28 +268,49 @@ function validateAndParse(raw: any, schema?: any): any {
         return raw;
     }
 
-    // Clean markdown code blocks if present
     let cleaned = raw.trim();
-    if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/^```[a-z]*\n([\s\S]*)\n```$/g, '$1');
-        // Handle variations without newlines
-        cleaned = cleaned.replace(/^```[a-z]*\s?([\s\S]*?)```$/g, '$1');
+
+    // 1. Remove markdown code blocks if present
+    if (cleaned.includes('```')) {
+        // More robust replacement for multiple or single code blocks
+        cleaned = cleaned.replace(/```[a-z]*\n?([\s\S]*?)\n?```/g, '$1').trim();
     }
 
+    // 2. Initial attempt at parsing
     try {
-        const parsed = JSON.parse(cleaned);
-        if (schema) {
-            const result = schema.safeParse(parsed);
-            if (!result.success) {
-                console.error("❌ Schema Validation Error:", result.error);
-                throw new StructuredOutputError("AI response did not match the required schema structure.", cleaned, result.error);
+        return performSchemaValidation(JSON.parse(cleaned), schema, cleaned);
+    } catch (e) {
+        // 3. Robust Extraction fallback
+        // Sometimes models prefix the JSON with prose even if told not to
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const extracted = cleaned.substring(firstBrace, lastBrace + 1);
+            try {
+                return performSchemaValidation(JSON.parse(extracted), schema, extracted);
+            } catch (innerError: any) {
+                // If still failing, it might be a real syntax error (e.g. unescaped quotes)
+                if (innerError instanceof StructuredOutputError) throw innerError;
+                throw new StructuredOutputError(`Failed to parse extracted AI response: ${innerError.message}`, extracted);
             }
-            return result.data;
         }
-        return parsed;
-    } catch (e: any) {
-        if (e instanceof StructuredOutputError) throw e;
-        throw new StructuredOutputError(`Failed to parse AI response as JSON: ${e.message}`, cleaned);
+
+        throw new StructuredOutputError(`Failed to parse AI response as JSON: ${(e as any).message}`, cleaned);
     }
+}
+
+/**
+ * Internal helper to run Zod validation if schema exists
+ */
+function performSchemaValidation(parsed: any, schema: any, originalRaw: string): any {
+    if (!schema) return parsed;
+
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+        console.error("❌ Schema Validation Error:", result.error);
+        throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);
+    }
+    return result.data;
 }
 

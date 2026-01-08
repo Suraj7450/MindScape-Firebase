@@ -68,54 +68,53 @@ export async function generateContentWithPollinations(
         const deepExtract = (obj: any): any => {
             if (!obj || typeof obj !== 'object') return null;
 
-            // 1. Check if it's already a mind map
-            if (obj.topic && (obj.subTopics || obj.subTopicsCount !== undefined)) {
+            // 1. Direct usable object (generic guard for both Single and Compare modes)
+            if (obj.topic || obj.mode === 'compare' || obj.similarities || obj.differences) {
                 return obj;
             }
 
-            // Debug: Log what we're checking
-            if (obj.tool_calls) {
-                console.log('🔍 Found tool_calls property. Is array?', Array.isArray(obj.tool_calls), 'Length:', obj.tool_calls?.length);
-                console.log('🔍 tool_calls[0]:', JSON.stringify(obj.tool_calls[0], null, 2).substring(0, 500));
-            }
-
-            // 2. Handle tool_calls format (new Pollinations response structure)
-            if (obj.tool_calls && Array.isArray(obj.tool_calls) && obj.tool_calls.length > 0) {
-                console.log('🔧 Detected tool_calls format, extracting arguments...');
-                const toolCall = obj.tool_calls[0];
-                if (toolCall.function?.arguments) {
-                    try {
-                        const args = typeof toolCall.function.arguments === 'string'
-                            ? JSON.parse(toolCall.function.arguments)
-                            : toolCall.function.arguments;
-                        console.log('📦 Extracted keys from tool_calls:', Object.keys(args));
-                        return deepExtract(args);
-                    } catch (e) {
-                        console.warn('⚠️ Failed to parse tool_calls arguments:', e);
-                    }
-                } else {
-                    console.warn('⚠️ tool_calls found but no function.arguments');
-                }
-            }
-
-            // 3. Check known wrapper keys
-            const content = obj.content || obj.text || obj.message?.content || obj.message || (obj.choices && obj.choices[0]?.message?.content);
+            // 2. Check common content wrappers FIRST (Pollinations/OpenAI friendly)
+            const content =
+                obj.content ||
+                obj.text ||
+                obj.reasoning_content ||
+                obj.message?.content ||
+                (obj.choices && obj.choices[0]?.message?.content);
 
             if (content) {
                 if (typeof content === 'string') {
                     try {
                         const cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
                         const parsed = JSON.parse(cleaned);
-                        return deepExtract(parsed); // Recurse in case it's double-wrapped
-                    } catch (e) {
-                        // Not JSON, return as is if it's the last hope, but we prefer finding an object
+                        return deepExtract(parsed);
+                    } catch {
+                        // Not JSON → ignore
                     }
                 } else if (typeof content === 'object') {
                     return deepExtract(content);
                 }
             }
 
-            // 4. Fallback: search all values for something that looks like mind map data
+            // 3. Handle tool_calls ONLY if non-empty
+            if (Array.isArray(obj.tool_calls) && obj.tool_calls.length > 0) {
+                console.log('🔧 Detected tool_calls format, extracting arguments...');
+                const toolCall = obj.tool_calls[0];
+                if (toolCall.function?.arguments) {
+                    try {
+                        const args =
+                            typeof toolCall.function.arguments === 'string'
+                                ? JSON.parse(toolCall.function.arguments)
+                                : toolCall.function.arguments;
+                        return deepExtract(args);
+                    } catch (e) {
+                        console.warn('⚠️ Failed to parse tool_calls arguments:', e);
+                    }
+                }
+            } else if (obj.tool_calls) {
+                console.log('⚠️ tool_calls property found but is not a non-empty array:', obj.tool_calls);
+            }
+
+            // 4. Deep recursive search
             for (const key in obj) {
                 if (typeof obj[key] === 'object' && obj[key] !== null) {
                     const found = deepExtract(obj[key]);
@@ -127,13 +126,11 @@ export async function generateContentWithPollinations(
         };
 
         const finalResult = deepExtract(parsedResponse) || parsedResponse;
-        console.log('✨ Extraction complete. Final result keys:', Object.keys(finalResult || {}));
 
-        // Validate that we have the minimum required fields
-        if (finalResult && !finalResult.topic) {
-            console.error('❌ Missing required "topic" field!');
-            console.error('📋 Available keys:', Object.keys(finalResult));
-            console.error('🔍 First 1000 chars of response:', JSON.stringify(finalResult, null, 2).substring(0, 1000));
+        if (!finalResult) {
+            console.warn('⚠️ Deep extraction failed to find a usable object in the AI response.');
+        } else {
+            console.log('✨ Extraction complete. Final result keys:', Object.keys(finalResult));
         }
 
         return finalResult;

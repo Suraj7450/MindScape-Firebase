@@ -8,7 +8,9 @@ import {
     Network,
     Image as ImageIcon,
     MessageCircle,
-    ArrowRight
+    ArrowRight,
+    Copy,
+    Check
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,8 @@ import {
 } from '@/components/ui/tooltip';
 import { cn, toPascalCase } from '@/lib/utils';
 import { SubCategory, MindMapData } from '@/types/mind-map';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface LeafNodeCardProps {
     node: SubCategory;
@@ -53,6 +57,9 @@ export const LeafNodeCard = memo(function LeafNodeCard({
 }: LeafNodeCardProps) {
     const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
 
+    const { toast } = useToast();
+    const [isCopied, setIsCopied] = useState(false);
+
     const handleExpandClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onGenerateNewMap(node.name, nodeId, contextPath, 'background');
@@ -66,6 +73,15 @@ export const LeafNodeCard = memo(function LeafNodeCard({
     const handleImageClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onGenerateImage(node);
+    };
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const text = `${node.name}: ${node.description}`;
+        navigator.clipboard.writeText(text);
+        setIsCopied(true);
+        toast({ title: "Copied", description: "Node content copied to clipboard." });
+        setTimeout(() => setIsCopied(false), 2000);
     };
 
     return (
@@ -137,6 +153,15 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 transition-all" onClick={handleCopy}>
+                                        {isCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>{isCopied ? 'Copied!' : 'Copy Context'}</p></TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                     </div>

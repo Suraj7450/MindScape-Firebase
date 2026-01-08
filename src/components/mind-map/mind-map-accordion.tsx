@@ -7,7 +7,11 @@ import {
     ChevronDown,
     Network,
     MessageCircle,
-    FolderOpen
+    FolderOpen,
+    Lightbulb,
+    Info,
+    Sparkles,
+    BrainCircuit
 } from 'lucide-react';
 import {
     Accordion,
@@ -23,6 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 import { toPascalCase } from '@/lib/utils';
 import { LeafNodeCard } from './leaf-node-card';
+import { Icons } from '../icons';
 import {
     MindMapData,
     SubCategory,
@@ -51,6 +56,29 @@ interface MindMapAccordionProps {
     status: MindMapStatus;
 }
 
+const InsightCard = ({ text, title, mode }: { text: string; title: string, mode: 'topic' | 'category' }) => (
+    <div className={cn(
+        "mb-4 animate-in mt-2 fade-in slide-in-from-top-4 duration-700",
+        mode === 'topic' ? "px-0" : "px-0"
+    )}>
+        {/* Ultra-Minimalist Content-First Container */}
+        <div className="relative overflow-hidden rounded-2xl bg-[#0c0c0e]/40 border border-white/5 p-5 backdrop-blur-2xl shadow-lg group/insight-card hover:border-primary/30 transition-all duration-500">
+
+            <div className="relative z-10">
+                {/* Content: Pure Typography */}
+                <p className="text-base md:text-lg text-zinc-200 leading-relaxed font-serif italic text-balance">
+                    "{text}"
+                </p>
+            </div>
+
+            {/* Subtle Gradient Hint */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(circle_at_50%_0%,#8b5cf6_0,transparent_50%)]" />
+        </div>
+    </div>
+);
+
+import { cn } from '@/lib/utils';
+
 export const MindMapAccordion = ({
     mindMap,
     openSubTopics,
@@ -68,6 +96,13 @@ export const MindMapAccordion = ({
     onExplainWithExample,
     status
 }: MindMapAccordionProps) => {
+    const [showInsight, setShowInsight] = React.useState<string | null>(null);
+
+    const toggleInsight = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowInsight(prev => prev === id ? null : id);
+    };
+
     const isGlobalBusy = status !== 'idle';
     return (
         <Accordion
@@ -105,6 +140,24 @@ export const MindMapAccordion = ({
                                             <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                                             {subTopic.categories.length} Concept Categories
                                         </span>
+                                        {subTopic.insight && (
+                                            <button
+                                                onClick={(e) => toggleInsight(subTopicId, e)}
+                                                className={cn(
+                                                    "h-8 px-4 rounded-full border transition-all duration-300 flex items-center gap-2.5 group/insight",
+                                                    showInsight === subTopicId
+                                                        ? "bg-primary/20 border-primary/50 text-primary shadow-[0_0_20px_rgba(139,92,246,0.3)] scale-105"
+                                                        : "bg-white/5 border-white/10 text-zinc-500 hover:border-primary/30 hover:text-zinc-300"
+                                                )}
+                                            >
+                                                <Sparkles className={cn("w-3.5 h-3.5 transition-transform duration-500", showInsight === subTopicId ? "rotate-180 fill-primary" : "group-hover/insight:rotate-12")} />
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Insight</span>
+                                                <div className={cn(
+                                                    "w-1 h-1 rounded-full transition-all duration-500",
+                                                    showInsight === subTopicId ? "bg-primary animate-pulse w-3" : "bg-zinc-700"
+                                                )} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <ChevronDown className={`w-6 h-6 text-zinc-600 transition-transform duration-500 ${openSubTopics.includes(subTopicId) ? 'rotate-180' : ''}`} />
@@ -118,7 +171,7 @@ export const MindMapAccordion = ({
                                                 <Network className="h-5 w-5" />
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent><p>Generate Sub-Map</p></TooltipContent>
+                                        <TooltipContent className="glassmorphism"><p>Generate Sub-Map</p></TooltipContent>
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -126,11 +179,18 @@ export const MindMapAccordion = ({
                                                 <MessageCircle className="h-5 w-5" />
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent><p>AI Chat Assistant</p></TooltipContent>
+                                        <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                             </div>
                         </div>
+
+                        {/* Top-Level Insight: Independent of AccordionContent */}
+                        {showInsight === subTopicId && subTopic.insight && (
+                            <div className="px-8 pb-4">
+                                <InsightCard text={subTopic.insight} title={subTopic.name} mode="topic" />
+                            </div>
+                        )}
 
                         <AccordionContent className="px-8 pb-8 pt-2">
                             <div className="space-y-3">
@@ -149,6 +209,20 @@ export const MindMapAccordion = ({
                                                         <CategoryIcon className="h-5 w-5" />
                                                     </div>
                                                     <h4 className="text-lg font-semibold text-zinc-200 group-hover/cat:translate-x-1 transition-transform duration-300">{category.name}</h4>
+                                                    {category.insight && (
+                                                        <button
+                                                            onClick={(e) => toggleInsight(catId, e)}
+                                                            className={cn(
+                                                                "ml-3 h-7 px-3 rounded-full border transition-all duration-300 flex items-center gap-2 group/insight",
+                                                                showInsight === catId
+                                                                    ? "bg-primary/20 border-primary/50 text-primary shadow-[0_0_15px_rgba(139,92,246,0.2)]"
+                                                                    : "bg-white/5 border-white/10 text-zinc-600 hover:border-primary/20 hover:text-zinc-400"
+                                                            )}
+                                                        >
+                                                            <Sparkles className={cn("w-3 h-3 transition-transform duration-500", showInsight === catId ? "rotate-180 fill-primary" : "group-hover/insight:rotate-12")} />
+                                                            <span className="text-[8px] font-black uppercase tracking-[0.15em] hidden sm:inline">Insight</span>
+                                                        </button>
+                                                    )}
                                                     <ChevronDown className={`w-4 h-4 text-zinc-600 transition-transform duration-300 ${openCategories.includes(catId) ? 'rotate-180' : ''}`} />
                                                 </div>
 
@@ -156,23 +230,30 @@ export const MindMapAccordion = ({
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-primary transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`, 'background')} disabled={isGlobalBusy}>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-primary hover:bg-primary/10 transition-all rounded-lg" onClick={() => onGenerateNewMap(category.name, catId, `${mindMap.topic} > ${subTopic.name}`, 'background')} disabled={isGlobalBusy}>
                                                                     <Network className="h-4 w-4" />
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>Generate Sub-Map</TooltipContent>
+                                                            <TooltipContent className="glassmorphism"><p>Generate Sub-Map</p></TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-blue-400 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
                                                                     <MessageCircle className="h-4 w-4" />
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>AI Chat Assistant</TooltipContent>
+                                                            <TooltipContent className="glassmorphism"><p>Ask AI Assistant</p></TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
                                                 </div>
                                             </div>
+
+                                            {/* Category-Level Insight: Visible even if collapsible grid is hidden */}
+                                            {showInsight === catId && category.insight && (
+                                                <div className="px-6 pb-2">
+                                                    <InsightCard text={category.insight} title={category.name} mode="category" />
+                                                </div>
+                                            )}
 
                                             {openCategories.includes(catId) && (
                                                 <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">

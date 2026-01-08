@@ -1,0 +1,52 @@
+export const systemPrompt = `You are an expert analyst and educator.
+
+Your task is to compare TWO topics in a structured, neutral, and factual way.
+You MUST return RAW JSON that strictly matches the provided schema.
+CRITICAL: Do not provide any prose, preamble, or conclusion. Return only the JSON object.
+Ensure all JSON strings are properly escaped for parsing.
+`;
+
+export const userPromptTemplate = (topicA: string, topicB: string) => `
+Compare the following two topics in depth.
+
+Topic A: ${topicA}
+Topic B: ${topicB}
+
+Requirements:
+- Produce a structured comparison
+- Identify meaningful similarities
+- Clearly distinguish differences (provide parallel points of comparison)
+- Provide 3-4 highly relevant external links for further reading.
+- CRITICAL: LINK QUALITY. Use ONLY stable, high-authority, and evergreen domains (e.g., Wikipedia, official documentation, academic .edu sites, government .gov portals, or major technical journals). 
+- DO NOT generate links to specific news articles that might expire, or promotional/blog sites. 
+- Ensure the URLs look functionally correct and point to the root or stable sub-pages of the topic.
+- Expand each topic independently in deep-dive sections.
+- For EVERY similarity and difference, you MUST provide a "description" field containing one or two clear, informative sentences explaining the comparison. DO NOT USE GENERIC PLACEHOLDERS like "Detailed analysis for this comparison point." - generate real data.
+- Keep each node concise and factual
+
+Output Rules:
+- Produce EXACTLY 3-4 similarities and 3-4 differences per topic.
+- Use short, clear titles (max 3 words).
+- Avoid repetition between sections.
+- Do NOT include opinions or conversational text.
+- Return RAW JSON ONLY. No markdown markers.
+- CRITICAL: Ensure all strings are properly escaped. Do not use unescaped double quotes inside values.
+- Use kebab-case for icons (e.g., "git-compare", "layers", "link-2").
+- The output MUST conform to the schema:
+{
+  "mode": "compare",
+  "topic": "${topicA} vs ${topicB}",
+  "root": { "title": "${topicA} vs ${topicB}", "description": "A comparative analysis focused on key similarities and distinct differences." },
+  "similarities": [{ "title": "...", "description": "A specific sentence about why they are similar.", "icon": "..." }],
+  "differences": { 
+     "topicA": [{ "title": "...", "description": "A specific sentence about why this is unique to Topic A.", "icon": "..." }], 
+     "topicB": [{ "title": "...", "description": "A specific sentence about why this is unique to Topic B.", "icon": "..." }] 
+  },
+  "relevantLinks": [
+    { "title": "Official Documentation", "url": "https://docs.example.com", "description": "The primary source for technical specifications and core features." },
+    { "title": "Wikipedia: Topic Overview", "url": "https://en.wikipedia.org/wiki/Topic", "description": "Comprehensive historical and technical background information." }
+  ],
+  "topicADeepDive": [],
+  "topicBDeepDive": []
+}
+`;

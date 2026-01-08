@@ -20,21 +20,49 @@ export interface Category {
   name: string;
   icon: string;
   subCategories: SubCategory[];
+  insight?: string;
 }
 
 export interface SubTopic {
   name: string;
   icon: string;
   categories: Category[];
+  insight?: string;
 }
 
 export interface MindMap {
-  topic: string;
-  shortTitle: string;
-  icon: string;
   subTopics: SubTopic[];
   isSubMap?: boolean;
   parentMapId?: string;
+}
+
+export interface CompareNode {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  children?: CompareNode[];
+  tags?: string[];
+}
+
+export interface CompareData {
+  root: {
+    title: string;
+    description?: string;
+    icon?: string;
+  };
+  similarities: CompareNode[];
+  differences: {
+    topicA: CompareNode[];
+    topicB: CompareNode[];
+  };
+  relevantLinks: Array<{
+    title: string;
+    url: string;
+    description?: string;
+  }>;
+  topicADeepDive: CompareNode[];
+  topicBDeepDive: CompareNode[];
 }
 
 export interface GeneratedImage {
@@ -55,11 +83,14 @@ export interface NestedExpansionItem {
   depth: number;
   path?: string;
   status?: 'generating' | 'completed' | 'failed';
-  fullData?: MindMapWithId;
+  fullData?: MindMapData;
 }
 
-export type MindMapWithId = MindMap & {
+export interface BaseMindMapData {
   id?: string;
+  topic: string;
+  shortTitle?: string;
+  icon?: string;
   uid?: string;
   userId?: string;
   createdAt?: Timestamp | number;
@@ -76,9 +107,18 @@ export type MindMapWithId = MindMap & {
   originalAuthorId?: string;
   authorName?: string;
   authorAvatar?: string;
-};
+}
 
-export type MindMapData = MindMapWithId;
+export interface SingleMindMapData extends BaseMindMapData, MindMap {
+  mode: 'single';
+}
+
+export interface CompareMindMapData extends BaseMindMapData {
+  mode: 'compare';
+  compareData: CompareData;
+}
+
+export type MindMapData = SingleMindMapData | CompareMindMapData;
 
 export interface SubCategoryInfo {
   name: string;

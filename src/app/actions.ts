@@ -65,6 +65,12 @@ import {
   RelatedQuestionsInput,
 } from '@/ai/flows/generate-related-questions';
 import { RelatedQuestionsOutput } from '@/ai/schemas/related-questions-schema';
+import {
+  generateComparisonMapV2,
+  GenerateComparisonMapOutputV2,
+} from '@/ai/compare/flow';
+import { GenerateComparisonMapInput } from '@/ai/compare/schema';
+import { CompareMindMapData } from '@/types/mind-map';
 import { addDoc, collection } from 'firebase/firestore';
 
 export interface GenerateMindMapFromImageInput {
@@ -404,4 +410,58 @@ export async function generateRelatedQuestionsAction(
 
 export async function getAIHealthReportAction() {
   return providerMonitor.getReport();
+}
+
+/**
+ * Server action to generate a comparison mind map between two topics.
+ * @param {GenerateComparisonMapInput} input - The input containing two topics.
+ * @returns {Promise<{ data: GenerateComparisonMapOutputV2 | null; error: string | null }>}
+ */
+export async function generateComparisonMapAction(
+  input: GenerateComparisonMapInput,
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = { provider: 'pollinations' }
+): Promise<{ data: CompareMindMapData | null; error: string | null }> {
+  // TODO: Validate Firebase ID token server-side before invoking AI
+
+  if (!input.topic1 || !input.topic2) {
+    return { data: null, error: 'Both topics are required for comparison.' };
+  }
+
+  if (input.topic1.trim().toLowerCase() === input.topic2.trim().toLowerCase()) {
+    return { data: null, error: 'Topics must be different to generate a comparison.' };
+  }
+
+  try {
+    const result = await generateComparisonMapV2({ ...input, ...options });
+
+    // Transform to CompareMindMapData structure with defensive defaults
+    const formattedData: CompareMindMapData = {
+      mode: 'compare',
+      topic: result.topic || result.root?.title || `${input.topic1} vs ${input.topic2}`,
+      compareData: {
+        root: {
+          title: result.root?.title || `${input.topic1} vs ${input.topic2}`,
+          description: result.root?.description || '',
+          icon: result.root?.icon || 'scale',
+        },
+        similarities: Array.isArray(result.similarities) ? result.similarities : [],
+        differences: {
+          topicA: Array.isArray(result.differences?.topicA) ? result.differences.topicA : [],
+          topicB: Array.isArray(result.differences?.topicB) ? result.differences.topicB : [],
+        },
+        relevantLinks: Array.isArray(result.relevantLinks) ? result.relevantLinks : [],
+        topicADeepDive: Array.isArray(result.topicADeepDive) ? result.topicADeepDive : [],
+        topicBDeepDive: Array.isArray(result.topicBDeepDive) ? result.topicBDeepDive : [],
+      }
+    };
+
+    return { data: formattedData, error: null };
+  } catch (error) {
+    console.error('Error in generateComparisonMapAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return {
+      data: null,
+      error: `Failed to generate comparison map: ${errorMessage}`,
+    };
+  }
 }

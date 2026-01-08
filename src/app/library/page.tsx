@@ -255,13 +255,13 @@ export default function DashboardPage() {
               return (
                 <div
                   key={map.id}
-                  className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-300 hover:border-purple-600/50 hover:shadow-glow hover:-translate-y-1"
+                  className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-500 hover:border-purple-600/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:-translate-y-1"
                 >
                   <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A]" onClick={() => handleMindMapClick(map.id)}>
                     <img
                       src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
                       alt={`Thumbnail for ${map.topic}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                       onError={(e) => {
                         // Fallback to placeholder on error
@@ -278,7 +278,7 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  <h3 className="font-bold text-lg text-white mb-2 truncate" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>
+                  <h3 className="font-bold text-lg text-white mb-2 truncate group-hover:text-purple-400 transition-colors" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>
 
                   <div className="flex-grow"></div>
 

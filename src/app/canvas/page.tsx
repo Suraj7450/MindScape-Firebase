@@ -32,6 +32,7 @@ import {
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
   generateQuizAction,
+  generateComparisonMapAction,
 } from '@/app/actions';
 import { toPlainObject } from '@/lib/serialize';
 import { mindscapeMap } from '@/lib/mindscape-data';
@@ -52,7 +53,7 @@ const EMPTY_ARRAY: any[] = [];
 function MindMapPageContent() {
   const { params, navigateToMap, changeLanguage, regenerate, clearRegenFlag, getParamKey, router } = useMindMapRouter();
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { config } = useAIConfig();
 
@@ -73,7 +74,7 @@ function MindMapPageContent() {
   // 1. ADAPTERS
   const expansionAdapter = useMemo(() => ({
     generate: async (topic: string, parentTopic?: string) => {
-      const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+      const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
       const result = await generateMindMapAction({
         topic,
         parentTopic,
@@ -97,6 +98,7 @@ function MindMapPageContent() {
     update: handleUpdateCurrentMap,
     sync: handleSaveMapFromHook,
     setStack: setMindMaps,
+    setActiveIndex: setActiveMindMapIndexState,
     replace: handleReplaceCurrentMap,
     generationScope
   } = useMindMapStack({
@@ -147,6 +149,8 @@ function MindMapPageContent() {
 
   useEffect(() => {
     const fetchMindMapData = async () => {
+      if (isUserLoading) return;
+
       const currentParamsKey = getParamKey();
 
       // If we already have this map in our state, just switch to it
@@ -160,7 +164,7 @@ function MindMapPageContent() {
 
       if (existingMapIndex !== -1 && !params.isRegenerating) {
         if (activeMindMapIndex !== existingMapIndex) {
-          setActiveMindMapIndex(existingMapIndex);
+          setActiveMindMapIndexState(existingMapIndex);
         }
         setIsLoading(false);
         return;
@@ -203,8 +207,8 @@ function MindMapPageContent() {
             persona: aiPersona,
           }, aiOptions);
 
-          if (result.data && user) {
-            // Overwrite existing!
+          // Overwrite existing!
+          if (result.data) {
             await handleSaveMap(result.data, params.mapId);
           }
         } else if (params.mapId) {
@@ -227,7 +231,7 @@ function MindMapPageContent() {
                 }
               } else {
                 // Legacy: all data is in the main document
-                result.data = { ...(meta as GenerateMindMapOutput), id: docSnap.id };
+                result.data = { ...(meta as any), id: docSnap.id };
               }
 
               // Backfill summary if missing
@@ -250,9 +254,26 @@ function MindMapPageContent() {
               result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
             }
           }
+
+          // CRITICAL: Throw error if map was requested but not found in any collection
+          if (!result.data && !result.error) {
+            result.error = "Mind map not found or you don't have permission to view it.";
+          }
+        } else if (params.topic1 && params.topic2) {
+          if (params.topic1.trim().toLowerCase() === params.topic2.trim().toLowerCase()) {
+            throw new Error('Comparison requires two different topics.');
+          }
+          currentMode = 'compare';
+          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+          result = await generateComparisonMapAction({
+            topic1: params.topic1,
+            topic2: params.topic2,
+            targetLang: params.lang,
+            persona: aiPersona,
+          }, aiOptions);
         } else if (params.topic) {
           currentMode = 'standard';
-          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
           result = await generateMindMapAction({
             topic: params.topic,
             parentTopic: params.parent || undefined,
@@ -276,7 +297,7 @@ function MindMapPageContent() {
 
             if (sessionType === 'image') {
               currentMode = 'vision-image';
-              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
               result = await generateMindMapFromImageAction({
                 imageDataUri: fileContent,
                 targetLang: params.lang,
@@ -284,7 +305,7 @@ function MindMapPageContent() {
               }, aiOptions);
             } else if (sessionType === 'text') {
               currentMode = 'vision-text';
-              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
               result = await generateMindMapFromTextAction({
                 text: fileContent,
                 context: additionalText,
@@ -318,12 +339,12 @@ function MindMapPageContent() {
               return prevMaps;
             }
             const newMaps = [...prevMaps, result.data!];
-            setActiveMindMapIndex(newMaps.length - 1);
+            setActiveMindMapIndexState(newMaps.length - 1);
             return newMaps;
           });
 
           const isNewlyGenerated = !['saved', 'self-reference'].includes(currentMode);
-          if (isNewlyGenerated && user) {
+          if (isNewlyGenerated && user && result.data) {
             const existingMapWithId = mindMapsRef.current.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
             const savedId = await handleSaveMap(result.data, existingMapWithId?.id);
 
@@ -356,7 +377,7 @@ function MindMapPageContent() {
     };
 
     fetchMindMapData();
-  }, [getParamKey, user, handleSaveMap, toast, firestore, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndex]);
+  }, [getParamKey, user, isUserLoading, handleSaveMap, toast, firestore, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndexState]);
 
   // Track views for community maps
   useEffect(() => {
