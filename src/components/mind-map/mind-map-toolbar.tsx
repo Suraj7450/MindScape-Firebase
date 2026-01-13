@@ -74,6 +74,7 @@ interface MindMapToolbarProps {
     onPublish: () => void;
     isPublishing: boolean;
     isPublic: boolean;
+    isCompare?: boolean;
 }
 
 export const MindMapToolbar = ({
@@ -105,7 +106,8 @@ export const MindMapToolbar = ({
     onViewModeChange,
     onPublish,
     isPublishing,
-    isPublic
+    isPublic,
+    isCompare = false
 }: MindMapToolbarProps) => {
     const isBusy = status !== 'idle';
     const isSyncing = status === 'syncing';
@@ -151,7 +153,7 @@ export const MindMapToolbar = ({
                 )}
 
                 {/* Main Controls Group */}
-                {viewMode === 'accordion' && (
+                {(viewMode === 'accordion' || isCompare) && (
                     <div className="flex items-center gap-1.5 px-1.5 pr-3 border-r border-white/10">
                         <Select value={languageUI} onValueChange={onLanguageChange} disabled={isTranslating || isBusy}>
                             <SelectTrigger className="h-9 w-fit min-w-[70px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest">
@@ -182,7 +184,7 @@ export const MindMapToolbar = ({
                 {/* Action Group */}
                 <div className="flex items-center gap-1.5 px-1">
                     <div className="flex items-center gap-1.5">
-                        {viewMode === 'accordion' && (
+                        {(viewMode === 'accordion' || isCompare) && (
                             <>
                                 <Button
                                     variant="ghost"
@@ -224,32 +226,34 @@ export const MindMapToolbar = ({
                             </>
                         )}
 
-                        <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl ml-2 border border-white/5">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onViewModeChange('accordion')}
-                                className={cn(
-                                    "h-7 text-[10px] font-black uppercase tracking-widest px-3 rounded-lg transition-all",
-                                    viewMode === 'accordion' ? "bg-white/10 text-white shadow-lg" : "text-zinc-500 hover:text-zinc-300"
-                                )}
-                            >
-                                <Table className="w-3 h-3 mr-1.5" />
-                                Explore
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onViewModeChange('map')}
-                                className={cn(
-                                    "h-7 text-[10px] font-black uppercase tracking-widest px-3 rounded-lg transition-all",
-                                    viewMode === 'map' ? "bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/30" : "text-zinc-500 hover:text-zinc-300"
-                                )}
-                            >
-                                <Layers className="w-3 h-3 mr-1.5" />
-                                Map
-                            </Button>
-                        </div>
+                        {!isCompare && (
+                            <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl ml-2 border border-white/5">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onViewModeChange('accordion')}
+                                    className={cn(
+                                        "h-7 text-[10px] font-black uppercase tracking-widest px-3 rounded-lg transition-all",
+                                        viewMode === 'accordion' ? "bg-white/10 text-white shadow-lg" : "text-zinc-500 hover:text-zinc-300"
+                                    )}
+                                >
+                                    <Table className="w-3 h-3 mr-1.5" />
+                                    Explore
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onViewModeChange('map')}
+                                    className={cn(
+                                        "h-7 text-[10px] font-black uppercase tracking-widest px-3 rounded-lg transition-all",
+                                        viewMode === 'map' ? "bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/30" : "text-zinc-500 hover:text-zinc-300"
+                                    )}
+                                >
+                                    <Layers className="w-3 h-3 mr-1.5" />
+                                    Map
+                                </Button>
+                            </div>
+                        )}
 
                         {(!isSaved || hasUnsavedChanges) && (
                             <Button
@@ -365,7 +369,7 @@ export const MindMapToolbar = ({
                         </Tooltip>
                     )}
                 </div>
-            </div>
+            </div >
         </div >
     );
 };

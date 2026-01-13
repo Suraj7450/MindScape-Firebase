@@ -14,7 +14,8 @@ import {
     Network,
     Loader2,
     CheckIcon,
-    Image as ImageIcon
+    Image as ImageIcon,
+    ChevronDown
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,8 @@ interface CompareViewProps {
     generatingNode?: string | null;
     nestedExpansions?: NestedExpansionItem[];
     isGlobalBusy?: boolean;
+    openNodes?: string[];
+    onOpenNodesChange?: (nodes: string[]) => void;
 }
 
 export const CompareView = ({
@@ -61,7 +64,9 @@ export const CompareView = ({
     onGenerateImage,
     generatingNode,
     nestedExpansions = [],
-    isGlobalBusy = false
+    isGlobalBusy = false,
+    openNodes = [],
+    onOpenNodesChange
 }: CompareViewProps) => {
     const { compareData } = data;
 
@@ -74,7 +79,9 @@ export const CompareView = ({
         generatingNode,
         nestedExpansions,
         isGlobalBusy,
-        mainTopic: data.topic
+        mainTopic: data.topic,
+        openNodes,
+        onOpenNodesChange
     };
 
     return (
@@ -90,146 +97,205 @@ export const CompareView = ({
             />
 
             {/* Similarities Section */}
-            <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl overflow-hidden ring-1 ring-white/5">
-                <CardHeader className="border-b border-zinc-800/50 bg-white/[0.02] px-8 py-6">
-                    <CardTitle className="flex items-center gap-3 text-2xl font-bold text-zinc-100 uppercase tracking-tight">
-                        <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-                        Core Commonalities
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {compareData.similarities.filter(n => !!n).map((node, i) => (
-                            <CompareNodeItem key={i} node={node} {...commonProps} />
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+            <Accordion type="multiple" value={openNodes} onValueChange={onOpenNodesChange}>
+                <AccordionItem value="section-commonalities" className="border-none">
+                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl overflow-hidden ring-1 ring-white/5">
+                        <AccordionTrigger
+                            className="flex hover:no-underline px-8 py-6 border-b border-zinc-800/50 bg-white/[0.02] [&>svg]:hidden"
+                        >
+                            <CardTitle className="flex items-center justify-between w-full text-2xl font-bold text-zinc-100 uppercase tracking-tight">
+                                <div className="flex items-center gap-3">
+                                    <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                                    Core Commonalities
+                                </div>
+                                <ChevronDown className={cn("h-6 w-6 text-zinc-600 transition-transform duration-500", openNodes.includes('section-commonalities') ? "rotate-180 text-primary" : "")} />
+                            </CardTitle>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-0">
+                            <CardContent className="p-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {compareData.similarities.filter(n => !!n).map((node, i) => (
+                                        <CompareNodeItem key={i} node={node} {...commonProps} />
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </AccordionContent>
+                    </Card>
+                </AccordionItem>
+            </Accordion>
 
             {/* Differences Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Topic A Differences */}
-                <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5">
-                    <CardHeader className="border-b border-zinc-800/50 bg-red-400/5 px-8 py-6">
-                        <CardTitle className="text-xl font-bold text-red-100 uppercase tracking-tight flex items-center justify-between">
-                            <span>{compareData.root.title.split(' vs ')[0] || 'Topic A'}</span>
-                            <Badge variant="outline" className="border-red-500/30 text-red-400 bg-red-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-6">
-                        {compareData.differences.topicA.filter(n => !!n).map((node, i) => (
-                            <CompareNodeItem key={i} node={node} layout="horizontal" {...commonProps} />
-                        ))}
-                    </CardContent>
-                </Card>
+                <Accordion type="multiple" value={openNodes} onValueChange={onOpenNodesChange}>
+                    <AccordionItem value="section-diff-a" className="border-none">
+                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5 h-full">
+                            <AccordionTrigger
+                                className="flex hover:no-underline px-8 py-6 border-b border-zinc-800/50 bg-red-400/5 [&>svg]:hidden"
+                            >
+                                <CardTitle className="text-xl font-bold text-red-100 uppercase tracking-tight flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-3">
+                                        <span>{compareData.root.title.split(' vs ')[0] || 'Topic A'}</span>
+                                        <Badge variant="outline" className="border-red-500/30 text-red-400 bg-red-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
+                                    </div>
+                                    <ChevronDown className={cn("h-5 w-5 text-zinc-600 transition-transform duration-500", openNodes.includes('section-diff-a') ? "rotate-180 text-primary" : "")} />
+                                </CardTitle>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-0">
+                                <CardContent className="p-8 space-y-6">
+                                    {compareData.differences.topicA.filter(n => !!n).map((node, i) => (
+                                        <CompareNodeItem key={i} node={node} layout="horizontal" {...commonProps} />
+                                    ))}
+                                </CardContent>
+                            </AccordionContent>
+                        </Card>
+                    </AccordionItem>
+                </Accordion>
 
                 {/* Topic B Differences */}
-                <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5">
-                    <CardHeader className="border-b border-zinc-800/50 bg-blue-400/5 px-8 py-6">
-                        <CardTitle className="text-xl font-bold text-blue-100 uppercase tracking-tight flex items-center justify-between">
-                            <span>{compareData.root.title.split(' vs ')[1] || 'Topic B'}</span>
-                            <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-6">
-                        {compareData.differences.topicB.filter(n => !!n).map((node, i) => (
-                            <CompareNodeItem key={i} node={node} layout="horizontal" {...commonProps} />
-                        ))}
-                    </CardContent>
-                </Card>
+                <Accordion type="multiple" value={openNodes} onValueChange={onOpenNodesChange}>
+                    <AccordionItem value="section-diff-b" className="border-none">
+                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5 h-full">
+                            <AccordionTrigger
+                                className="flex hover:no-underline px-8 py-6 border-b border-zinc-800/50 bg-blue-400/5 [&>svg]:hidden"
+                            >
+                                <CardTitle className="text-xl font-bold text-blue-100 uppercase tracking-tight flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-3">
+                                        <span>{compareData.root.title.split(' vs ')[1] || 'Topic B'}</span>
+                                        <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
+                                    </div>
+                                    <ChevronDown className={cn("h-5 w-5 text-zinc-600 transition-transform duration-500", openNodes.includes('section-diff-b') ? "rotate-180 text-primary" : "")} />
+                                </CardTitle>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-0">
+                                <CardContent className="p-8 space-y-6">
+                                    {compareData.differences.topicB.filter(n => !!n).map((node, i) => (
+                                        <CompareNodeItem key={i} node={node} layout="horizontal" {...commonProps} />
+                                    ))}
+                                </CardContent>
+                            </AccordionContent>
+                        </Card>
+                    </AccordionItem>
+                </Accordion>
             </div>
 
             {/* Deep Dive Section */}
-            <div className="space-y-8">
-                <div className="flex items-center gap-4 px-2">
-                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                        <Layers className="h-6 w-6 text-primary" />
+            <Accordion type="multiple" value={openNodes} onValueChange={onOpenNodesChange}>
+                <AccordionItem value="section-deep-dive" className="border-none">
+                    <div className="space-y-8">
+                        <AccordionTrigger
+                            className="flex hover:no-underline px-2 py-4 [&>svg]:hidden"
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                                        <Layers className="h-6 w-6 text-primary" />
+                                    </div>
+                                    <h2 className="text-3xl font-bold text-zinc-100 uppercase tracking-tight">Structured Deep Dives</h2>
+                                </div>
+                                <ChevronDown className={cn("h-8 w-8 text-zinc-600 transition-transform duration-500", openNodes.includes('section-deep-dive') ? "rotate-180 text-primary" : "")} />
+                            </div>
+                        </AccordionTrigger>
+
+                        <AccordionContent className="pb-0">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+                                {/* Topic A Deep Dive */}
+                                <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5 h-full">
+                                    <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
+                                        <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                            {compareData.root.title.split(' vs ')[0] || 'Topic A'} Deep Dive
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-8 space-y-4">
+                                        {compareData.topicADeepDive.filter(n => !!n).length > 0 ? (
+                                            compareData.topicADeepDive.filter(n => !!n).map((node, i) => (
+                                                <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 italic text-center py-4">No deep dive data available for this topic.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* Topic B Deep Dive */}
+                                <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5 h-full">
+                                    <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
+                                        <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                            {compareData.root.title.split(' vs ')[1] || 'Topic B'} Deep Dive
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-8 space-y-4">
+                                        {compareData.topicBDeepDive.filter(n => !!n).length > 0 ? (
+                                            compareData.topicBDeepDive.filter(n => !!n).map((node, i) => (
+                                                <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-zinc-500 italic text-center py-4">No deep dive data available for this topic.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </AccordionContent>
                     </div>
-                    <h2 className="text-3xl font-bold text-zinc-100 uppercase tracking-tight">Structured Deep Dives</h2>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Topic A Deep Dive */}
-                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5">
-                        <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
-                            <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                {compareData.root.title.split(' vs ')[0] || 'Topic A'} Deep Dive
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-8 space-y-4">
-                            {compareData.topicADeepDive.filter(n => !!n).length > 0 ? (
-                                compareData.topicADeepDive.filter(n => !!n).map((node, i) => (
-                                    <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
-                                ))
-                            ) : (
-                                <p className="text-sm text-zinc-500 italic text-center py-4">No deep dive data available for this topic.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Topic B Deep Dive */}
-                    <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-xl shadow-2xl ring-1 ring-white/5">
-                        <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
-                            <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                {compareData.root.title.split(' vs ')[1] || 'Topic B'} Deep Dive
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-8 space-y-4">
-                            {compareData.topicBDeepDive.filter(n => !!n).length > 0 ? (
-                                compareData.topicBDeepDive.filter(n => !!n).map((node, i) => (
-                                    <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
-                                ))
-                            ) : (
-                                <p className="text-sm text-zinc-500 italic text-center py-4">No deep dive data available for this topic.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+                </AccordionItem>
+            </Accordion>
 
             {/* Relevant Links */}
             {compareData.relevantLinks && compareData.relevantLinks.length > 0 && (
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 px-2">
-                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                            <ExternalLink className="h-6 w-6 text-amber-500" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight">Intelligence Resources</h2>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {compareData.relevantLinks.map((link, i) => (
-                            <a
-                                key={i}
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group relative overflow-hidden rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-primary/40 hover:bg-white/[0.04] transition-all duration-500 p-6 flex flex-col h-full shadow-lg ring-1 ring-white/5"
+                <Accordion type="multiple" value={openNodes} onValueChange={onOpenNodesChange}>
+                    <AccordionItem value="section-resources" className="border-none">
+                        <div className="space-y-6">
+                            <AccordionTrigger
+                                className="flex hover:no-underline px-2 py-2 [&>svg]:hidden"
                             >
-                                <div className="absolute top-0 right-0 p-3 text-zinc-600 group-hover:text-primary transition-colors">
-                                    <ExternalLink className="h-4 w-4" />
-                                </div>
-                                <h4 className="text-base font-bold text-zinc-100 mb-2 flex items-center gap-2 group-hover:text-primary transition-colors">
-                                    {link.title || 'Educational Resource'}
-                                </h4>
-                                <p className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors line-clamp-2 leading-relaxed">
-                                    {link.description || 'Deep dive into specialized research and official documentation for this topic.'}
-                                </p>
-                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 group-hover:text-zinc-400">
-                                        Visit Resource
-                                        <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
-                                    </span>
-                                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                            <ExternalLink className="h-6 w-6 text-amber-500" />
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight">Intelligence Resources</h2>
                                     </div>
+                                    <ChevronDown className={cn("h-6 w-6 text-zinc-600 transition-transform duration-500", openNodes.includes('section-resources') ? "rotate-180 text-primary" : "")} />
                                 </div>
-                            </a>
-                        ))}
-                    </div>
-                </div>
+                            </AccordionTrigger>
+
+                            <AccordionContent className="pb-0">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {compareData.relevantLinks.map((link, i) => (
+                                        <a
+                                            key={i}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group relative overflow-hidden rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-primary/40 hover:bg-white/[0.04] transition-all duration-500 p-6 flex flex-col h-full shadow-lg ring-1 ring-white/5"
+                                        >
+                                            <div className="absolute top-0 right-0 p-3 text-zinc-600 group-hover:text-primary transition-colors">
+                                                <ExternalLink className="h-4 w-4" />
+                                            </div>
+                                            <h4 className="text-base font-bold text-zinc-100 mb-2 flex items-center gap-2 group-hover:text-primary transition-colors">
+                                                {link.title || 'Educational Resource'}
+                                            </h4>
+                                            <p className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors line-clamp-2 leading-relaxed">
+                                                {link.description || 'Deep dive into specialized research and official documentation for this topic.'}
+                                            </p>
+                                            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 group-hover:text-zinc-400">
+                                                    Visit Resource
+                                                    <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                                                </span>
+                                                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                                                </div>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </div>
+                    </AccordionItem>
+                </Accordion>
             )}
         </div>
     );
@@ -243,10 +309,13 @@ const CompareNodeItem = ({
     onExplainInChat,
     onSubCategoryClick,
     onOpenMap,
+    onGenerateImage,
     generatingNode,
     nestedExpansions = [],
     isGlobalBusy = false,
-    mainTopic
+    mainTopic,
+    openNodes = [],
+    onOpenNodesChange
 }: {
     node: CompareNode,
     layout?: 'vertical' | 'horizontal',
@@ -255,10 +324,13 @@ const CompareNodeItem = ({
     onExplainInChat?: (message: string) => void,
     onSubCategoryClick?: (node: CompareNode) => void,
     onOpenMap?: (mapData: MindMapData, id: string) => void,
+    onGenerateImage?: (node: SubCategory) => void,
     generatingNode?: string | null,
     nestedExpansions?: NestedExpansionItem[],
     isGlobalBusy?: boolean,
-    mainTopic: string
+    mainTopic: string,
+    openNodes?: string[],
+    onOpenNodesChange?: (nodes: string[]) => void
 }) => {
     const { toast } = useToast();
     const [isCopied, setIsCopied] = React.useState(false);
@@ -397,14 +469,19 @@ const CompareNodeItem = ({
                     </Button>
                 </div>
             </div>
-        </Card>
+        </Card >
     );
 
     if (collapsible && node.children && node.children.length > 0) {
         return (
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion
+                type="multiple"
+                value={openNodes}
+                onValueChange={onOpenNodesChange}
+                className="w-full"
+            >
                 <AccordionItem value={node.id || node.title} className="border-none">
-                    <AccordionTrigger className="p-0 hover:no-underline rounded-2xl  [&>svg]:hidden mb-1">
+                    <AccordionTrigger className="p-0 hover:no-underline rounded-2xl [&>svg]:hidden mb-1">
                         <div className="w-full text-left">{content}</div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-2 pl-6 space-y-3 border-l border-white/5 ml-6 animate-in slide-in-from-left-2 duration-500">
@@ -417,10 +494,13 @@ const CompareNodeItem = ({
                                 onExplainInChat={onExplainInChat}
                                 onSubCategoryClick={onSubCategoryClick}
                                 onOpenMap={onOpenMap}
+                                onGenerateImage={onGenerateImage}
                                 generatingNode={generatingNode}
                                 nestedExpansions={nestedExpansions}
                                 isGlobalBusy={isGlobalBusy}
                                 mainTopic={mainTopic}
+                                openNodes={openNodes}
+                                onOpenNodesChange={onOpenNodesChange}
                             />
                         ))}
                     </AccordionContent>

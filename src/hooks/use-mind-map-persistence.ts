@@ -124,7 +124,12 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-            const thumbnailPrompt = `High-end commercial photography of ${mapToSave.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`;
+            let thumbnailPrompt = `High-end commercial photography of ${mapToSave.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`;
+
+            if (isCompare) {
+                // Better prompt for comparisons to ensure both topics are visible
+                thumbnailPrompt = `A high-end commercial comparison photograph featuring both topics: ${mapToSave.topic}. A side-by-side or dual-subject composition showing the authentic brand identities of both subjects. Professional lighting, sharp focus, 8k resolution, cinematic atmosphere.`;
+            }
 
             // Generate thumbnail using internal API (which enhances prompts)
             let thumbnailUrl = mapToSave.thumbnailUrl || '';

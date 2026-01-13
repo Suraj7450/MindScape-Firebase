@@ -64,6 +64,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAIConfig } from '@/contexts/ai-config-context';
 
 // Global type declarations for Web Speech API
 declare global {
@@ -162,7 +163,14 @@ export function ChatPanel({
   const [persona, setPersona] = useState<Persona>('Standard');
   const [isListening, setIsListening] = useState(false);
   const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
-  const [providerOptions, setProviderOptions] = useState<{ apiKey?: string; provider?: 'pollinations' | 'gemini' }>({ provider: 'gemini' });
+  const { config } = useAIConfig();
+  const providerOptions = useMemo(() => ({
+    provider: config.provider,
+    apiKey: config.apiKey,
+    model: config.pollinationsModel,
+    strict: false
+  }), [config.provider, config.apiKey, config.pollinationsModel]);
+
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [isGeneratingRelated, setIsGeneratingRelated] = useState(false);
   const [showRelatedQuestions, setShowRelatedQuestions] = useState(true);
@@ -363,7 +371,7 @@ export function ChatPanel({
     }
   }, [mindMapData, providerOptions, isQuizLoading, toast, user, firestore, startNewChat]);
 
-  // Load persona and provider preference from user profile
+  // Load persona preference from user profile
   useEffect(() => {
     const loadPreferences = async () => {
       if (!user || !firestore) return;
@@ -378,14 +386,6 @@ export function ChatPanel({
           const savedPersona = prefs?.defaultAIPersona as Persona;
           if (savedPersona && ['Standard', 'Teacher', 'Concise', 'Creative'].includes(savedPersona)) {
             setPersona(savedPersona);
-          }
-
-          // Provider settings
-          if (data.apiSettings?.provider === 'pollinations') {
-            setProviderOptions({ provider: 'pollinations' });
-          } else {
-            // Default to Gemini (Genkit)
-            setProviderOptions({ provider: 'gemini' });
           }
         }
       } catch (error) {
@@ -1094,7 +1094,7 @@ export function ChatPanel({
                           className="overflow-hidden"
                         >
                           <div className="flex flex-col gap-2.5 pt-1">
-                            {relatedQuestions.map((q, qIndex) => (
+                            {relatedQuestions.map((q: string, qIndex: number) => (
                               <motion.button
                                 key={qIndex}
                                 initial={{ opacity: 0, x: -10 }}

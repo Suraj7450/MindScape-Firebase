@@ -10,6 +10,7 @@ interface GenerateContentOptions {
     images?: { inlineData: { mimeType: string, data: string } }[];
     strict?: boolean; // If true, do not fall back to other providers
     schema?: any; // Zod schema for validation
+    model?: string; // Optional model name
 }
 
 export class StructuredOutputError extends Error {
@@ -116,13 +117,13 @@ const providerMonitor = new ProviderMonitor();
  * but lacks the actual structured data fields.
  */
 function isReasoningOnly(raw: any): boolean {
-    return (
-        typeof raw === 'object' &&
-        !!raw.reasoning_content &&
-        !raw.topic &&
-        !raw.subTopics &&
-        !raw.mode
-    );
+    if (typeof raw !== 'object' || raw === null) return false;
+
+    // Check if it has reasoning but NONE of the expected data markers
+    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning;
+    const hasData = !!raw.topic || !!raw.mode || !!raw.similarities || !!raw.differences || !!raw.root || (raw.subTopics && raw.subTopics.length > 0);
+
+    return hasReasoning && !hasData;
 }
 
 /**
@@ -161,7 +162,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             try {
                 // MOVE validation INSIDE retry so malformed JSON or reasoning-only triggers a fresh AI attempt
                 const result = await retry(async () => {
-                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images);
+                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, { model: options.model });
 
                     // Use reasoning-only check to trigger retry
                     if (isReasoningOnly(raw)) {
@@ -177,27 +178,24 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                 providerMonitor.recordFailure('pollinations');
                 console.warn("⚠️ Pollinations failed after retries:", error.message);
 
-                // If it's a schema mismatch and we're NOT strict, attempt fallback to Gemini
-                // instead of failing immediately. This makes schema "optional enforcement".
-                if (strict) {
-                    throw error;
-                }
-
-                // If it's a schema error but we're leniant, log it and fallback
-                if (error instanceof StructuredOutputError && error.zodError) {
-                    console.error("🔍 Schema mismatch but continuing with fallback:", error.zodError);
-                }
-
                 // Trip circuit breaker if it's a 500-level error
                 if (error.message && (error.message.includes('502') || error.message.includes('503') || error.message.includes('504'))) {
                     disablePollinations(5); // Disable for 5 mins
                 }
 
+                // ONLY fallback to Gemini if NOT strict AND NOT explicitly requested Pollinations
+                // If the user or a specific flow chose Pollinations, we should fail with Pollinations' error
+                // to avoid eating up Gemini quota silently.
+                if (strict || options.provider === 'pollinations') {
+                    throw error;
+                }
+
                 provider = 'gemini';
             }
         } else {
-            if (strict) {
-                throw new Error("Pollinations is temporarily disabled and strict mode is enabled.");
+            // If Pollinations is explicitly requested but disabled, and we are strict, fail.
+            if (strict || options.provider === 'pollinations') {
+                throw new Error("Pollinations is temporarily disabled due to failures. Please try again in 5-10 minutes.");
             }
             console.warn("⚠️ Pollinations is temporarily disabled. Falling back to Gemini.");
             provider = 'gemini';

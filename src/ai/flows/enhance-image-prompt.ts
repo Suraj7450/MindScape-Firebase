@@ -53,6 +53,7 @@ export async function enhanceImagePrompt(
     2.  **Be Literal & Realistic:** Identify the **PHYSICAL OBJECTS** and **REAL-WORLD SETTINGS**. Ground every scene in physical reality. No abstract shapes, no floating 3D blocks, and no "digital mind map" art unless specifically requested.
     3.  **Hyper-Realism:** Use high-end photography terms: "8k resolution", "shot on 35mm lens", "f/1.8", "cinematic volumetric lighting", "industrial design", "award-winning photography", "unreal engine 5 render style" (for products).
     4.  **No Abstract Fluff:** Remove vague words like "concept", "idea", "theory", or "universe". Replace them with physical representations in a real environment.
+    5.  **Balanced Comparisons:** If the prompt involves a comparison (e.g., "X vs Y" or "Comparing X and Y"), you MUST ensure the output describes a balanced visual composition that includes both subjects equally, such as a side-by-side, split-screen, or integrated dual-subject scene.
     
     **Output Format:**
     You MUST return a valid JSON object with the following structure:
@@ -113,7 +114,8 @@ const prompt = ai.definePrompt({
   2.  **Add Rich Detail:** Include specific details about the subject, setting, lighting, and mood. Be descriptive.
   3.  **Incorporate the Style:** If a style is provided (e.g., "Cinematic"), it MUST be the primary focus. If the style is more abstract (e.g., "Oil Painting"), blend it with realistic elements. If no style is provided, default to a photorealistic or cinematic style.
   4.  **Avoid Abstract Terms:** Avoid vague, abstract, or cartoonish terms unless the style explicitly calls for them.
-  5.  **Keep it Concise:** The final prompt should be a comma-separated list of powerful keywords and descriptive phrases. Do not add any extra explanations.
+  5.  **Balanced Comparisons:** If the prompt involves a comparison (e.g., "X vs Y" or "Comparing X and Y"), you MUST ensure the output describes a balanced visual composition that includes both subjects equally, such as a side-by-side, split-screen, or integrated dual-subject scene.
+  6.  **Keep it Concise:** The final prompt should be a comma-separated list of powerful keywords and descriptive phrases. Do not add any extra explanations.
   `,
 });
 

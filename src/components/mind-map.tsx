@@ -191,7 +191,6 @@ import { addDoc, collection, getDocs, query, where, serverTimestamp, doc, update
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/lib/activity-tracker';
-import { useStudyTimeTracker } from '@/hooks/use-study-time-tracker';
 
 
 
@@ -278,20 +277,20 @@ export const MindMap = ({
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
 
-  // Track study time
-  useStudyTimeTracker(firestore, user?.uid, true);
 
   const { config } = useAIConfig();
   const providerOptions = useMemo(() => ({
     provider: config.provider,
     apiKey: config.apiKey,
+    model: config.pollinationsModel,
     strict: false
-  }), [config.provider, config.apiKey]);
+  }), [config.provider, config.apiKey, config.pollinationsModel]);
 
   const imageProviderOptions = useMemo(() => ({
     provider: config.provider === 'gemini' ? 'pollinations' : config.provider as 'pollinations' | 'bytez',
-    apiKey: config.apiKey
-  }), [config.provider, config.apiKey]);
+    apiKey: config.apiKey,
+    model: config.pollinationsModel
+  }), [config.provider, config.apiKey, config.pollinationsModel]);
 
 
 
@@ -313,9 +312,10 @@ export const MindMap = ({
     useLocalStorage<ExplanationMode>('explanationMode', 'Intermediate');
 
   const [openSubTopics, setOpenSubTopics] = useState<string[]>(
-    data.subTopics && data.subTopics.length > 0 ? ['topic-0'] : []
+    data.mode === 'single' && data.subTopics && data.subTopics.length > 0 ? ['topic-0'] : []
   );
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [openCompareNodes, setOpenCompareNodes] = useState<string[]>([]);
   const [isAllExpanded, setIsAllExpanded] = useState(false);
   const [isAiContentDialogOpen, setIsAiContentDialogOpen] = useState(false);
 
@@ -780,12 +780,33 @@ export const MindMap = ({
   };
 
   const expandAll = () => {
-    const allTopicIds = data.subTopics.map((_, i) => `topic-${i}`);
-    const allCategoryIds = data.subTopics.flatMap((t, i) =>
-      t.categories.map((_, j) => `cat-${i}-${j}`)
-    );
-    setOpenSubTopics(allTopicIds);
-    setOpenCategories(allCategoryIds);
+    if (data.mode === 'compare') {
+      const allIds: string[] = [
+        'section-commonalities',
+        'section-diff-a',
+        'section-diff-b',
+        'section-deep-dive',
+        'section-resources'
+      ];
+      const collectIds = (nodes: any[]) => {
+        nodes.forEach(node => {
+          if (node.id || node.title) allIds.push(node.id || node.title);
+          if (node.children && node.children.length > 0) {
+            collectIds(node.children);
+          }
+        });
+      };
+      collectIds(data.compareData.topicADeepDive);
+      collectIds(data.compareData.topicBDeepDive);
+      setOpenCompareNodes(allIds);
+    } else {
+      const allTopicIds = data.subTopics.map((_, i) => `topic-${i}`);
+      const allCategoryIds = ((data as any).subTopics as any[]).flatMap((t, i) =>
+        t.categories.map((_: any, j: number) => `cat-${i}-${j}`)
+      );
+      setOpenSubTopics(allTopicIds);
+      setOpenCategories(allCategoryIds);
+    }
     setIsAllExpanded(true);
   };
 
@@ -872,6 +893,7 @@ export const MindMap = ({
   const collapseAll = () => {
     setOpenSubTopics([]);
     setOpenCategories([]);
+    setOpenCompareNodes([]);
     setIsAllExpanded(false);
   };
 
@@ -906,6 +928,7 @@ export const MindMap = ({
         onPublish={handlePublish}
         isPublishing={isPublishing}
         isPublic={!!data.isPublic}
+        isCompare={data.mode === 'compare'}
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
@@ -921,6 +944,8 @@ export const MindMap = ({
             generatingNode={generatingNode}
             nestedExpansions={nestedExpansions}
             isGlobalBusy={status !== 'idle'}
+            openNodes={openCompareNodes}
+            onOpenNodesChange={setOpenCompareNodes}
           />
         ) : viewMode === 'accordion' ? (
           <>

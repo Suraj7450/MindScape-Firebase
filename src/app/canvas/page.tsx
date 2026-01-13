@@ -74,7 +74,12 @@ function MindMapPageContent() {
   // 1. ADAPTERS
   const expansionAdapter = useMemo(() => ({
     generate: async (topic: string, parentTopic?: string) => {
-      const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+      const aiOptions = {
+        provider: config.provider,
+        apiKey: config.apiKey,
+        model: config.pollinationsModel,
+        strict: false
+      };
       const result = await generateMindMapAction({
         topic,
         parentTopic,
@@ -83,7 +88,7 @@ function MindMapPageContent() {
       }, aiOptions);
       return result;
     }
-  }), [aiPersona, params.lang, config]);
+  }), [aiPersona, params.lang, config.provider, config.apiKey, config.pollinationsModel]);
 
   // 2. HOOK INITIALIZATION
   const {
@@ -199,7 +204,12 @@ function MindMapPageContent() {
 
           if (!topicToRegen) throw new Error("Could not determine topic for regeneration.");
 
-          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: true };
+          const aiOptions = {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            model: config.pollinationsModel,
+            strict: true
+          };
           result = await generateMindMapAction({
             topic: topicToRegen,
             parentTopic: params.parent || undefined,
@@ -264,7 +274,12 @@ function MindMapPageContent() {
             throw new Error('Comparison requires two different topics.');
           }
           currentMode = 'compare';
-          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+          const aiOptions = {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            model: config.pollinationsModel,
+            strict: false
+          };
           result = await generateComparisonMapAction({
             topic1: params.topic1,
             topic2: params.topic2,
@@ -273,7 +288,12 @@ function MindMapPageContent() {
           }, aiOptions);
         } else if (params.topic) {
           currentMode = 'standard';
-          const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+          const aiOptions = {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            model: config.pollinationsModel,
+            strict: false
+          };
           result = await generateMindMapAction({
             topic: params.topic,
             parentTopic: params.parent || undefined,
@@ -297,7 +317,12 @@ function MindMapPageContent() {
 
             if (sessionType === 'image') {
               currentMode = 'vision-image';
-              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+              const aiOptions = {
+                provider: config.provider,
+                apiKey: config.apiKey,
+                model: config.pollinationsModel,
+                strict: false
+              };
               result = await generateMindMapFromImageAction({
                 imageDataUri: fileContent,
                 targetLang: params.lang,
@@ -305,7 +330,12 @@ function MindMapPageContent() {
               }, aiOptions);
             } else if (sessionType === 'text') {
               currentMode = 'vision-text';
-              const aiOptions = { provider: config.provider, apiKey: config.apiKey, strict: false };
+              const aiOptions = {
+                provider: config.provider,
+                apiKey: config.apiKey,
+                model: config.pollinationsModel,
+                strict: false
+              };
               result = await generateMindMapFromTextAction({
                 text: fileContent,
                 context: additionalText,
@@ -364,11 +394,6 @@ function MindMapPageContent() {
       } catch (e: any) {
         const errorMessage = e.message || 'An unknown error occurred.';
         setError(errorMessage);
-        toast({
-          variant: 'destructive',
-          title: 'Error Generating Mind Map',
-          description: errorMessage,
-        });
       } finally {
         setIsLoading(false);
         setGeneratingNodeId(null);

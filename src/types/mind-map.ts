@@ -120,6 +120,8 @@ export interface CompareMindMapData extends BaseMindMapData {
 
 export type MindMapData = SingleMindMapData | CompareMindMapData;
 
+export type MindMapWithId = MindMapData & { id: string };
+
 export interface SubCategoryInfo {
   name: string;
   description: string;

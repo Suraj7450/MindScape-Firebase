@@ -11,6 +11,7 @@ interface AIConfig {
     apiKey: string;
     temperature: number;
     topP: number;
+    pollinationsModel?: string;
 }
 
 interface AIConfigContextType {
@@ -75,6 +76,7 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
 
                 if (settings.provider) remoteConfig.provider = settings.provider;
                 if (settings.apiKey) remoteConfig.apiKey = settings.apiKey;
+                if (settings.pollinationsModel) remoteConfig.pollinationsModel = settings.pollinationsModel;
 
                 if (Object.keys(remoteConfig).length > 0) {
                     // Use configRef to get the latest config value

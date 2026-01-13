@@ -107,10 +107,36 @@ export const NestedExpansionItemSchema = z.object({
   fullData: z.any().optional(), // Self-reference limit
 });
 
-export const MindMapSchema = z.object({
+export const CompareMindMapSchema = z.object({
+  mode: z.literal('compare'),
+  topic: z.string(),
+  shortTitle: z.string().optional(),
+  icon: z.string().optional(),
+  compareData: z.object({
+    root: z.object({
+      title: z.string(),
+      description: z.string().optional(),
+      icon: z.string().optional(),
+    }),
+    similarities: z.array(z.any()),
+    differences: z.object({
+      topicA: z.array(z.any()),
+      topicB: z.array(z.any()),
+    }),
+    relevantLinks: z.array(z.any()),
+    topicADeepDive: z.array(z.any()),
+    topicBDeepDive: z.array(z.any()),
+  }),
+  id: z.string().optional(),
+  nestedExpansions: z.array(NestedExpansionItemSchema).optional(),
+  savedImages: z.array(GeneratedImageSchema).optional(),
+  thumbnailUrl: z.string().optional(),
+});
+
+export const SingleMindMapSchema = z.object({
   mode: z.literal('single').default('single').describe('The mode of the mind map (single topic)'),
   topic: z.string().describe('The main topic of the mind map.'),
-  shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words) for focused display.'),
+  shortTitle: z.string().optional().describe('A condensed version of the topic (max 3-4 words) for focused display.'),
   icon: z
     .string()
     .describe(
@@ -124,6 +150,8 @@ export const MindMapSchema = z.object({
   savedImages: z.array(GeneratedImageSchema).optional(),
   thumbnailUrl: z.string().optional(),
 });
+
+export const MindMapSchema = z.union([SingleMindMapSchema, CompareMindMapSchema]);
 
 /**
  * Schema for nested expansion output from AI

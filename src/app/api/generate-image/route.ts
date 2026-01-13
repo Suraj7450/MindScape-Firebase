@@ -3,7 +3,7 @@ import { enhanceImagePromptAction } from '@/app/actions';
 import { NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 
-const pollinationsModels = ['turbo', 'stable-diffusion', 'flux'];
+const pollinationsModels = ['flux', 'seedream', 'zimage', 'gptimage-large', 'turbo'];
 
 export async function POST(req: Request) {
   try {
@@ -52,7 +52,11 @@ async function generateWithPollinations(prompt: string, size?: string) {
       const encodedPrompt = encodeURIComponent(prompt);
       const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
 
-      const imageResponse = await fetch(imageUrl);
+      const imageResponse = await fetch(imageUrl, {
+        headers: {
+          ...(process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
+        }
+      });
 
       if (!imageResponse.ok) {
         console.warn(`Pollinations model ${model} failed with status: ${imageResponse.status}`);

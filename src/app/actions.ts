@@ -109,6 +109,29 @@ export async function generateMindMapAction(
   }
 }
 
+export async function checkPollinationsKeyAction(): Promise<{ isConfigured: boolean }> {
+  return { isConfigured: !!process.env.POLLINATIONS_API_KEY };
+}
+
+/**
+ * Server action to update the user's preferred Pollinations model.
+ */
+export async function updateAIModelPreferenceAction(userId: string, model: string): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { doc, setDoc } = await import('firebase/firestore');
+    const { firestore } = await import('@/firebase');
+    if (!firestore) throw new Error("Firestore not initialized");
+
+    await setDoc(doc(firestore!, 'users', userId), {
+      apiSettings: { pollinationsModel: model }
+    }, { merge: true });
+
+    return { success: true, error: null };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 /**
  * Server action to generate a mind map from an image.
  * @param {GenerateMindMapFromImageInput} input - The input containing the image data URI.
@@ -123,7 +146,32 @@ export async function generateMindMapFromImageAction(
   }
 
   try {
-    const result = await generateMindMapFromImage({ ...input, ...options });
+    const rawResult = await generateMindMapFromImage({ ...input, ...options });
+
+    // Defensive mapping to ensure structure matches MindMapData
+    const result: GenerateMindMapFromImageOutput = {
+      mode: 'single',
+      topic: rawResult.topic || '',
+      shortTitle: rawResult.shortTitle || rawResult.topic || '',
+      icon: rawResult.icon || 'brain-circuit',
+      subTopics: (rawResult.subTopics || []).map((st: any) => ({
+        name: st.name || '',
+        icon: st.icon || 'flag',
+        insight: st.insight || '',
+        categories: (st.categories || []).map((cat: any) => ({
+          name: cat.name || '',
+          icon: cat.icon || 'folder',
+          insight: cat.insight || '',
+          subCategories: (cat.subCategories || []).map((sub: any) => ({
+            name: sub.name || '',
+            description: sub.description || '',
+            icon: sub.icon || 'book-open',
+            tags: Array.isArray(sub.tags) ? sub.tags : []
+          }))
+        }))
+      }))
+    };
+
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromImageAction:', error);

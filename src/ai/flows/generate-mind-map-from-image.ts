@@ -86,24 +86,39 @@ export async function generateMindMapFromImage(
     
     Analyze the provided image and generate a detailed, multi-layered mind map based on its content.
     
-    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories.
+    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, subTopics, categories, and subCategories.
     
     ${targetLangInstruction}
     
     The mind map must have the following structure:
-      - Topic: The main topic identified from the image.
-      - ShortTitle: A condensed version of the topic (max 3-4 words).
-      - Icon: A relevant icon name from the lucide-react library, in kebab-case.
-      - Sub-Topics: A list of at least 4-5 main sub-topics.
-        - Icon: A relevant lucide-react icon.
-      - Categories: For each sub-topic, a list of 3-4 categories.
-        - Icon: A relevant lucide-react icon.
-      - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-        - Description: A concise description (max 1-2 sentences), using data from the image.
-        - Icon: A relevant lucide-react icon.
-        - Tags: A list of 2-3 relevant keywords.
+    {
+      "mode": "single",
+      "topic": "The main topic identified from the image",
+      "shortTitle": "A condensed version (max 3-4 words)",
+      "icon": "relevant-lucide-icon",
+      "subTopics": [
+        {
+          "name": "Main sub-topic name",
+          "icon": "relevant-lucide-icon",
+          "categories": [
+            {
+              "name": "Category name",
+              "icon": "relevant-lucide-icon",
+              "subCategories": [
+                {
+                  "name": "Detailed sub-category name",
+                  "description": "Exactly one sentence derived from image data.",
+                  "icon": "relevant-lucide-icon",
+                  "tags": ["key1", "key2"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
     
-    The output must be a valid JSON object that adheres to the schema: { topic: string, shortTitle: string, icon: string, subTopics: [...] }`;
+    The output must be a valid JSON object that adheres to the schema.`;
 
     const userPrompt = "Analyze this image and generate the mind map JSON.";
 
@@ -152,7 +167,7 @@ const prompt = ai.definePrompt({
 
   Analyze the following image and generate a detailed, multi-layered mind map based on its content. The image could be a diagram, a screenshot of notes, a chart, or a photo of a concept. 
   
-  **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories. Do not just describe the structure; fill the structure with the data found in the image.
+  **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, subTopics, categories, and subCategories. Do not just describe the structure; fill the structure with the data found in the image.
 
   {{#if targetLang}}
   The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: {{{targetLang}}}.
@@ -160,17 +175,33 @@ const prompt = ai.definePrompt({
   The entire mind map MUST be in English.
   {{/if}}
 
-  The mind map must have the following structure:
-  - Topic: The main topic identified from the image.
-  - Icon: A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").
-  - Sub-Topics: A list of at least 4-5 main sub-topics.
-    - Icon: A relevant lucide-react icon for each sub-topic.
-  - Categories: For each sub-topic, a list of 3-4 categories.
-    - Icon: A relevant lucide-react icon for each category.
-  - Sub-Categories: For each category, a list of at least 4-5 detailed sub-categories.
-    - Description: A concise statement (exactly one sentence) of each sub-category, derived from the image or its context.
-    - Icon: A relevant lucide-react icon for each sub-category.
-    - Tags: A list of 2-3 relevant keywords or tags for the sub-category.
+  The mind map must have the following JSON structure:
+  {
+    "mode": "single",
+    "topic": "Main Topic",
+    "shortTitle": "Short Title",
+    "icon": "brain-circuit",
+    "subTopics": [
+      {
+        "name": "Subtopic Name",
+        "icon": "relevant-icon",
+        "categories": [
+          {
+            "name": "Category Name",
+            "icon": "relevant-icon",
+            "subCategories": [
+              {
+                "name": "Sub-category Name",
+                "description": "Exactly one sentence statement.",
+                "icon": "relevant-icon",
+                "tags": ["tag1", "tag2"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 
   Image to analyze: {{media url=imageDataUri}}
 

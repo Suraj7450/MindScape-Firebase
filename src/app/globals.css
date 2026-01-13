@@ -70,18 +70,6 @@
     --input: 240 5% 12%;
     --ring: 263.4 70% 50.4%;
   }
-
-  .theme-study {
-    --background: 230 15% 7%;
-    /* Soft Charcoal Navy */
-    --foreground: 210 20% 90%;
-    /* Softer foreground */
-    --card: 230 15% 9%;
-    --border: 230 10% 15%;
-    --primary: 263.4 60% 65%;
-    /* Slightly desaturated primary */
-    --muted-foreground: 230 10% 45%;
-  }
 }
 
 @layer base {
