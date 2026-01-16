@@ -528,41 +528,9 @@ export default function ProfilePage() {
 
                                 {activeMode === 'pollinations' && (
                                     <div className="flex flex-col gap-2 pt-1 pl-1 animation-in slide-in-from-top-1 duration-300">
-                                        <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Preferred Text Model</span>
-                                        <Select
-                                            value={profile?.apiSettings?.pollinationsModel || 'mistral'}
-                                            onValueChange={async (v) => {
-                                                if (user) {
-                                                    const { updateAIModelPreferenceAction } = await import('@/app/actions');
-                                                    await updateAIModelPreferenceAction(user.uid, v);
-                                                    toast({ title: 'Model Updated', description: `Default Pollinations model set to ${v}` });
-                                                }
-                                            }}
-                                        >
-                                            <SelectTrigger className="w-full h-8 text-[10px] bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800 transition-colors">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="glassmorphism border-zinc-800">
-                                                <SelectItem value="mistral" className="text-xs">
-                                                    <div className="flex flex-col text-left">
-                                                        <span>Mistral (Balanced & Reliable)</span>
-                                                        <span className="text-[9px] text-zinc-500">Fast, accurate JSON output.</span>
-                                                    </div>
-                                                </SelectItem>
-                                                <SelectItem value="openai" className="text-xs">
-                                                    <div className="flex flex-col text-left">
-                                                        <span>OpenAI (Advanced Reasoning)</span>
-                                                        <span className="text-[9px] text-zinc-500">Better for complex topics. Uses GPT-OSS.</span>
-                                                    </div>
-                                                </SelectItem>
-                                                <SelectItem value="gemini" className="text-xs">
-                                                    <div className="flex flex-col text-left">
-                                                        <span>Gemini (Detailed & Concise)</span>
-                                                        <span className="text-[9px] text-zinc-500">Concise, formatted responses.</span>
-                                                    </div>
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <p className="text-[10px] text-zinc-500 leading-relaxed italic">
+                                            Intelligent Model Switching enabled. MindScape automatically selects the optimal engine (Qwen, Mistral, or Gemini) based on your task for maximum precision.
+                                        </p>
                                     </div>
                                 )}
                             </div>

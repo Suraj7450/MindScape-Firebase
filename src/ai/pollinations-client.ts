@@ -11,23 +11,19 @@ export async function generateContentWithPollinations(
     images?: { inlineData: { mimeType: string, data: string } }[],
     options: { model?: string, response_format?: any } = {}
 ): Promise<any> {
-    // Auto-select model based on content if not specified
+    // Expert Model Selection Logic
     const hasImages = images && images.length > 0;
+    let model = 'mistral'; // Default stable foundation
 
-    // For vision tasks, we MUST use a vision-capable model.
-    // For text tasks, 'mistral' and 'openai' are currently stable but require authentication.
-    let model = options.model || (hasImages ? 'gemini' : 'mistral');
-
-    // Override if images are present but non-vision model is specified
-    const nonVisionModels = ['openai', 'mistral', 'searchguy', 'qwen', 'qwen-coder', 'qwen-qwq', 'mistral-nemo'];
-    if (hasImages && nonVisionModels.includes(model)) {
-        console.warn(`🔄 Overriding non-vision model '${model}' with 'gemini' for multimodal task.`);
-        model = 'gemini';
+    if (hasImages) {
+        model = 'gemini'; // Force vision model for multimodal (Officially supported)
+    } else if (systemPrompt.toLowerCase().includes('json') || systemPrompt.toLowerCase().includes('schema')) {
+        model = 'qwen-coder'; // Optimized for structured outputs and logic
+    } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert')) {
+        model = 'openai'; // OpenAI for deep reasoning
     }
 
-    if (model === 'openai' && !hasImages) {
-        console.warn("⚠️ Using 'openai' model which can sometimes be unstable (502/500). Consider using 'mistral' or 'qwen'.");
-    }
+    console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}`);
 
     try {
         const messages: any[] = [
@@ -67,9 +63,10 @@ export async function generateContentWithPollinations(
             body.response_format = options.response_format;
         }
 
-        // Only add max_tokens for known models to prevent 400 errors on others
-        if (model === 'openai' || model === 'gpt-4o' || model === 'gemini') {
-            body.max_tokens = 1024;
+        // Increase max_tokens for models that support it to accommodate deep mind maps
+        const modelsWithLargeContext = ['openai', 'gpt-4o', 'gemini', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
+        if (modelsWithLargeContext.includes(model)) {
+            body.max_tokens = 4096;
         }
 
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {

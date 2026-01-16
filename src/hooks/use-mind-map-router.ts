@@ -16,6 +16,7 @@ export function useMindMapRouter() {
         sessionId: searchParams.get('sessionId'),
         mapId: searchParams.get('mapId'),
         lang: searchParams.get('lang') || 'en',
+        depth: (searchParams.get('depth') as 'low' | 'medium' | 'deep') || 'low',
         parent: searchParams.get('parent'),
         isSelfReference: searchParams.get('selfReference') === 'true',
         isRegenerating: !!searchParams.get('_r'),
@@ -58,6 +59,7 @@ export function useMindMapRouter() {
             sessionId: params.sessionId,
             mapId: params.mapId,
             lang: params.lang,
+            depth: params.depth,
             isSelfReference: params.isSelfReference,
             isRegenerating: params.isRegenerating
         });

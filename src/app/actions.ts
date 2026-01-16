@@ -77,6 +77,7 @@ export interface GenerateMindMapFromImageInput {
   imageDataUri: string;
   targetLang?: string;
   persona?: string;
+  depth?: 'low' | 'medium' | 'deep';
 }
 
 /**
@@ -97,6 +98,7 @@ export async function generateMindMapAction(
 
   try {
     const result = await generateMindMap({ ...input, topic, ...options });
+    if (result) (result as any).depth = input.depth;
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapAction:', error);
@@ -119,10 +121,11 @@ export async function checkPollinationsKeyAction(): Promise<{ isConfigured: bool
 export async function updateAIModelPreferenceAction(userId: string, model: string): Promise<{ success: boolean; error: string | null }> {
   try {
     const { doc, setDoc } = await import('firebase/firestore');
-    const { firestore } = await import('@/firebase');
+    const sdk = await (await import('@/firebase')).initializeFirebase();
+    const firestore = sdk.firestore;
     if (!firestore) throw new Error("Firestore not initialized");
 
-    await setDoc(doc(firestore!, 'users', userId), {
+    await setDoc(doc(firestore, 'users', userId), {
       apiSettings: { pollinationsModel: model }
     }, { merge: true });
 
@@ -146,7 +149,8 @@ export async function generateMindMapFromImageAction(
   }
 
   try {
-    const rawResult = await generateMindMapFromImage({ ...input, ...options });
+    const depth = input.depth || 'low';
+    const rawResult = await generateMindMapFromImage({ ...input, depth, ...options });
 
     // Defensive mapping to ensure structure matches MindMapData
     const result: GenerateMindMapFromImageOutput = {
@@ -154,14 +158,14 @@ export async function generateMindMapFromImageAction(
       topic: rawResult.topic || '',
       shortTitle: rawResult.shortTitle || rawResult.topic || '',
       icon: rawResult.icon || 'brain-circuit',
-      subTopics: (rawResult.subTopics || []).map((st: any) => ({
+      subTopics: ((rawResult as any).subTopics || []).map((st: any) => ({
         name: st.name || '',
         icon: st.icon || 'flag',
-        insight: st.insight || '',
+        insight: st.insight || st.description || '',
         categories: (st.categories || []).map((cat: any) => ({
           name: cat.name || '',
           icon: cat.icon || 'folder',
-          insight: cat.insight || '',
+          insight: cat.insight || cat.description || '',
           subCategories: (cat.subCategories || []).map((sub: any) => ({
             name: sub.name || '',
             description: sub.description || '',
@@ -169,7 +173,8 @@ export async function generateMindMapFromImageAction(
             tags: Array.isArray(sub.tags) ? sub.tags : []
           }))
         }))
-      }))
+      })),
+      depth: input.depth || 'low',
     };
 
     return { data: result, error: null };
@@ -198,7 +203,9 @@ export async function generateMindMapFromTextAction(
   }
 
   try {
-    const result = await generateMindMapFromText({ ...input, ...options });
+    const depth = input.depth || 'low';
+    const result = await generateMindMapFromText({ ...input, depth, ...options });
+    if (result) (result as any).depth = depth;
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromTextAction:', error);
@@ -500,7 +507,8 @@ export async function generateComparisonMapAction(
         relevantLinks: Array.isArray(result.relevantLinks) ? result.relevantLinks : [],
         topicADeepDive: Array.isArray(result.topicADeepDive) ? result.topicADeepDive : [],
         topicBDeepDive: Array.isArray(result.topicBDeepDive) ? result.topicBDeepDive : [],
-      }
+      },
+      depth: input.depth || 'low'
     };
 
     return { data: formattedData, error: null };

@@ -131,6 +131,7 @@ export const CompareMindMapSchema = z.object({
   nestedExpansions: z.array(NestedExpansionItemSchema).optional(),
   savedImages: z.array(GeneratedImageSchema).optional(),
   thumbnailUrl: z.string().optional(),
+  depth: z.enum(['low', 'medium', 'deep']).optional(),
 });
 
 export const SingleMindMapSchema = z.object({

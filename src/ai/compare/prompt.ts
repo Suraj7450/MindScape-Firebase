@@ -6,7 +6,22 @@ CRITICAL: Do not provide any prose, preamble, or conclusion. Return only the JSO
 Ensure all JSON strings are properly escaped for parsing.
 `;
 
-export const userPromptTemplate = (topicA: string, topicB: string) => `
+export const userPromptTemplate = (topicA: string, topicB: string, depth: 'low' | 'medium' | 'deep' = 'low') => {
+  let countInstruction = '';
+  let depthDetail = '';
+
+  if (depth === 'medium') {
+    countInstruction = '4-6 similarities and 4-6 differences per topic';
+    depthDetail = 'Provide a more detailed expansion in deep-dive sections.';
+  } else if (depth === 'deep') {
+    countInstruction = '6-8 similarities and 6-8 differences per topic';
+    depthDetail = 'Provide an extensive, granular expansion in deep-dive sections with maximum detail.';
+  } else {
+    countInstruction = '3-4 similarities and 3-4 differences per topic';
+    depthDetail = '';
+  }
+
+  return `
 Compare the following two topics in depth.
 
 Topic A: ${topicA}
@@ -20,12 +35,12 @@ Requirements:
 - CRITICAL: LINK QUALITY. Use ONLY stable, high-authority, and evergreen domains (e.g., Wikipedia, official documentation, academic .edu sites, government .gov portals, or major technical journals). 
 - DO NOT generate links to specific news articles that might expire, or promotional/blog sites. 
 - Ensure the URLs look functionally correct and point to the root or stable sub-pages of the topic.
-- Expand each topic independently in deep-dive sections.
+- Expand each topic independently in deep-dive sections. ${depthDetail}
 - For EVERY similarity and difference, you MUST provide a "description" field containing one or two clear, informative sentences explaining the comparison. DO NOT USE GENERIC PLACEHOLDERS like "Detailed analysis for this comparison point." - generate real data.
 - Keep each node concise and factual
 
 Output Rules:
-- Produce EXACTLY 3-4 similarities and 3-4 differences per topic.
+- Produce EXACTLY ${countInstruction}.
 - Use short, clear titles (max 3 words).
 - Avoid repetition between sections.
 - Do NOT include opinions or conversational text.
@@ -50,3 +65,4 @@ Output Rules:
   "topicBDeepDive": []
 }
 `;
+};

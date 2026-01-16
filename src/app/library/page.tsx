@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText } from 'lucide-react';
+import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Filter, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,19 +18,27 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
+import { generateMindMapAction } from '@/app/actions';
 import { Icons } from '@/components/icons';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, deleteDoc, addDoc, serverTimestamp, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, deleteDoc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
+import { MindMapData } from '@/types/mind-map';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { formatShortDistanceToNow } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Filter } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { useNotifications } from '@/contexts/notification-context';
+import { categorizeMindMapAction, suggestRelatedTopicsAction } from '@/app/actions/community';
 import { cn } from '@/lib/utils';
+import { jsPDF } from 'jspdf';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DepthBadge } from '@/components/mind-map/depth-badge';
 
 
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMindMapPersistence } from '@/hooks/use-mind-map-persistence';
 
 function DashboardLoadingSkeleton() {
   return (
@@ -78,12 +86,391 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { saveMap: persistMindMap } = useMindMapPersistence();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('recent');
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
   const [deletingMapIds, setDeletingMapIds] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedMapForPreview, setSelectedMapForPreview] = useState<SavedMindMap | null>(null);
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
+  const [isSuggestingTopics, setIsSuggestingTopics] = useState(false);
+  const [isPublishingMapId, setIsPublishingMapId] = useState<string | null>(null);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [isDownloadingFullData, setIsDownloadingFullData] = useState(false);
+  const [selectedMapFullData, setSelectedMapFullData] = useState<MindMapData | null>(null);
+  const [isFullDataLoading, setIsFullDataLoading] = useState(false);
+
+  // Recommendation Action State
+  const [showChoiceDialog, setShowChoiceDialog] = useState(false);
+  const [selectedIdeaForAction, setSelectedIdeaForAction] = useState<string | null>(null);
+  const { addNotification, updateNotification } = useNotifications();
+
+  // Fetch dynamic suggestions and full data when previewing
+  useEffect(() => {
+    let isMounted = true;
+    if (selectedMapForPreview) {
+      setSuggestedTopics([]);
+      setIsSuggestingTopics(true);
+      setSelectedMapFullData(null);
+      setIsFullDataLoading(true);
+
+      // Fetch dynamic topics
+      suggestRelatedTopicsAction({
+        topic: selectedMapForPreview.topic,
+        summary: selectedMapForPreview.summary
+      }).then(res => {
+        if (isMounted && res.topics) setSuggestedTopics(res.topics);
+        if (isMounted) setIsSuggestingTopics(false);
+      }).catch(() => {
+        if (isMounted) setIsSuggestingTopics(false);
+      });
+
+      // Fetch full content for Data Pack
+      if (user && firestore) {
+        const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', selectedMapForPreview.id, 'content', 'tree');
+        getDoc(contentRef).then(snap => {
+          if (isMounted && snap.exists()) {
+            setSelectedMapFullData(snap.data() as MindMapData);
+          }
+          if (isMounted) setIsFullDataLoading(false);
+        }).catch(err => {
+          console.error("Error fetching full data:", err);
+          if (isMounted) setIsFullDataLoading(false);
+        });
+      } else {
+        setIsFullDataLoading(false);
+      }
+    }
+    return () => { isMounted = false; };
+  }, [selectedMapForPreview, user, firestore]);
+
+  const handleDownloadFullData = async (map: SavedMindMap) => {
+    if (!selectedMapFullData) {
+      toast({ variant: "destructive", title: "Data Error", description: "Full mind map content is not yet aavailable. Please wait a moment." });
+      return;
+    }
+
+    setIsDownloadingFullData(true);
+    try {
+      const doc = new jsPDF();
+      let y = 20;
+
+      // Title
+      doc.setFontSize(22);
+      doc.setTextColor(124, 58, 237); // Purple
+      doc.setFont("helvetica", "bold");
+      const titleLines = doc.splitTextToSize(map.topic, 170);
+      doc.text(titleLines, 20, y);
+      y += (titleLines.length * 10);
+
+      // Header info (Left Top side)
+      doc.setFontSize(9);
+      doc.setTextColor(150);
+      doc.setFont("helvetica", "normal");
+      doc.text(`MindScape Knowledge Package • Created on ${map.createdAt?.toDate()?.toLocaleDateString() || 'Recently'}`, 20, y);
+      y += 15;
+
+      // Summary Section
+      doc.setFontSize(14);
+      doc.setTextColor(124, 58, 237);
+      doc.text("Executive Summary", 20, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.setTextColor(60);
+      const summaryLines = doc.splitTextToSize(map.summary || "No summary available.", 170);
+      doc.text(summaryLines, 20, y);
+      y += (summaryLines.length * 6) + 15;
+
+      // Detailed Content
+      doc.setFontSize(18);
+      doc.setTextColor(0);
+      doc.text("Detailed Knowledge Structure", 20, y);
+      y += 10;
+
+      if (selectedMapFullData.mode === 'compare') {
+        const cd = selectedMapFullData.compareData;
+
+        // Similarities
+        doc.setFontSize(14);
+        doc.setTextColor(16, 185, 129); // Emerald
+        doc.text("Shared Commonalities", 20, y);
+        y += 8;
+        cd.similarities.forEach((node: any) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setFontSize(11);
+          doc.setTextColor(0);
+          doc.setFont("helvetica", "bold");
+          doc.text(`• ${node.title}`, 20, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+          const desc = doc.splitTextToSize(node.description || "", 160);
+          doc.text(desc, 25, y);
+          y += (desc.length * 5) + 8;
+        });
+
+        // Topic A
+        if (y > 250) { doc.addPage(); y = 20; }
+        y += 10;
+        doc.setFontSize(14);
+        doc.setTextColor(124, 58, 237);
+        doc.text(`Unique to ${cd.root.title.split(' vs ')[0]}`, 20, y);
+        y += 8;
+        cd.differences.topicA.forEach((node: any) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setFontSize(11);
+          doc.setTextColor(0);
+          doc.setFont("helvetica", "bold");
+          doc.text(`- ${node.title}`, 20, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+          const desc = doc.splitTextToSize(node.description || "", 160);
+          doc.text(desc, 25, y);
+          y += (desc.length * 5) + 6;
+        });
+      } else {
+        selectedMapFullData.subTopics.forEach((st: any, i: number) => {
+          if (y > 250) { doc.addPage(); y = 20; }
+          doc.setFontSize(16);
+          doc.setTextColor(124, 58, 237);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${st.name}`, 20, y);
+          y += 10;
+
+          st.categories.forEach((cat: any) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.setFontSize(13);
+            doc.setTextColor(50);
+            doc.setFont("helvetica", "bold");
+            doc.text(cat.name, 25, y);
+            y += 7;
+
+            cat.subCategories.forEach((sc: any) => {
+              if (y > 270) { doc.addPage(); y = 20; }
+              doc.setFontSize(11);
+              doc.setTextColor(0);
+              doc.setFont("helvetica", "bold");
+              doc.text(`• ${sc.name}`, 30, y);
+              y += 5;
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(80);
+              const desc = doc.splitTextToSize(sc.description || "", 150);
+              doc.text(desc, 35, y);
+              y += (desc.length * 5) + 6;
+            });
+            y += 4;
+          });
+          y += 10;
+        });
+      }
+
+      doc.save(`${map.topic.replace(/\s+/g, '_')}_Knowledge_Pack.pdf`);
+      toast({ title: "Knowledge Pack Ready", description: "Detailed PDF has been downloaded." });
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      toast({ variant: "destructive", title: "Export Failed", description: "Could not generate Knowledge Pack." });
+    } finally {
+      setIsDownloadingFullData(false);
+    }
+  };
+
+  const handleRecommendationAction = async (isNewMap: boolean) => {
+    if (!selectedIdeaForAction || !selectedMapForPreview) return;
+
+    const topic = selectedIdeaForAction.includes(selectedMapForPreview.topic)
+      ? selectedIdeaForAction
+      : `${selectedIdeaForAction} of ${selectedMapForPreview.topic}`;
+
+    setShowChoiceDialog(false);
+
+    if (isNewMap) {
+      // NEW MAP - Background Generation
+      const notifId = addNotification({
+        message: `Generating: ${topic}`,
+        type: 'loading',
+        details: 'Generating a fresh mind map for this topic in the background.'
+      });
+
+      toast({
+        title: "Generation Started",
+        description: `"${topic}" is being built in the background. Check notifications for progress.`,
+      });
+
+      try {
+        const { data, error } = await generateMindMapAction({
+          topic,
+          depth: (selectedMapForPreview as any).depth || 'low'
+        }, { strict: false });
+
+        if (error) throw new Error(error);
+
+        // Save using unified persistence (handles thumbnails, split schema, etc.)
+        if (user && firestore && data) {
+          const mindMapToSave = {
+            ...data,
+            isPublic: false,
+            mode: 'single' as const,
+            depth: data.depth || 'low'
+          };
+
+          const savedId = await persistMindMap(mindMapToSave as any, undefined, true);
+
+          if (!savedId) throw new Error("Failed to save map properly.");
+
+          updateNotification(notifId, {
+            message: `Map Ready: ${data.shortTitle}`,
+            type: 'success',
+            details: `Generation complete! Click to open "${data.topic}".`,
+            link: `/canvas?mapId=${savedId}`
+          });
+
+          toast({
+            title: "Success",
+            description: `"${data.shortTitle}" has been generated and saved.`,
+          });
+        }
+      } catch (err: any) {
+        updateNotification(notifId, {
+          message: `Generation Failed`,
+          type: 'error',
+          details: err.message
+        });
+        toast({
+          variant: "destructive",
+          title: "Generation Failed",
+          description: err.message,
+        });
+      }
+    } else {
+      // INSERT INTO CURRENT - Implementation depends on how you want to 'insert'
+      // For now, let's navigate to a "sub-generator" route or just open in canvas with a flag
+      // Since it's a 'recommendation', navigating to the new topic with context is the most standard approach
+      router.push(`/?topic=${encodeURIComponent(topic)}&depth=${(selectedMapForPreview as any).depth || 'low'}&contextId=${selectedMapForPreview.id}`);
+      toast({
+        title: "Integrating...",
+        description: `Shifting context to explore "${topic}" within this niche.`,
+      });
+    }
+  };
+
+  const handleDownloadPDF = async (map: SavedMindMap) => {
+    setIsDownloadingPDF(true);
+    try {
+      const doc = new jsPDF();
+
+      // Title
+      doc.setFontSize(22);
+      doc.setTextColor(124, 58, 237); // Purple
+      doc.text(map.topic, 20, 20);
+
+      // Metadata
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Created: ${map.createdAt?.toDate()?.toLocaleDateString() || 'Recently'}`, 20, 30);
+      doc.text(`Complexity: ${(map as any).depth || 'Low'}`, 20, 35);
+
+      // Summary
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text("Summary", 20, 50);
+      doc.setFontSize(11);
+      const splitSummary = doc.splitTextToSize(map.summary || "No summary available.", 170);
+      doc.text(splitSummary, 20, 60);
+
+      // Suggestions
+      if (suggestedTopics.length > 0) {
+        let y = 60 + (splitSummary.length * 7) + 10;
+        doc.setFontSize(14);
+        doc.text("AI Recommendations", 20, y);
+        doc.setFontSize(11);
+        suggestedTopics.forEach((topic, i) => {
+          doc.text(`• ${topic}`, 25, y + 10 + (i * 7));
+        });
+      }
+
+      doc.save(`${map.topic.replace(/\s+/g, '_')}_MindMap.pdf`);
+      toast({ title: "PDF Downloaded", description: "Your mind map overview is ready." });
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      toast({ variant: "destructive", title: "Export Failed", description: "Could not generate PDF." });
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
+
+  const handlePublish = async (map: SavedMindMap) => {
+    if (!user || !firestore || isPublishingMapId) return;
+
+    setIsPublishingMapId(map.id);
+    const { id: toastId, update } = toast({
+      title: 'Publishing to Community...',
+      description: 'AI is categorizing your mind map.',
+      duration: Infinity,
+    });
+
+    try {
+      const { categories, error: catError } = await categorizeMindMapAction({
+        topic: map.topic,
+        summary: map.summary,
+      });
+
+      if (catError) throw new Error(catError);
+
+      const docRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
+      const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id, 'content', 'tree');
+
+      const [metaSnap, contentSnap] = await Promise.all([
+        getDoc(docRef),
+        getDoc(contentRef)
+      ]);
+
+      if (!metaSnap.exists()) throw new Error("Mind map metadata not found.");
+
+      const fullData = {
+        ...metaSnap.data(),
+        ...(contentSnap.exists() ? contentSnap.data() : {}),
+        id: map.id
+      };
+
+      const publicData: any = {
+        ...fullData,
+        isPublic: true,
+        publicCategories: categories,
+        originalMapId: map.id,
+        originalAuthorId: user.uid,
+        authorName: user.displayName || 'Explorer',
+        authorAvatar: user.photoURL || '',
+        updatedAt: serverTimestamp(),
+        views: 0,
+      };
+
+      const publicDocRef = doc(firestore, 'publicMindmaps', map.id);
+      await setDoc(publicDocRef, publicData);
+      await updateDoc(docRef, { isPublic: true, publicCategories: categories });
+
+      update({
+        id: toastId,
+        title: 'Mind Map Published!',
+        description: 'Your mind map is now live on the Community Dashboard.',
+        duration: 5000,
+      });
+    } catch (err: any) {
+      console.error('Publish error:', err);
+      update({
+        id: toastId,
+        title: 'Publishing Failed',
+        variant: 'destructive',
+        description: err.message || 'An error occurred.',
+        duration: 5000,
+      });
+    } finally {
+      setIsPublishingMapId(null);
+    }
+  };
 
 
 
@@ -255,56 +642,93 @@ export default function DashboardPage() {
               return (
                 <div
                   key={map.id}
-                  className="group relative cursor-pointer rounded-2xl bg-[#1C1C1E] p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-500 hover:border-purple-600/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:-translate-y-1"
+                  className="group relative cursor-pointer rounded-2xl bg-[#0D0D0E] p-4 flex flex-col h-full overflow-hidden border border-white/5 transition-all duration-500 hover:border-purple-600/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] hover:-translate-y-1"
                 >
-                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A]" onClick={() => handleMindMapClick(map.id)}>
+                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505]" onClick={() => handleMindMapClick(map.id)}>
                     <img
-                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
-                      alt={`Thumbnail for ${map.topic}`}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`High-end commercial photography of ${map.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`)}?width=400&height=225&nologo=true&model=flux`}
+                      alt={map.topic}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       loading="lazy"
-                      onError={(e) => {
-                        // Fallback to placeholder on error
-                        e.currentTarget.src = `https://placehold.co/400x225/1a1a1a/666666?text=${encodeURIComponent(map.topic)}`;
-                      }}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0E] via-transparent to-transparent opacity-60" />
+                    <div className="absolute top-2 left-2 z-10 flex gap-2">
+                      <DepthBadge depth={(map as any).depth} className="backdrop-blur-md bg-black/40 border-white/10" />
+                    </div>
                     {(map as any).isPublic && (
-                      <div className="absolute top-2 right-2">
-                        <Badge className="bg-emerald-500/80 backdrop-blur-md text-[10px] uppercase tracking-wider border-none gap-1">
-                          <Rocket className="h-2.5 w-2.5" />
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge className="bg-purple-500/10 text-purple-400 backdrop-blur-md border border-purple-500/20 text-[10px] uppercase font-bold tracking-widest gap-1 px-2">
+                          <Globe className="h-2.5 w-2.5" />
                           Community
                         </Badge>
                       </div>
                     )}
                   </div>
 
-                  <h3 className="font-bold text-lg text-white mb-2 truncate group-hover:text-purple-400 transition-colors" onClick={() => handleMindMapClick(map.id)}>{map.topic}</h3>
+                  <h3 className="font-bold text-lg text-white mb-1.5 truncate transition-colors group-hover:text-purple-400" onClick={() => handleMindMapClick(map.id)}>
+                    {map.topic}
+                  </h3>
 
-                  <div className="flex-grow"></div>
-
-                  <div className="mt-auto flex justify-between items-center">
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
                     {updatedAt && (
-                      <p className="text-sm text-gray-500 flex items-center gap-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
                         <Clock className="h-3 w-3" />
                         {formatShortDistanceToNow(updatedAt)}
                       </p>
                     )}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
 
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300"
+                            onClick={() => setSelectedMapForPreview(map)}
+                          >
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Quick Details</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {!(map as any).isPublic && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "h-8 w-8 rounded-full text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all duration-300",
+                                isPublishingMapId === map.id && "animate-pulse"
+                              )}
+                              onClick={() => handlePublish(map)}
+                              disabled={isPublishingMapId === map.id}
+                            >
+                              {isPublishingMapId === map.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Publish to Community</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
 
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-destructive"
+                            className="h-8 w-8 rounded-full text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
                             onClick={() => setMapToDelete(map.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Delete</p>
+                        <TooltipContent side="top">
+                          <p>Delete Forever</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -347,6 +771,191 @@ export default function DashboardPage() {
 
 
 
+      <Sheet open={!!selectedMapForPreview} onOpenChange={(open) => !open && setSelectedMapForPreview(null)}>
+        <SheetContent className="bg-zinc-950 border-zinc-800 text-white w-full sm:max-w-md overflow-hidden flex flex-col p-0">
+          {selectedMapForPreview && (
+            <>
+              <div className="flex-1 flex flex-col p-6 space-y-5 overflow-hidden">
+                <SheetHeader className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <DepthBadge depth={(selectedMapForPreview as any).depth} className="scale-100" />
+                    {(selectedMapForPreview as any).isPublic && (
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-none uppercase text-[10px] font-bold">Community</Badge>
+                    )}
+                  </div>
+                  <SheetTitle className="text-xl font-bold tracking-tight text-white leading-tight">
+                    {selectedMapForPreview.topic}
+                  </SheetTitle>
+                  <SheetDescription className="text-zinc-400 text-xs line-clamp-2">
+                    {selectedMapForPreview.summary}
+                  </SheetDescription>
+                </SheetHeader>
+
+                {/* Primary Actions Row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-10 rounded-xl border-white/10 bg-white/5 transition-all duration-300 text-[11px] font-bold uppercase tracking-wider",
+                      isLinkCopied ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "hover:bg-white/10 text-zinc-300"
+                    )}
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/canvas?mapId=${selectedMapForPreview.id}`);
+                      setIsLinkCopied(true);
+                      setTimeout(() => setIsLinkCopied(false), 2000);
+                      toast({ title: "Link Copied", description: "Shareable link is in your clipboard." });
+                    }}
+                  >
+                    {isLinkCopied ? <Check className="h-3.5 w-3.5 mr-2" /> : <Copy className="h-3.5 w-3.5 mr-2 text-purple-400" />}
+                    {isLinkCopied ? 'Copied!' : 'Copy Link'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDownloadFullData(selectedMapForPreview)}
+                    disabled={isDownloadingFullData || isFullDataLoading}
+                    className="h-10 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-bold uppercase tracking-wider text-zinc-300"
+                  >
+                    {isDownloadingFullData || isFullDataLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Database className="h-3.5 w-3.5 mr-2 text-blue-400" />
+                    )}
+                    {isDownloadingFullData ? 'Exporting...' : isFullDataLoading ? 'Loading Data...' : 'Knowledge Pack'}
+                  </Button>
+                </div>
+
+                {/* Visual Preview */}
+                <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-zinc-900/50 group">
+                  <img
+                    src={selectedMapForPreview.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${selectedMapForPreview.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
+                    alt={selectedMapForPreview.topic}
+                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-all duration-300">
+                    <Button
+                      className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 animate-in fade-in zoom-in duration-500"
+                      onClick={() => handleMindMapClick(selectedMapForPreview.id)}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                      Open Full Map
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="flex gap-2">
+                  <div className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col">
+                    <p className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest mb-1">Complexity</p>
+                    <p className="text-sm font-bold text-purple-400 capitalize">{(selectedMapForPreview as any).depth || 'Low'}</p>
+                  </div>
+                  <div className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col">
+                    <p className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest mb-1">Updated</p>
+                    <p className="text-sm font-bold text-zinc-200">
+                      {selectedMapForPreview.updatedAt?.toDate() ? formatShortDistanceToNow(selectedMapForPreview.updatedAt.toDate()) : 'Recently'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Recommendations */}
+                <div className="flex-1 flex flex-col min-h-0 space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">AI Recommendations</h4>
+                  </div>
+                  <ScrollArea className="flex-1 pr-3">
+                    <div className="grid gap-2">
+                      {isSuggestingTopics ? (
+                        Array(3).fill(0).map((_, i) => (
+                          <div key={i} className="h-12 rounded-xl bg-white/5 animate-pulse" />
+                        ))
+                      ) : (
+                        (suggestedTopics.length > 0 ? suggestedTopics : [
+                          `Advanced ${selectedMapForPreview.topic}`,
+                          `Real world applications`,
+                          `History & Evolution`
+                        ]).map((idea, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setSelectedIdeaForAction(idea);
+                              setShowChoiceDialog(true);
+                            }}
+                            className="flex items-center justify-between px-4 py-3 rounded-xl bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 hover:border-purple-500/30 transition-all text-left group"
+                          >
+                            <span className="text-[11px] leading-relaxed text-zinc-400 group-hover:text-purple-300 transition-colors">{idea}</span>
+                            <ChevronRight className="h-3.5 w-3.5 text-zinc-700 group-hover:text-purple-500" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Recommendation Choice Dialog - Enhanced UI */}
+      <AlertDialog open={showChoiceDialog} onOpenChange={setShowChoiceDialog}>
+        <AlertDialogContent className="z-[400] glassmorphism border-white/10 sm:max-w-[450px] p-0 overflow-hidden shadow-[0_0_50px_rgba(139,92,246,0.15)] animate-in zoom-in-95 duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-emerald-500/5 pointer-events-none" />
+
+          <div className="relative p-8 space-y-6">
+            <AlertDialogHeader className="space-y-4">
+              <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-purple-500/20 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                <Sparkles className="h-8 w-8 text-white animate-pulse" />
+              </div>
+              <div className="space-y-2 text-center">
+                <AlertDialogTitle className="text-2xl font-black tracking-tighter uppercase font-orbitron text-white">
+                  Contextual <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-400">Exploration</span>
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-zinc-400 text-sm leading-relaxed px-4">
+                  We've analyzed your map. How would you like to explore "<span className="text-purple-300 font-bold italic">{selectedIdeaForAction}</span>"?
+                </AlertDialogDescription>
+              </div>
+            </AlertDialogHeader>
+
+            <div className="grid grid-cols-1 gap-4">
+              <button
+                onClick={() => handleRecommendationAction(true)}
+                className="group relative flex items-center gap-4 p-5 rounded-2xl border border-white/5 bg-white/5 hover:bg-purple-500/10 hover:border-purple-500/30 transition-all duration-300 text-left overflow-hidden h-24"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative h-12 w-12 rounded-xl bg-purple-500/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                  <Plus className="h-6 w-6 text-purple-400" />
+                </div>
+                <div className="relative flex flex-col">
+                  <span className="font-bold text-white text-base tracking-tight mb-0.5">Create New Map</span>
+                  <span className="text-[11px] text-zinc-500 group-hover:text-zinc-400 transition-colors leading-tight">Generate a fresh, independent branch of knowledge.</span>
+                </div>
+                <ChevronRight className="relative ml-auto h-5 w-5 text-zinc-700 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleRecommendationAction(false)}
+                className="group relative flex items-center gap-4 p-5 rounded-2xl border border-white/5 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left overflow-hidden h-24"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative h-12 w-12 rounded-xl bg-emerald-500/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                  <LayoutGrid className="h-6 w-6 text-emerald-400" />
+                </div>
+                <div className="relative flex flex-col">
+                  <span className="font-bold text-white text-base tracking-tight mb-0.5">Deep Dive Integration</span>
+                  <span className="text-[11px] text-zinc-500 group-hover:text-zinc-400 transition-colors leading-tight">Expand the current map with this specialized context.</span>
+                </div>
+                <ChevronRight className="relative ml-auto h-5 w-5 text-zinc-700 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+              </button>
+            </div>
+
+            <AlertDialogFooter className="pt-2">
+              <AlertDialogCancel className="w-full rounded-xl border-white/5 bg-zinc-900/50 hover:bg-white/5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-all h-10 border-none">
+                Dismiss Exploration
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

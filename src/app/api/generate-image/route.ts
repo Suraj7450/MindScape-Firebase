@@ -45,13 +45,18 @@ export async function POST(req: Request) {
 
 async function generateWithPollinations(prompt: string, size?: string) {
   const [width, height] = (size || '1024x1024').split('x').map(Number);
+
+  // Refined model list with latest stable Pollinations options
+  const reliableModels = ['flux', 'flux-realism', 'flux-anime', 'turbo', 'flux-3d'];
   let lastError: any = null;
 
-  for (const model of pollinationsModels) {
+  for (const model of reliableModels) {
     try {
       const encodedPrompt = encodeURIComponent(prompt);
-      // New unified gateway URL
-      const imageUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
+      // use the standard image.pollinations.ai endpoint
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
+
+      console.log(`🎨 Attempting image generation with model: ${model}`);
 
       const imageResponse = await fetch(imageUrl, {
         headers: {
@@ -60,12 +65,17 @@ async function generateWithPollinations(prompt: string, size?: string) {
       });
 
       if (!imageResponse.ok) {
-        console.warn(`Pollinations model ${model} failed with status: ${imageResponse.status}`);
-        lastError = new Error(`Pollinations (${model}) failed with status: ${imageResponse.status}`);
+        const statusText = await imageResponse.text().catch(() => imageResponse.statusText);
+        console.warn(`⚠️ Pollinations model ${model} failed: ${imageResponse.status} ${statusText}`);
+        lastError = new Error(`Pollinations (${model}) failed: ${imageResponse.status}`);
         continue;
       }
 
       const imageBuffer = await imageResponse.arrayBuffer();
+      if (imageBuffer.byteLength < 100) {
+        throw new Error("Received empty or invalid image buffer");
+      }
+
       const base64Image = Buffer.from(imageBuffer).toString('base64');
       const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
       const dataUri = `data:${contentType};base64,${base64Image}`;
@@ -74,10 +84,10 @@ async function generateWithPollinations(prompt: string, size?: string) {
 
     } catch (error) {
       lastError = error;
-      console.warn(`Pollinations model ${model} error:`, error);
+      console.warn(`❌ Pollinations model ${model} error:`, error);
     }
   }
 
-  throw lastError || new Error('All Pollinations models failed');
+  throw lastError || new Error('All Pollinations image models failed');
 }
 

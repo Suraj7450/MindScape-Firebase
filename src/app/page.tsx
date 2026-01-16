@@ -57,6 +57,8 @@ function Hero({
   isGenerating,
   languageSelectRef,
   fileInputRef,
+  depth,
+  setDepth,
 }: {
   onGenerate: (
     topic: string,
@@ -68,6 +70,8 @@ function Hero({
   isGenerating: boolean;
   languageSelectRef: React.RefObject<HTMLButtonElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  depth: string;
+  setDepth: (depth: string) => void;
 }) {
   const [topic, setTopic] = useState('');
   const [topic2, setTopic2] = useState('');
@@ -188,22 +192,36 @@ function Hero({
                   </Button>
                 </div>
 
-                <Select value={lang} onValueChange={setLang}>
-                  <SelectTrigger
-                    ref={languageSelectRef}
-                    className="w-auto min-w-[110px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group"
-                  >
-                    <Globe className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
-                    <SelectValue placeholder="Language" />
-                  </SelectTrigger>
-                  <SelectContent className="glassmorphism border-white/10">
-                    {languages.map((language) => (
-                      <SelectItem key={language.code} value={language.code} className="text-xs">
-                        {language.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select value={depth} onValueChange={setDepth}>
+                    <SelectTrigger className="w-auto min-w-[100px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group">
+                      <List className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
+                      <SelectValue placeholder="Depth" />
+                    </SelectTrigger>
+                    <SelectContent className="glassmorphism border-white/10">
+                      <SelectItem value="low" className="text-xs">Low (Quick)</SelectItem>
+                      <SelectItem value="medium" className="text-xs">Medium (Balanced)</SelectItem>
+                      <SelectItem value="deep" className="text-xs">Deep (Detailed)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={lang} onValueChange={setLang}>
+                    <SelectTrigger
+                      ref={languageSelectRef}
+                      className="w-auto min-w-[110px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group"
+                    >
+                      <Globe className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
+                      <SelectValue placeholder="Language" />
+                    </SelectTrigger>
+                    <SelectContent className="glassmorphism border-white/10">
+                      {languages.map((language) => (
+                        <SelectItem key={language.code} value={language.code} className="text-xs">
+                          {language.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="p-1">
@@ -427,6 +445,7 @@ export default function Home() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [lang, setLang] = useState('en');
+  const [depth, setDepth] = useState('low');
   const languageSelectRef = createRef<HTMLButtonElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -481,19 +500,12 @@ export default function Home() {
             reader.onerror = (e) => reject(e);
             reader.readAsDataURL(file);
           });
-        } else if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
-          sessionType = 'pdf';
-          const pdfjs = await import('pdfjs-dist/legacy/build/pdf');
-          pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjs.getDocument(arrayBuffer).promise;
-          let textContent = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const text = await page.getTextContent();
-            textContent += text.items.map((s: any) => s.str).join(' ');
-          }
-          sessionContent = textContent;
+          sessionContent = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
+          });
         } else if (file.type.startsWith('text/') || /\.(txt|md|js|ts|json)$/i.test(file.name)) {
           sessionType = 'text';
           sessionContent = await file.text();
@@ -505,7 +517,7 @@ export default function Home() {
 
         const timestamp = Date.now();
         const sessionId = `vision-${timestamp}`;
-        const finalSessionType = sessionType === 'pdf' ? 'text' : sessionType;
+        const finalSessionType = sessionType; // Keep 'pdf'
         const contentToStore = JSON.stringify({
           file: sessionContent,
           text: topic, // User-typed context
@@ -514,9 +526,7 @@ export default function Home() {
         sessionStorage.setItem(`session-content-${sessionId}`, contentToStore);
         sessionStorage.setItem(`session-type-${sessionId}`, finalSessionType);
 
-
-
-        router.push(`/canvas?sessionId=${sessionId}&lang=${lang}`);
+        router.push(`/canvas?sessionId=${sessionId}&lang=${lang}&depth=${depth}`);
       } catch (error: any) {
         toast({
           variant: 'destructive',
@@ -529,15 +539,13 @@ export default function Home() {
     }
 
     // Handle regular text-based generation
-    const query = new URLSearchParams({ topic, lang }).toString();
+    const query = new URLSearchParams({ topic, lang, depth }).toString();
     router.push(`/canvas?${query}`);
   };
 
-
-
   const handleCompare = (topic1: string, topic2: string) => {
     setIsGenerating(true);
-    const query = new URLSearchParams({ topic1, topic2, lang }).toString();
+    const query = new URLSearchParams({ topic1, topic2, lang, depth }).toString();
     router.push(`/canvas?${query}`);
   };
 
@@ -552,6 +560,8 @@ export default function Home() {
         onCompare={handleCompare}
         lang={lang}
         setLang={setLang}
+        depth={depth}
+        setDepth={setDepth}
         isGenerating={isGenerating}
         languageSelectRef={languageSelectRef}
         fileInputRef={fileInputRef}

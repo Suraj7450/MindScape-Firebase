@@ -21,6 +21,7 @@ import { Skeleton } from './ui/skeleton';
 import { motion } from 'framer-motion';
 import { Icons } from './icons';
 import { cn } from '@/lib/utils';
+import { NotificationCenter } from './notification-center';
 
 export function Navbar() {
   const { user, isUserLoading } = useUser();
@@ -173,6 +174,7 @@ export function Navbar() {
 
             {/* Right Section: Auth & Profile */}
             <div className="flex flex-1 items-center justify-end gap-3">
+              <NotificationCenter />
               {renderUserAuth()}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateContentWithPollinations } from './pollinations-client';
 export type AIProvider = 'gemini' | 'pollinations';
 
@@ -135,68 +135,41 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     let { provider = 'pollinations' } = options;
     const { apiKey, systemPrompt, userPrompt, images, strict, schema } = options;
 
-    // Self-Healing: Check if preferred provider is degraded
-    if (!strict) {
-        const status = providerMonitor.getStatus(provider);
-        if (status !== 'healthy') {
-            console.warn(`🔄 Preferred provider ${provider} is ${status}. Attempting auto-fallback.`);
-            // Choose a fallback
-            if (provider === 'pollinations') {
-                provider = 'gemini';
-            } else if (provider === 'gemini') {
-                provider = 'pollinations';
-            }
-        }
-    }
-
     // Inject JSON-only instruction into system prompt if schema is provided
     const effectiveSystemPrompt = schema
         ? `${systemPrompt}\n\nSTRICT JSON ENFORCEMENT: You must respond ONLY with a valid JSON object matching the requested schema. No prose, no conversation, no markdown markers like \`\`\`json.`
         : systemPrompt;
 
-    console.log('🔌 AI Provider selected:', provider);
+    console.log('🔌 AI Provider attempt:', provider);
 
-    // 1. Try Pollinations (if selected AND available)
-    if (provider === 'pollinations') {
-        if (isPollinationsAvailable()) {
-            try {
-                const result = await retry(async () => {
-                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
-                        model: options.model,
-                        response_format: schema ? { type: 'json_object' } : undefined
-                    });
+    // 1. Try Pollinations (Priority)
+    if (provider === 'pollinations' || !strict) {
+        try {
+            const result = await retry(async () => {
+                const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
+                    model: options.model,
+                    response_format: schema ? { type: 'json_object' } : undefined
+                });
 
-                    if (isReasoningOnly(raw)) {
-                        throw new Error('Pollinations returned reasoning-only output (retryable)');
-                    }
-
-                    return validateAndParse(raw, schema);
-                }, 3);
-
-                providerMonitor.recordSuccess('pollinations');
-                return result;
-            } catch (error: any) {
-                providerMonitor.recordFailure('pollinations');
-                console.warn("⚠️ Pollinations failed after retries:", error.message);
-
-                // Trip circuit breaker if it's a 500-level error
-                if (error.message && (error.message.includes('502') || error.message.includes('503') || error.message.includes('504'))) {
-                    disablePollinations(5);
+                if (isReasoningOnly(raw)) {
+                    throw new Error('Pollinations returned reasoning-only output (retryable)');
                 }
 
-                // Fallback to Gemini if NOT strict.
-                if (strict) {
-                    throw error;
-                }
+                return validateAndParse(raw, schema, strict);
+            }, 5); // Increased to 5 retries for Pollinations stability
 
-                console.warn(`🔄 Falling back to Gemini due to Pollinations error: ${error.message}`);
-                provider = 'gemini';
-            }
-        } else {
+            providerMonitor.recordSuccess('pollinations');
+            return result;
+        } catch (error: any) {
+            providerMonitor.recordFailure('pollinations');
+
+            // If strict is true OR if the user explicitly asked for Pollinations ONLY, do not fall back.
             if (strict || options.provider === 'pollinations') {
-                throw new Error("Pollinations is temporarily disabled due to failures. Please try again in 5-10 minutes.");
+                console.error("❌ Pollinations failed (strict mode):", error.message);
+                throw error;
             }
-            console.warn("⚠️ Pollinations is temporarily disabled. Falling back to Gemini.");
+
+            console.warn(`🔄 Falling back to Gemini as secondary engine due to Pollinations failure: ${error.message}`);
             provider = 'gemini';
         }
     }
@@ -210,37 +183,39 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         }
 
         try {
-            const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
-
-            const contents: any[] = [userPrompt];
-            if (images && images.length > 0) {
-                contents.push(...images);
-            }
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: contents,
-                config: {
-                    systemInstruction: systemPrompt,
-                    responseMimeType: 'application/json'
-                }
+            const genAI = new GoogleGenerativeAI(effectiveApiKey);
+            const geminiModel = genAI.getGenerativeModel({
+                model: 'gemini-2.5-flash'
             });
 
-            if (!response) throw new Error("No response received from Gemini");
-
-            const text = response.text;
-            if (!text) {
-                throw new Error("Empty response from Gemini");
+            const userParts: any[] = [{ text: userPrompt }];
+            if (images && images.length > 0) {
+                userParts.push(...images);
             }
+
+            const text = await retry(async () => {
+                const geminiResult = await geminiModel.generateContent({
+                    contents: [{ role: 'user', parts: userParts }],
+                    systemInstruction: effectiveSystemPrompt,
+                    generationConfig: {
+                        responseMimeType: 'application/json'
+                    }
+                });
+                return geminiResult.response.text();
+            }, 3);
 
             console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
 
-            const result = validateAndParse(text, schema);
+            const finalResult = validateAndParse(text, schema, strict);
             providerMonitor.recordSuccess('gemini');
-            return result;
+            return finalResult;
         } catch (error: any) {
             providerMonitor.recordFailure('gemini');
             console.error("Gemini AI Error:", error);
+            // If Gemini fails with 429 after retries, suggest switching to developer mode or checking quota
+            if (error.status === 429 || error.message?.includes('429')) {
+                throw new Error("Gemini API Rate Limit Exceeded. The free tier quota has been reached. Please wait a few minutes or try a different topic.");
+            }
             throw error;
         }
     }
@@ -252,12 +227,17 @@ export async function generateContent(options: GenerateContentOptions): Promise<
  * Validates and parses the AI response text.
  * Handles markdown stripping, robust JSON extraction, and schema validation.
  */
-function validateAndParse(raw: any, schema?: any): any {
+function validateAndParse(raw: any, schema?: any, strict: boolean = true): any {
     if (typeof raw !== 'string') {
         if (schema) {
             const result = schema.safeParse(raw);
             if (!result.success) {
-                throw new StructuredOutputError("Schema validation failed", JSON.stringify(raw), result.error);
+                if (strict) {
+                    throw new StructuredOutputError("Schema validation failed", JSON.stringify(raw), result.error);
+                } else {
+                    console.warn("⚠️ Schema validation failed in loose mode, returning raw object:", result.error);
+                    return raw; // Return as-is, let the flow handle it
+                }
             }
             return result.data;
         }
@@ -274,7 +254,7 @@ function validateAndParse(raw: any, schema?: any): any {
 
     // 2. Initial attempt at parsing
     try {
-        return performSchemaValidation(JSON.parse(cleaned), schema, cleaned);
+        return performSchemaValidation(JSON.parse(cleaned), schema, cleaned, strict);
     } catch (e) {
         // 3. Robust Extraction fallback
         // Sometimes models prefix the JSON with prose even if told not to
@@ -284,7 +264,7 @@ function validateAndParse(raw: any, schema?: any): any {
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             const extracted = cleaned.substring(firstBrace, lastBrace + 1);
             try {
-                return performSchemaValidation(JSON.parse(extracted), schema, extracted);
+                return performSchemaValidation(JSON.parse(extracted), schema, extracted, strict);
             } catch (innerError: any) {
                 // If still failing, it might be a real syntax error (e.g. unescaped quotes)
                 if (innerError instanceof StructuredOutputError) throw innerError;
@@ -299,13 +279,18 @@ function validateAndParse(raw: any, schema?: any): any {
 /**
  * Internal helper to run Zod validation if schema exists
  */
-function performSchemaValidation(parsed: any, schema: any, originalRaw: string): any {
+function performSchemaValidation(parsed: any, schema: any, originalRaw: string, strict: boolean = true): any {
     if (!schema) return parsed;
 
     const result = schema.safeParse(parsed);
     if (!result.success) {
-        console.error("❌ Schema Validation Error:", result.error);
-        throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);
+        if (strict) {
+            console.error("❌ Schema Validation Error:", result.error);
+            throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);
+        } else {
+            console.warn("⚠️ Schema Validation failed in loose mode, returning raw parsed JSON.");
+            return parsed;
+        }
     }
     return result.data;
 }

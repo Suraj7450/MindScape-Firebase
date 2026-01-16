@@ -16,15 +16,16 @@ export async function generateComparisonMapV2(
         topic2: string;
         targetLang?: string;
         persona?: string;
+        depth?: 'low' | 'medium' | 'deep';
         provider?: AIProvider;
         apiKey?: string;
         strict?: boolean;
     }
 ): Promise<GenerateComparisonMapOutputV2> {
-    const { topic1, topic2, provider, apiKey, strict } = input;
+    const { topic1, topic2, depth = 'low', provider, apiKey, strict } = input;
 
     const system = systemPrompt;
-    const user = userPromptTemplate(topic1, topic2);
+    const user = userPromptTemplate(topic1, topic2, depth);
 
     const maxAttempts = 2;
     let lastError = null;

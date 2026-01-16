@@ -12,6 +12,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { DepthBadge } from '@/components/mind-map/depth-badge';
 
 interface CommunityCardProps {
     map: MindMapWithId;
@@ -38,6 +39,9 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
                 />
+                <div className="absolute top-2 left-2 z-10">
+                    <DepthBadge depth={map.depth} className="backdrop-blur-md bg-black/40 border-white/10" />
+                </div>
             </div>
 
             <h3 className="font-bold text-lg text-white mb-2 line-clamp-1 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pt-2">{map.topic}</h3>

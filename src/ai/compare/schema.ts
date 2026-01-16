@@ -60,6 +60,10 @@ export const GenerateComparisonMapInputSchema = z.object({
         .string()
         .optional()
         .describe('The AI persona / style to use (e.g., "Teacher", "Concise", "Creative").'),
+    depth: z
+        .enum(['low', 'medium', 'deep'])
+        .default('low')
+        .describe('The level of detail/depth for the mind map structure.'),
     apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 

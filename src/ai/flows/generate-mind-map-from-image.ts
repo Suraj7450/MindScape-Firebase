@@ -27,6 +27,10 @@ const GenerateMindMapFromImageInputSchema = z.object({
     .string()
     .optional()
     .describe('The AI persona / style to use (e.g., "Teacher", "Concise", "Creative").'),
+  depth: z
+    .enum(['low', 'medium', 'deep'])
+    .default('low')
+    .describe('The level of detail/depth for the mind map structure.'),
   apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
 });
 type GenerateMindMapFromImageInput = z.infer<
@@ -44,7 +48,17 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function generateMindMapFromImage(
   input: GenerateMindMapFromImageInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<GenerateMindMapFromImageOutput> {
-  const { provider, apiKey, strict } = input;
+  const { provider, apiKey, strict, depth = 'low' } = input;
+
+  // Map depth to structural density
+  let densityInstruction = '';
+  if (depth === 'medium') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 6 subTopics. Each subTopic MUST have AT LEAST 4 categories. Each category MUST have AT LEAST 6 subCategories.';
+  } else if (depth === 'deep') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 8 subTopics. Each subTopic MUST have AT LEAST 6 categories. Each category MUST have AT LEAST 9 subCategories. Extract as much detail as possible from the image.';
+  } else {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 4 subTopics. Each subTopic MUST have AT LEAST 2 categories. Each category MUST have AT LEAST 3 subCategories.';
+  }
   if (provider === 'pollinations' || apiKey || provider === 'gemini') {
     const targetLangInstruction = input.targetLang
       ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${input.targetLang}.`
@@ -80,20 +94,22 @@ export async function generateMindMapFromImage(
       - Keep descriptions highly focused and exactly one sentence.`;
     }
 
-    const systemPrompt = `You are an expert in analyzing images and creating structured, comprehensive mind maps from them.
+    const systemPrompt = `You are an expert in analyzing images and PDF documents and creating structured, comprehensive mind maps from them.
     
     ${personaInstruction}
     
-    Analyze the provided image and generate a detailed, multi-layered mind map based on its content.
+    Analyze the provided image or document and generate a detailed, multi-layered mind map based on its content.
     
-    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the image. Use this **actual, literal data** to populate the mind map's topic, subTopics, categories, and subCategories.
+    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the visual or textual content. Use this **actual, literal data** to populate the mind map's topic, subTopics, categories, and subCategories.
+    
+    ${densityInstruction}
     
     ${targetLangInstruction}
     
     The mind map must have the following structure:
     {
       "mode": "single",
-      "topic": "The main topic identified from the image",
+      "topic": "The main topic identified from the content",
       "shortTitle": "A condensed version (max 3-4 words)",
       "icon": "relevant-lucide-icon",
       "subTopics": [
@@ -120,7 +136,7 @@ export async function generateMindMapFromImage(
     
     The output must be a valid JSON object that adheres to the schema.`;
 
-    const userPrompt = "Analyze this image and generate the mind map JSON.";
+    const userPrompt = "Analyze this image/document and generate the mind map JSON.";
 
     // Parse Data URI
     const matches = input.imageDataUri.match(/^data:(.+);base64,(.+)$/);

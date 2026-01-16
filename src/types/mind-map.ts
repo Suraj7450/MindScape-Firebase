@@ -107,6 +107,7 @@ export interface BaseMindMapData {
   originalAuthorId?: string;
   authorName?: string;
   authorAvatar?: string;
+  depth?: 'low' | 'medium' | 'deep';
 }
 
 export interface SingleMindMapData extends BaseMindMapData, MindMap {

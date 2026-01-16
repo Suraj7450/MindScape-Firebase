@@ -29,6 +29,10 @@ const GenerateMindMapInputSchema = z.object({
     .string()
     .optional()
     .describe('The AI persona / style to use (e.g., "Teacher", "Concise", "Creative").'),
+  depth: z
+    .enum(['low', 'medium', 'deep'])
+    .default('low')
+    .describe('The level of detail/depth for the mind map structure.'),
 });
 export type GenerateMindMapInput = z.infer<typeof GenerateMindMapInputSchema>;
 
@@ -46,7 +50,17 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function generateMindMap(
   input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<GenerateMindMapOutput> {
-  const { topic, parentTopic, targetLang, persona, provider, apiKey, strict } = input;
+  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey, strict } = input;
+
+  // Map depth to structural density
+  let densityInstruction = '';
+  if (depth === 'medium') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 6 subTopics. Each subTopic MUST have AT LEAST 4 categories. Each category MUST have AT LEAST 6 subCategories.';
+  } else if (depth === 'deep') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 8 subTopics. Each subTopic MUST have AT LEAST 6 categories. Each category MUST have AT LEAST 9 subCategories. This is a DEEP DIVE, provide maximum detail.';
+  } else {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 4 subTopics. Each subTopic MUST have AT LEAST 2 categories. Each category MUST have AT LEAST 3 subCategories.';
+  }
 
   let personaInstruction = '';
   if (persona === 'Teacher') {
@@ -125,7 +139,7 @@ export async function generateMindMap(
 - Icons must be valid lucide - react names in kebab -case (e.g., "shield", "sword", "globe")
   - BE SPECIFIC WITH ICONS: Choose icons that are SEMANTICALLY RELEVANT to the name.If the subtopic is "History", use "scroll" or "landmark".
   - Sub - category descriptions MUST be exactly one sentence and highly informative.
-  - STRUCTURE DENSITY: Generate AT LEAST 4 subTopics.Each subTopic MUST have AT LEAST 2 categories.Each category MUST have AT LEAST 3 subCategories.
+  - ${densityInstruction}
   - DO NOT return an empty 'subTopics' array.If you are stuck, explore broad sub - categories of the given topic.
   - FAILURE IS NOT AN OPTION: You must return a full, deep hierarchy. "Short" or "shallow" responses are invalid.
 

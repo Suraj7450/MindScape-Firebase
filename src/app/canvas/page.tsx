@@ -85,6 +85,7 @@ function MindMapPageContent() {
         parentTopic,
         targetLang: params.lang,
         persona: aiPersona,
+        depth: params.depth,
       }, aiOptions);
       return result;
     }
@@ -215,6 +216,7 @@ function MindMapPageContent() {
             parentTopic: params.parent || undefined,
             targetLang: params.lang,
             persona: aiPersona,
+            depth: params.depth,
           }, aiOptions);
 
           // Overwrite existing!
@@ -285,6 +287,7 @@ function MindMapPageContent() {
             topic2: params.topic2,
             targetLang: params.lang,
             persona: aiPersona,
+            depth: params.depth,
           }, aiOptions);
         } else if (params.topic) {
           currentMode = 'standard';
@@ -299,6 +302,7 @@ function MindMapPageContent() {
             parentTopic: params.parent || undefined,
             targetLang: params.lang,
             persona: aiPersona,
+            depth: params.depth,
           }, aiOptions);
         } else if (params.sessionId) {
           const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
@@ -315,8 +319,8 @@ function MindMapPageContent() {
               additionalText = '';
             }
 
-            if (sessionType === 'image') {
-              currentMode = 'vision-image';
+            if (sessionType === 'image' || sessionType === 'pdf') {
+              currentMode = sessionType === 'image' ? 'vision-image' : 'vision-pdf';
               const aiOptions = {
                 provider: config.provider,
                 apiKey: config.apiKey,
@@ -327,8 +331,10 @@ function MindMapPageContent() {
                 imageDataUri: fileContent,
                 targetLang: params.lang,
                 persona: aiPersona,
+                depth: params.depth,
               }, aiOptions);
-            } else if (sessionType === 'text') {
+            }
+            else if (sessionType === 'text') {
               currentMode = 'vision-text';
               const aiOptions = {
                 provider: config.provider,
@@ -341,6 +347,7 @@ function MindMapPageContent() {
                 context: additionalText,
                 targetLang: params.lang,
                 persona: aiPersona,
+                depth: params.depth,
               }, aiOptions);
             }
             sessionStorage.removeItem(`session-type-${params.sessionId}`);

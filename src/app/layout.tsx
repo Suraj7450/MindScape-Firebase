@@ -8,6 +8,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { Icons } from '@/components/icons';
 import { Space_Grotesk, Orbitron } from 'next/font/google';
 import { AIConfigProvider } from '@/contexts/ai-config-context';
+import { NotificationProvider } from '@/contexts/notification-context';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -38,6 +39,8 @@ function BackgroundGlow() {
   );
 }
 
+import { TooltipProvider } from '@/components/ui/tooltip';
+
 /**
  * The root layout component for the entire application.
  * It sets up the HTML structure, includes global styles, fonts, and wraps the application
@@ -60,10 +63,14 @@ export default function RootLayout({
 
         <FirebaseClientProvider>
           <AIConfigProvider>
-            <BackgroundGlow />
-            <Navbar />
-            <main className="h-full">{children}</main>
-            <Toaster />
+            <NotificationProvider>
+              <TooltipProvider delayDuration={400}>
+                <BackgroundGlow />
+                <Navbar />
+                <main className="h-full">{children}</main>
+                <Toaster />
+              </TooltipProvider>
+            </NotificationProvider>
           </AIConfigProvider>
         </FirebaseClientProvider>
       </body>

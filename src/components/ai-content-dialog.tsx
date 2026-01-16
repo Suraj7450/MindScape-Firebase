@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MindMapData } from '@/types/mind-map';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { FileText, Copy as CopyIcon, CheckCircle2, Download, Loader2, X, FileMinus } from 'lucide-react';
 
@@ -52,39 +51,151 @@ export function AiContentDialog({
   const [isCopyingMarkdown, setIsCopyingMarkdown] = useState(false);
 
   const handleDownloadPDF = async () => {
-    if (!contentRef.current) return;
     setIsDownloading(true);
 
     try {
-      const dataUrl = await toPng(contentRef.current, {
-        quality: 1.0,
-        pixelRatio: 2,
-        backgroundColor: '#09090b', // zinc-950
-        style: {
-          padding: '40px',
-          borderRadius: '0px',
-        }
-      });
+      const doc = new jsPDF();
+      let y = 20;
 
-      const pdf = new jsPDF('p', 'px', [contentRef.current.scrollWidth, contentRef.current.scrollHeight]);
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // Title
+      doc.setFontSize(22);
+      doc.setTextColor(124, 58, 237); // Purple
+      doc.setFont("helvetica", "bold");
+      const titleLines = doc.splitTextToSize(mindMap.topic, 170);
+      doc.text(titleLines, 20, y);
+      y += (titleLines.length * 10);
 
-      pdf.setProperties({
+      // Header info
+      doc.setFontSize(9);
+      doc.setTextColor(150);
+      doc.setFont("helvetica", "normal");
+      doc.text(`MindScape Knowledge Package • Generated on ${new Date().toLocaleDateString()}`, 20, y);
+      y += 15;
+
+      // Executive Summary
+      doc.setFontSize(14);
+      doc.setTextColor(124, 58, 237);
+      doc.text("Executive Summary", 20, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.setTextColor(60);
+      const summaryText = mindMap.mode === 'compare' ? (mindMap.compareData.root.description || "Comparison analysis of topics.") : "Comprehensive knowledge structure and detailed exploration.";
+      const summaryLines = doc.splitTextToSize(summaryText, 170);
+      doc.text(summaryLines, 20, y);
+      y += (summaryLines.length * 6) + 15;
+
+      // Detailed Content
+      doc.setFontSize(18);
+      doc.setTextColor(0);
+      doc.text("Detailed Knowledge Structure", 20, y);
+      y += 10;
+
+      if (mindMap.mode === 'compare') {
+        const cd = mindMap.compareData;
+
+        // Similarities
+        doc.setFontSize(14);
+        doc.setTextColor(16, 185, 129); // Emerald
+        doc.text("Shared Commonalities", 20, y);
+        y += 8;
+        cd.similarities.forEach((node: any) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setFontSize(11);
+          doc.setTextColor(0);
+          doc.setFont("helvetica", "bold");
+          doc.text(`• ${node.title}`, 20, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+          const desc = doc.splitTextToSize(node.description || "", 160);
+          doc.text(desc, 25, y);
+          y += (desc.length * 5) + 8;
+        });
+
+        // Differences
+        if (y > 250) { doc.addPage(); y = 20; }
+        y += 10;
+        doc.setFontSize(14);
+        doc.setTextColor(124, 58, 237);
+        doc.text(`Unique Insights: ${mindMap.topic}`, 20, y);
+        y += 8;
+
+        const topics = [
+          { name: cd.root.title.split(' vs ')[0] || 'Topic A', data: cd.differences.topicA },
+          { name: cd.root.title.split(' vs ')[1] || 'Topic B', data: cd.differences.topicB }
+        ];
+
+        topics.forEach(topic => {
+          if (y > 260) { doc.addPage(); y = 20; }
+          doc.setFontSize(12);
+          doc.setTextColor(50);
+          doc.setFont("helvetica", "bold");
+          doc.text(topic.name, 20, y);
+          y += 7;
+
+          topic.data.forEach((node: any) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.setFontSize(11);
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "bold");
+            doc.text(`- ${node.title}`, 25, y);
+            y += 5;
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80);
+            const desc = doc.splitTextToSize(node.description || "", 155);
+            doc.text(desc, 30, y);
+            y += (desc.length * 5) + 6;
+          });
+          y += 5;
+        });
+      } else {
+        mindMap.subTopics.forEach((st: any, i: number) => {
+          if (y > 250) { doc.addPage(); y = 20; }
+          doc.setFontSize(16);
+          doc.setTextColor(124, 58, 237);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${st.name}`, 20, y);
+          y += 10;
+
+          st.categories.forEach((cat: any) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.setFontSize(13);
+            doc.setTextColor(50);
+            doc.setFont("helvetica", "bold");
+            doc.text(cat.name, 25, y);
+            y += 7;
+
+            cat.subCategories.forEach((sc: any) => {
+              if (y > 270) { doc.addPage(); y = 20; }
+              doc.setFontSize(11);
+              doc.setTextColor(0);
+              doc.setFont("helvetica", "bold");
+              doc.text(`• ${sc.name}`, 30, y);
+              y += 5;
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(80);
+              const desc = doc.splitTextToSize(sc.description || "", 150);
+              doc.text(desc, 35, y);
+              y += (desc.length * 5) + 6;
+            });
+            y += 4;
+          });
+          y += 10;
+        });
+      }
+
+      doc.setProperties({
         title: `MindScape - ${mindMap.topic}`,
         subject: 'AI Generated Mind Map Knowledge Package',
         author: 'MindScape AI',
-        keywords: 'mindmap, education, ai, learning',
         creator: 'MindScape'
       });
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${mindMap.topic.replace(/ /g, '_')}_Study_Pack.pdf`);
+      doc.save(`${mindMap.topic.replace(/\s+/g, '_')}_Knowledge_Pack.pdf`);
 
       toast({
         title: 'Export Successful',
-        description: 'Your knowledge package has been saved as a high-quality PDF.',
+        description: 'Your knowledge package has been saved as a structured PDF.',
       });
     } catch (error) {
       console.error("Failed to download PDF:", error);

@@ -21,7 +21,17 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function generateMindMapFromText(
   input: GenerateMindMapFromTextInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<GenerateMindMapFromTextOutput> {
-  const { provider, apiKey, context, targetLang, text, persona, strict } = input;
+  const { provider, apiKey, context, targetLang, text, persona, strict, depth = 'low' } = input;
+
+  // Map depth to structural density
+  let densityInstruction = '';
+  if (depth === 'medium') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 6 subTopics. Each subTopic MUST have AT LEAST 4 categories. Each category MUST have AT LEAST 6 subCategories.';
+  } else if (depth === 'deep') {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 8 subTopics. Each subTopic MUST have AT LEAST 6 categories. Each category MUST have AT LEAST 9 subCategories.';
+  } else {
+    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 4 subTopics. Each subTopic MUST have AT LEAST 2 categories. Each category MUST have AT LEAST 3 subCategories.';
+  }
 
   let personaInstruction = '';
   if (persona === 'Teacher') {
@@ -69,6 +79,8 @@ export async function generateMindMapFromText(
     Analyze the provided text and generate a detailed, multi-layered mind map based on its content. 
     
     **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the text. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories. Do not just summarize the themes; fill the structure with the actual data found in the text.
+  
+    ${densityInstruction}
   
     ${contextInstruction}
   
