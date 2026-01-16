@@ -160,20 +160,18 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     if (provider === 'pollinations') {
         if (isPollinationsAvailable()) {
             try {
-                // MOVE validation INSIDE retry so malformed JSON or reasoning-only triggers a fresh AI attempt
                 const result = await retry(async () => {
                     const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
                         model: options.model,
                         response_format: schema ? { type: 'json_object' } : undefined
                     });
 
-                    // Use reasoning-only check to trigger retry
                     if (isReasoningOnly(raw)) {
                         throw new Error('Pollinations returned reasoning-only output (retryable)');
                     }
 
                     return validateAndParse(raw, schema);
-                }, 3); // 3 attempts total
+                }, 3);
 
                 providerMonitor.recordSuccess('pollinations');
                 return result;
@@ -183,20 +181,18 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
                 // Trip circuit breaker if it's a 500-level error
                 if (error.message && (error.message.includes('502') || error.message.includes('503') || error.message.includes('504'))) {
-                    disablePollinations(5); // Disable for 5 mins
+                    disablePollinations(5);
                 }
 
-                // ONLY fallback to Gemini if NOT strict AND NOT explicitly requested Pollinations
-                // If the user or a specific flow chose Pollinations, we should fail with Pollinations' error
-                // to avoid eating up Gemini quota silently.
-                if (strict || options.provider === 'pollinations') {
+                // Fallback to Gemini if NOT strict.
+                if (strict) {
                     throw error;
                 }
 
+                console.warn(`🔄 Falling back to Gemini due to Pollinations error: ${error.message}`);
                 provider = 'gemini';
             }
         } else {
-            // If Pollinations is explicitly requested but disabled, and we are strict, fail.
             if (strict || options.provider === 'pollinations') {
                 throw new Error("Pollinations is temporarily disabled due to failures. Please try again in 5-10 minutes.");
             }
@@ -207,7 +203,6 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
     // 3. Gemini (Selected OR Fallback)
     if (provider === 'gemini') {
-        // Resolve API key: provided key > environment key
         const effectiveApiKey = apiKey || process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
 
         if (!effectiveApiKey) {

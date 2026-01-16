@@ -373,29 +373,34 @@ function MindMapPageContent() {
             return newMaps;
           });
 
+          // SPEED OPTIMIZATION: Hide loading screen as soon as we have data!
+          setIsLoading(false);
+
           const isNewlyGenerated = !['saved', 'self-reference'].includes(currentMode);
           if (isNewlyGenerated && user && result.data) {
             const existingMapWithId = mindMapsRef.current.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
-            const savedId = await handleSaveMap(result.data, existingMapWithId?.id);
 
-            // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
-            if (savedId && !existingMapWithId?.id) {
-              setMindMaps(prev => prev.map(m =>
-                m.topic === result.data!.topic ? { ...m, id: savedId } : m
-              ));
+            // Perform save in background to not block UI/navigation
+            handleSaveMap(result.data, existingMapWithId?.id).then((savedId) => {
+              // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
+              if (savedId && !existingMapWithId?.id) {
+                setMindMaps(prev => prev.map(m =>
+                  m.topic === result.data!.topic ? { ...m, id: savedId } : m
+                ));
 
-              // Also update the current map directly to ensure isSaved shows immediately
-              handleUpdateCurrentMap({ id: savedId });
+                // Also update the current map directly to ensure isSaved shows immediately
+                handleUpdateCurrentMap({ id: savedId });
 
-              navigateToMap(savedId);
-            }
+                navigateToMap(savedId);
+              }
+            });
           }
         }
       } catch (e: any) {
         const errorMessage = e.message || 'An unknown error occurred.';
         setError(errorMessage);
+        setIsLoading(false); // Ensure loading stops on error
       } finally {
-        setIsLoading(false);
         setGeneratingNodeId(null);
         clearRegenFlag();
       }

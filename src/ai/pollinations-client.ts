@@ -15,13 +15,18 @@ export async function generateContentWithPollinations(
     const hasImages = images && images.length > 0;
 
     // For vision tasks, we MUST use a vision-capable model.
-    // 'gemini' is the most reliably multimodal on the Pollinations gateway.
-    let model = options.model || (hasImages ? 'gemini' : 'openai');
+    // For text tasks, 'mistral' and 'openai' are currently stable but require authentication.
+    let model = options.model || (hasImages ? 'gemini' : 'mistral');
 
     // Override if images are present but non-vision model is specified
-    if (hasImages && (model === 'openai' || model === 'mistral' || model === 'searchguy')) {
+    const nonVisionModels = ['openai', 'mistral', 'searchguy', 'qwen', 'qwen-coder', 'qwen-qwq', 'mistral-nemo'];
+    if (hasImages && nonVisionModels.includes(model)) {
         console.warn(`🔄 Overriding non-vision model '${model}' with 'gemini' for multimodal task.`);
         model = 'gemini';
+    }
+
+    if (model === 'openai' && !hasImages) {
+        console.warn("⚠️ Using 'openai' model which can sometimes be unstable (502/500). Consider using 'mistral' or 'qwen'.");
     }
 
     try {
@@ -49,24 +54,45 @@ export async function generateContentWithPollinations(
 
         messages.push({ role: 'user', content: userContent });
 
-        // Pollinations.ai OpenAI-compatible completions endpoint
+        // Construct request body carefully to avoid 400 validation errors
+        const body: any = {
+            messages: messages,
+            model: model,
+            stream: false,
+        };
+
+        // Only add response_format if a schema/format is requested AND model likely supports it
+        // Some Pollinations models fail if they see response_format or max_tokens in a strict way
+        if (options.response_format) {
+            body.response_format = options.response_format;
+        }
+
+        // Only add max_tokens for known models to prevent 400 errors on others
+        if (model === 'openai' || model === 'gpt-4o' || model === 'gemini') {
+            body.max_tokens = 1024;
+        }
+
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...(process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
             },
-            body: JSON.stringify({
-                messages: messages,
-                model: model,
-                stream: false,
-                response_format: options.response_format
-            }),
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.error?.message || response.statusText;
+            let errorMessage = response.statusText;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.message || errorData.error?.message || JSON.stringify(errorData);
+            } catch (e) {
+                // If it's not JSON, try to get raw text
+                try {
+                    const text = await response.text();
+                    if (text && text.length < 200) errorMessage = text;
+                } catch { /* ignore */ }
+            }
             throw new Error(`Pollinations API error: ${response.status} ${errorMessage}`);
         }
 

@@ -34,7 +34,7 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function enhanceImagePrompt(
   input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
 ): Promise<EnhanceImagePromptOutput> {
-  const { provider, apiKey, strict } = input;
+  const { provider = 'gemini', apiKey, strict } = input;
   if (provider === 'pollinations' || apiKey || provider === 'gemini') {
     const styleInstruction = input.style
       ? `**Requested Style:**
@@ -58,8 +58,10 @@ export async function enhanceImagePrompt(
     **Output Format:**
     You MUST return a valid JSON object with the following structure:
     {
-      "enhancedPrompt": "A comma-separated list of powerful, high-resolution visual keywords and descriptive phrases."
+      "enhancedPrompt": "A concise comma-separated list of 15-20 powerful visual keywords."
     }
+    
+    IMPORTANT: Be extremely concise. Do NOT generate long lists of every possible activity. Focus on ONE cohesive visual scene.
     
     IMPORTANT: Return ONLY the raw JSON object. No markdown, no code blocks, no explanations.
     

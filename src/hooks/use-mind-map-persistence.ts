@@ -131,52 +131,56 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 thumbnailPrompt = `A high-end commercial comparison photograph featuring both topics: ${mapToSave.topic}. A side-by-side or dual-subject composition showing the authentic brand identities of both subjects. Professional lighting, sharp focus, 8k resolution, cinematic atmosphere.`;
             }
 
-            // Generate thumbnail using internal API (which enhances prompts)
-            let thumbnailUrl = mapToSave.thumbnailUrl || '';
+            // SPLIT SCHEMA: Metadata vs Content
+            const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;
 
-            // Only generate thumbnail if it doesn't exist
-            if (!thumbnailUrl) {
+            // Generate thumbnail IN BACKGROUND (non-blocking)
+            let thumbnailUrl = mapToSave.thumbnailUrl || '';
+            const generateThumbnailInBackground = async (mapId: string) => {
+                if (thumbnailUrl) return;
+
                 try {
+                    console.log('🖼️ Starting background thumbnail generation...');
                     const response = await fetch('/api/generate-image', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: thumbnailPrompt,
-                            style: 'Cinematic', // Use a high-quality style
-                            provider: 'pollinations', // Use high-quality provider
-                            size: '512x288'   // Fixed small size to prevent Firestore 1MB limit
+                            style: 'Cinematic',
+                            provider: 'pollinations',
+                            size: '512x288'
                         })
                     });
 
+                    let finalThumbnailUrl = '';
                     if (response.ok) {
                         const data = await response.json();
                         if (data.images && data.images[0]) {
-                            thumbnailUrl = data.images[0];
-                            console.log('✅ AI Thumbnail generated via API');
+                            finalThumbnailUrl = data.images[0];
                         }
                     }
-                    if (thumbnailUrl && thumbnailUrl.length > 800000) {
-                        console.warn('⚠️ Thumbnail too large for Firestore (>800KB), dropping base64 data to prevent save failure.');
-                        thumbnailUrl = '';
+
+                    // Fallback
+                    if (!finalThumbnailUrl) {
+                        finalThumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
                     }
-                } catch (imageError) {
-                    console.warn('⚠️ Thumbnail generation failed:', imageError);
-                }
 
-                // Fallback for thumbnailUrl if generation failed OR if it was too large
-                if (!thumbnailUrl) {
-                    thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
+                    // Update Firestore with the thumbnail
+                    if (finalThumbnailUrl) {
+                        const metadataRef = doc(firestore, 'users', user.uid, 'mindmaps', mapId);
+                        await updateDoc(metadataRef, { thumbnailUrl: finalThumbnailUrl });
+                        console.log('✅ Background thumbnail updated for:', mapId);
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Background thumbnail failed:', err);
                 }
-            }
-
-            // SPLIT SCHEMA: Metadata vs Content
-            const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;
+            };
 
             const metadataToSave: any = {
                 ...metadata,
                 summary,
                 updatedAt: serverTimestamp(),
-                thumbnailUrl,
+                thumbnailUrl: thumbnailUrl || '', // Save empty initially if not exists
                 thumbnailPrompt,
                 userId: user.uid,
                 isSubMap: mapToSave.isSubMap || false,
@@ -230,6 +234,9 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
                 await setDoc(metadataRef, metadataFinal, { merge: true });
                 await setDoc(contentRef, contentFinal);
+
+                // Start background task if image missing
+                generateThumbnailInBackground(targetId);
             } else {
                 const mindMapsCollection = collection(firestore, 'users', user.uid, 'mindmaps');
                 const docRef = await addDoc(mindMapsCollection, { ...metadataFinal, createdAt: serverTimestamp() });
@@ -237,6 +244,9 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
                 const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', finalId, 'content', 'tree');
                 await setDoc(contentRef, contentFinal);
+
+                // Start background task
+                generateThumbnailInBackground(finalId);
 
                 // Track creation
                 await trackMapCreated(firestore, user.uid);

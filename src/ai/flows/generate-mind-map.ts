@@ -125,7 +125,7 @@ export async function generateMindMap(
 - Icons must be valid lucide - react names in kebab -case (e.g., "shield", "sword", "globe")
   - BE SPECIFIC WITH ICONS: Choose icons that are SEMANTICALLY RELEVANT to the name.If the subtopic is "History", use "scroll" or "landmark".
   - Sub - category descriptions MUST be exactly one sentence and highly informative.
-  - STRUCTURE DENSITY: Generate AT LEAST 5 subTopics.Each subTopic MUST have AT LEAST 3 categories.Each category MUST have AT LEAST 4 subCategories.
+  - STRUCTURE DENSITY: Generate AT LEAST 4 subTopics.Each subTopic MUST have AT LEAST 2 categories.Each category MUST have AT LEAST 3 subCategories.
   - DO NOT return an empty 'subTopics' array.If you are stuck, explore broad sub - categories of the given topic.
   - FAILURE IS NOT AN OPTION: You must return a full, deep hierarchy. "Short" or "shallow" responses are invalid.
 
