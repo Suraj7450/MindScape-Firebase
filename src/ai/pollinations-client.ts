@@ -9,14 +9,20 @@ export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[],
-    options: { model?: string } = {}
+    options: { model?: string, response_format?: any } = {}
 ): Promise<any> {
     // Auto-select model based on content if not specified
-    // 'openai' (openai-fast) is great for text but doesn't support vision
-    // 'gemini' (gemini-2.5-flash-lite) supports vision and tools
     const hasImages = images && images.length > 0;
-    // 'mistral' is more reliable for strict JSON than 'openai' (reasoning model)
-    const model = options.model || (hasImages ? 'gemini' : 'mistral');
+
+    // For vision tasks, we MUST use a vision-capable model.
+    // 'gemini' is the most reliably multimodal on the Pollinations gateway.
+    let model = options.model || (hasImages ? 'gemini' : 'openai');
+
+    // Override if images are present but non-vision model is specified
+    if (hasImages && (model === 'openai' || model === 'mistral' || model === 'searchguy')) {
+        console.warn(`🔄 Overriding non-vision model '${model}' with 'gemini' for multimodal task.`);
+        model = 'gemini';
+    }
 
     try {
         const messages: any[] = [
@@ -26,10 +32,9 @@ export async function generateContentWithPollinations(
             }
         ];
 
-        // ... (messages construction remains same) ...
-        const userContent: any[] = [{ type: 'text', text: userPrompt }];
-
+        let userContent: any;
         if (images && images.length > 0) {
+            userContent = [{ type: 'text', text: userPrompt }];
             images.forEach(img => {
                 userContent.push({
                     type: 'image_url',
@@ -38,12 +43,14 @@ export async function generateContentWithPollinations(
                     }
                 });
             });
+        } else {
+            userContent = userPrompt;
         }
 
         messages.push({ role: 'user', content: userContent });
 
-        // Pollinations.ai text generation endpoint
-        const response = await fetch('https://text.pollinations.ai/', {
+        // Pollinations.ai OpenAI-compatible completions endpoint
+        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -52,17 +59,19 @@ export async function generateContentWithPollinations(
             body: JSON.stringify({
                 messages: messages,
                 model: model,
-                json: true
+                stream: false,
+                response_format: options.response_format
             }),
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Pollinations API error: ${response.status} ${errorText || response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.error?.message || response.statusText;
+            throw new Error(`Pollinations API error: ${response.status} ${errorMessage}`);
         }
 
-        const text = await response.text();
-        // console.log('🌸 Pollinations raw response:', text.substring(0, 500));
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content || "";
 
         let parsedResponse;
         try {
@@ -78,7 +87,9 @@ export async function generateContentWithPollinations(
                     throw new Error(`Failed to parse extracted JSON: ${innerE}`);
                 }
             } else {
-                throw new Error("Response contained no valid JSON object.");
+                // If no JSON found, return the raw text (might be intentional for some flows)
+                console.warn("Response contained no valid JSON object, returning raw text.");
+                return text;
             }
         }
 
@@ -140,16 +151,9 @@ export async function generateContentWithPollinations(
 
         const finalResult = deepExtract(parsedResponse) || parsedResponse;
         return finalResult;
-
-        if (!finalResult) {
-            console.warn('⚠️ Deep extraction failed to find a usable object in the AI response.');
-        } else {
-            console.log('✨ Extraction complete. Final result keys:', Object.keys(finalResult));
-        }
-
-        return finalResult;
     } catch (error: any) {
         console.error("Pollinations AI Generation Failed:", error);
         throw new Error(`Pollinations API failed: ${error.message}`);
     }
 }
+

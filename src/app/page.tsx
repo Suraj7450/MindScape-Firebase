@@ -473,7 +473,7 @@ export default function Home() {
         let sessionType: 'image' | 'text' | 'pdf';
         let sessionContent: string;
 
-        if (file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name)) {
           sessionType = 'image';
           sessionContent = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -481,7 +481,7 @@ export default function Home() {
             reader.onerror = (e) => reject(e);
             reader.readAsDataURL(file);
           });
-        } else if (file.type === 'application/pdf') {
+        } else if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
           sessionType = 'pdf';
           const pdfjs = await import('pdfjs-dist/legacy/build/pdf');
           pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -494,7 +494,7 @@ export default function Home() {
             textContent += text.items.map((s: any) => s.str).join(' ');
           }
           sessionContent = textContent;
-        } else if (file.type.startsWith('text/')) {
+        } else if (file.type.startsWith('text/') || /\.(txt|md|js|ts|json)$/i.test(file.name)) {
           sessionType = 'text';
           sessionContent = await file.text();
         } else {

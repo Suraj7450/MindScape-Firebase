@@ -162,7 +162,10 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             try {
                 // MOVE validation INSIDE retry so malformed JSON or reasoning-only triggers a fresh AI attempt
                 const result = await retry(async () => {
-                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, { model: options.model });
+                    const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
+                        model: options.model,
+                        response_format: schema ? { type: 'json_object' } : undefined
+                    });
 
                     // Use reasoning-only check to trigger retry
                     if (isReasoningOnly(raw)) {
@@ -220,7 +223,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             }
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-1.5-flash',
                 contents: contents,
                 config: {
                     systemInstruction: systemPrompt,

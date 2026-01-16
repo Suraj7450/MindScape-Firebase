@@ -3,7 +3,7 @@ import { enhanceImagePromptAction } from '@/app/actions';
 import { NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 
-const pollinationsModels = ['flux', 'seedream', 'zimage', 'gptimage-large', 'turbo'];
+const pollinationsModels = ['flux', 'turbo', 'gptimage', 'kontext', 'seedream', 'nanobanana'];
 
 export async function POST(req: Request) {
   try {
@@ -50,7 +50,8 @@ async function generateWithPollinations(prompt: string, size?: string) {
   for (const model of pollinationsModels) {
     try {
       const encodedPrompt = encodeURIComponent(prompt);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
+      // New unified gateway URL
+      const imageUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
 
       const imageResponse = await fetch(imageUrl, {
         headers: {
@@ -79,3 +80,4 @@ async function generateWithPollinations(prompt: string, size?: string) {
 
   throw lastError || new Error('All Pollinations models failed');
 }
+

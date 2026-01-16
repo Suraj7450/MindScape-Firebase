@@ -41,7 +41,7 @@ export const TopicHeader = ({
                             src={mindMap.thumbnailUrl}
                             alt={mindMap.topic}
                             fill
-                            className="object-cover opacity-60 transition-all duration-[3000ms] ease-out group-hover:scale-110"
+                            className="object-cover opacity-60 transition-all [transition-duration:3000ms] ease-out group-hover:scale-110"
                             priority
                         />
                     </div>
