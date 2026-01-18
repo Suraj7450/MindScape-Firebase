@@ -99,7 +99,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                                             {option.id}
                                         </div>
                                         <span className={cn(
-                                            "text-xs font-medium transition-colors line-clamp-2",
+                                            "text-xs font-medium transition-colors",
                                             isSelected ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
                                         )}>
                                             {option.text}

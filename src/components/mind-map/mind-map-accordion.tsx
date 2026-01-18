@@ -53,6 +53,7 @@ interface MindMapAccordionProps {
     generatingNode: string | null;
     mainTopic: string;
     onExplainWithExample: (node: ExplainableNode) => void;
+    onStartQuiz: (topic: string) => void;
     status: MindMapStatus;
 }
 
@@ -94,6 +95,7 @@ export const MindMapAccordion = ({
     generatingNode,
     mainTopic,
     onExplainWithExample,
+    onStartQuiz,
     status
 }: MindMapAccordionProps) => {
     const [showInsight, setShowInsight] = React.useState<string | null>(null);
@@ -175,6 +177,14 @@ export const MindMapAccordion = ({
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-xl" onClick={() => onStartQuiz(subTopic.name)}>
+                                                <BrainCircuit className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="glassmorphism"><p>Start Topic Quiz</p></TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`)}>
                                                 <MessageCircle className="h-5 w-5" />
                                             </Button>
@@ -238,6 +248,14 @@ export const MindMapAccordion = ({
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all rounded-lg" onClick={() => onStartQuiz(category.name)}>
+                                                                    <BrainCircuit className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="glassmorphism"><p>Start Category Quiz</p></TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
                                                                     <MessageCircle className="h-4 w-4" />
                                                                 </Button>
@@ -266,6 +284,7 @@ export const MindMapAccordion = ({
                                                                 onGenerateImage={handleGenerateImageClick}
                                                                 onExplainInChat={onExplainInChat}
                                                                 onGenerateNewMap={onGenerateNewMap}
+                                                                onStartQuiz={onStartQuiz}
                                                                 isGeneratingMap={generatingNode === `node-${index}-${catIndex}-${subIndex}`}
                                                                 mainTopic={mindMap.topic}
                                                                 nodeId={`node-${index}-${catIndex}-${subIndex}`}

@@ -116,6 +116,7 @@ interface ChatPanelProps {
   onClose: () => void;
   topic: string;
   initialMessage?: string;
+  initialMode?: 'chat' | 'quiz';
   mindMapData?: MindMapData;
 }
 
@@ -154,6 +155,7 @@ export function ChatPanel({
   onClose,
   topic,
   initialMessage,
+  initialMode = 'chat',
   mindMapData
 }: ChatPanelProps) {
   const { toast } = useToast();
@@ -527,8 +529,11 @@ export function ChatPanel({
     if (isOpen && initialMessage && !hasSentInitialMessage.current && activeSession) {
       handleSend(initialMessage);
       hasSentInitialMessage.current = true;
+    } else if (isOpen && initialMode === 'quiz' && !hasSentInitialMessage.current && activeSession) {
+      handleStartQuiz('medium');
+      hasSentInitialMessage.current = true;
     }
-  }, [isOpen, initialMessage, activeSession]);
+  }, [isOpen, initialMessage, initialMode, activeSession, handleSend, handleStartQuiz]);
 
 
 

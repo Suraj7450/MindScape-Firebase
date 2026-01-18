@@ -75,7 +75,7 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                                 <Target className="w-2.5 h-2.5" />
                                 Strong
                             </div>
-                            <p className="text-[10px] text-white font-medium truncate">
+                            <p className="text-[10px] text-white font-medium">
                                 {result.strongAreas.length > 0 ? result.strongAreas.join(', ') : '...'}
                             </p>
                         </div>
@@ -84,7 +84,7 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                                 <AlertTriangle className="w-2.5 h-2.5" />
                                 Focused
                             </div>
-                            <p className="text-[10px] text-white font-medium truncate">
+                            <p className="text-[10px] text-white font-medium">
                                 {entries.length > 0 ? entries.map(e => e[0]).join(', ') : 'Perfect!'}
                             </p>
                         </div>
@@ -100,7 +100,7 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                     className="bg-zinc-900/30 border border-white/5 rounded-xl overflow-hidden"
                 >
                     <Accordion type="single" collapsible className="w-full">
-                        {entries.slice(0, 3).map(([tag, count], idx) => (
+                        {entries.map(([tag, count], idx) => (
                             <AccordionItem key={tag} value={`item-${idx}`} className="border-white/5">
                                 <AccordionTrigger className="hover:no-underline py-2.5 px-3 group">
                                     <div className="flex items-center gap-2 text-left">

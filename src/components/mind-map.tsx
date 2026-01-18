@@ -203,6 +203,7 @@ interface MindMapProps {
   onExplainInChat: (message: string) => void;
   onGenerateNewMap: (topic: string, nodeId: string, contextPath: string, mode?: 'foreground' | 'background') => void;
   onOpenNestedMap?: (mapData: any, expansionId: string) => void;
+  onStartQuiz: (topic: string) => void;
   generatingNode: string | null;
   selectedLanguage: string;
   onLanguageChange: (langCode: string) => void;
@@ -246,6 +247,7 @@ export const MindMap = ({
   onExplainInChat,
   onGenerateNewMap,
   onOpenNestedMap,
+  onStartQuiz,
   generatingNode,
   selectedLanguage,
   onLanguageChange,
@@ -982,6 +984,7 @@ export const MindMap = ({
                 generatingNode={generatingNode}
                 mainTopic={data.topic}
                 onExplainWithExample={handleExplainWithExample}
+                onStartQuiz={onStartQuiz}
                 status={status}
               />
             )}

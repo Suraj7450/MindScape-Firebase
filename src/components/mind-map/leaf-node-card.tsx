@@ -10,7 +10,8 @@ import {
     MessageCircle,
     ArrowRight,
     Copy,
-    Check
+    Check,
+    BrainCircuit
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ interface LeafNodeCardProps {
     contextPath: string;
     existingExpansion?: any;
     onOpenMap?: (mapData: MindMapData, id: string) => void;
+    onStartQuiz: (topic: string) => void;
     isGlobalBusy?: boolean;
 }
 
@@ -53,6 +55,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
     contextPath,
     existingExpansion,
     onOpenMap,
+    onStartQuiz,
     isGlobalBusy = false,
 }: LeafNodeCardProps) {
     const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
@@ -73,6 +76,11 @@ export const LeafNodeCard = memo(function LeafNodeCard({
     const handleImageClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onGenerateImage(node);
+    };
+
+    const handleQuizClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onStartQuiz(node.name);
     };
 
     const handleCopy = (e: React.MouseEvent) => {
@@ -144,6 +152,15 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="glassmorphism"><p>Visual Insight</p></TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all" onClick={handleQuizClick}>
+                                        <BrainCircuit className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>Start Concept Quiz</p></TooltipContent>
                             </Tooltip>
 
                             <Tooltip>

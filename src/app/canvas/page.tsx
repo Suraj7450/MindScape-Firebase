@@ -59,6 +59,8 @@ function MindMapPageContent() {
   const [mode, setMode] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
+  const [chatMode, setChatMode] = useState<'chat' | 'quiz'>('chat');
+  const [chatTopic, setChatTopic] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const aiHealth = useAIHealth();
@@ -466,6 +468,13 @@ function MindMapPageContent() {
 
   const handleExplainInChat = useCallback((message: string) => {
     setChatInitialMessage(message);
+    setChatMode('chat');
+    setIsChatOpen(true);
+  }, []);
+
+  const handleStartQuizForTopic = useCallback((topic: string) => {
+    setChatTopic(topic);
+    setChatMode('quiz');
     setIsChatOpen(true);
   }, []);
 
@@ -599,6 +608,7 @@ function MindMapPageContent() {
             onExplainInChat={handleExplainInChat}
             onGenerateNewMap={handleGenerateAndOpenSubMap}
             onOpenNestedMap={handleOpenNestedMap}
+            onStartQuiz={handleStartQuizForTopic}
             generatingNode={activeGeneratingNodeId}
             selectedLanguage={params.lang}
             onLanguageChange={changeLanguage}
@@ -630,10 +640,13 @@ function MindMapPageContent() {
         onClose={() => {
           setIsChatOpen(false);
           setChatInitialMessage(undefined);
+          setChatTopic(undefined);
+          setChatMode('chat');
         }}
-        topic={mindMap?.shortTitle || mindMap?.topic || 'Mind Map Details'}
+        topic={chatTopic || mindMap?.shortTitle || mindMap?.topic || 'Mind Map Details'}
         mindMapData={mindMap}
         initialMessage={chatInitialMessage}
+        initialMode={chatMode}
       />
     </>
   );
