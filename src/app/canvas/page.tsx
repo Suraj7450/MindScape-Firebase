@@ -79,7 +79,6 @@ function MindMapPageContent() {
         provider: config.provider,
         apiKey: config.apiKey,
         model: config.pollinationsModel,
-        strict: false
       };
       const result = await generateMindMapAction({
         topic,

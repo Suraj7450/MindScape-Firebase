@@ -48,9 +48,9 @@ export type GenerateMindMapOutput = z.infer<typeof GenerateMindMapOutputSchema>;
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMap(
-  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
+  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<GenerateMindMapOutput> {
-  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey, strict } = input;
+  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey } = input;
 
   // Map depth to structural density
   let densityInstruction = '';
@@ -154,7 +154,6 @@ export async function generateMindMap(
     systemPrompt: "System: High-density educational mind map generator. Output MUST be strictly valid JSON.",
     userPrompt: prompt,
     schema: MindMapSchema,
-    strict
   });
 
   console.log(`✅ Mind map generated successfully:`, {

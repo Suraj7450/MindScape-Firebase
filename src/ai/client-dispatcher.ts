@@ -8,7 +8,6 @@ interface GenerateContentOptions {
     systemPrompt: string;
     userPrompt: string;
     images?: { inlineData: { mimeType: string, data: string } }[];
-    strict?: boolean; // If true, do not fall back to other providers
     schema?: any; // Zod schema for validation
     model?: string; // Optional model name
 }
@@ -133,17 +132,18 @@ function isReasoningOnly(raw: any): boolean {
  */
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
     let { provider = 'pollinations' } = options;
-    const { apiKey, systemPrompt, userPrompt, images, strict, schema } = options;
+    const { apiKey, systemPrompt, userPrompt, images, schema } = options;
+    const strict = false; // Rigidly disabled
 
     // Inject JSON-only instruction into system prompt if schema is provided
     const effectiveSystemPrompt = schema
-        ? `${systemPrompt}\n\nSTRICT JSON ENFORCEMENT: You must respond ONLY with a valid JSON object matching the requested schema. No prose, no conversation, no markdown markers like \`\`\`json.`
+        ? `${systemPrompt}\n\nPlease respond with a valid JSON object matching the requested schema.`
         : systemPrompt;
 
-    console.log('🔌 AI Provider attempt:', provider);
+    console.log('🔌 AI Provider attempt:', provider, 'with auto-fallback enabled');
 
     // 1. Try Pollinations (Priority)
-    if (provider === 'pollinations' || !strict) {
+    if (provider === 'pollinations') {
         try {
             const result = await retry(async () => {
                 const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
@@ -163,13 +163,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         } catch (error: any) {
             providerMonitor.recordFailure('pollinations');
 
-            // If strict is true OR if the user explicitly asked for Pollinations ONLY, do not fall back.
-            if (strict || options.provider === 'pollinations') {
-                console.error("❌ Pollinations failed (strict mode):", error.message);
-                throw error;
-            }
-
-            console.warn(`🔄 Falling back to Gemini as secondary engine due to Pollinations failure: ${error.message}`);
+            console.warn(`🔄 Falling back from Pollinations to Gemini as secondary engine: ${error.message}`);
             provider = 'gemini';
         }
     }
@@ -185,7 +179,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
             const geminiModel = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash'
+                model: 'gemini-2.0-flash-exp'
             });
 
             const userParts: any[] = [{ text: userPrompt }];
@@ -194,14 +188,32 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             }
 
             const text = await retry(async () => {
+                console.log('🔵 Calling Gemini with:', {
+                    model: 'gemini-1.5-pro',
+                    systemPromptLength: effectiveSystemPrompt.length,
+                    userPromptLength: userPrompt.length,
+                    hasSchema: !!schema
+                });
+
                 const geminiResult = await geminiModel.generateContent({
                     contents: [{ role: 'user', parts: userParts }],
                     systemInstruction: effectiveSystemPrompt,
                     generationConfig: {
-                        responseMimeType: 'application/json'
+                        responseMimeType: 'application/json',
+                        temperature: 0.7,
+                        maxOutputTokens: 8192
                     }
                 });
-                return geminiResult.response.text();
+
+                const response = geminiResult.response;
+                console.log('🔵 Gemini response candidates:', response.candidates?.length || 0);
+
+                if (!response.text || response.text().trim() === '') {
+                    console.error('❌ Gemini returned empty response. Candidates:', JSON.stringify(response.candidates, null, 2));
+                    throw new Error('Gemini returned empty response - possibly blocked by safety filters');
+                }
+
+                return response.text();
             }, 3);
 
             console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
@@ -227,7 +239,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
  * Validates and parses the AI response text.
  * Handles markdown stripping, robust JSON extraction, and schema validation.
  */
-function validateAndParse(raw: any, schema?: any, strict: boolean = true): any {
+function validateAndParse(raw: any, schema?: any, strict: boolean = false): any {
     if (typeof raw !== 'string') {
         if (schema) {
             const result = schema.safeParse(raw);
@@ -279,7 +291,7 @@ function validateAndParse(raw: any, schema?: any, strict: boolean = true): any {
 /**
  * Internal helper to run Zod validation if schema exists
  */
-function performSchemaValidation(parsed: any, schema: any, originalRaw: string, strict: boolean = true): any {
+function performSchemaValidation(parsed: any, schema: any, originalRaw: string, strict: boolean = false): any {
     if (!schema) return parsed;
 
     const result = schema.safeParse(parsed);

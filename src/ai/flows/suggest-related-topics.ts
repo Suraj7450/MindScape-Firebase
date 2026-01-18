@@ -33,7 +33,6 @@ Make each suggestion a self-contained, intriguing topic (5-10 words each).`;
             systemPrompt,
             userPrompt,
             schema: RelatedTopicsSchema,
-            strict: false,
         });
 
         // Robust extraction: Check multiple possible keys if validation was loose

@@ -47,7 +47,8 @@ async function generateWithPollinations(prompt: string, size?: string) {
   const [width, height] = (size || '1024x1024').split('x').map(Number);
 
   // Refined model list with latest stable Pollinations options
-  const reliableModels = ['flux', 'flux-realism', 'flux-anime', 'turbo', 'flux-3d'];
+  // Refined model list with latest stable Pollinations options from dashboard
+  const reliableModels = ['flux', 'zimage', 'turbo', 'klein', 'gptimage'];
   let lastError: any = null;
 
   for (const model of reliableModels) {

@@ -165,7 +165,6 @@ export function ChatPanel({
     provider: providerOptionsConfig.provider,
     apiKey: providerOptionsConfig.apiKey,
     model: providerOptionsConfig.pollinationsModel,
-    strict: false
   }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsModel]);
 
   // 1. STATE MANAGEMENT
@@ -530,7 +529,7 @@ export function ChatPanel({
       handleSend(initialMessage);
       hasSentInitialMessage.current = true;
     } else if (isOpen && initialMode === 'quiz' && !hasSentInitialMessage.current && activeSession) {
-      handleStartQuiz('medium');
+      setQuizShowingDifficultySelector(true);
       hasSentInitialMessage.current = true;
     }
   }, [isOpen, initialMessage, initialMode, activeSession, handleSend, handleStartQuiz]);
@@ -1257,6 +1256,39 @@ export function ChatPanel({
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 </div>
+              )}
+
+              {/* Floating Difficulty Selector for non-empty chats */}
+              {quizShowingDifficultySelector && messages.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col items-center gap-3 p-6 mx-4 rounded-2xl bg-secondary/40 backdrop-blur-md border border-emerald-500/30 shadow-2xl relative"
+                >
+                  <div className="absolute top-2 right-2">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setQuizShowingDifficultySelector(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <BrainCircuit className="h-8 w-8 text-emerald-400 animate-pulse" />
+                  <div className="text-center">
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest">Select Quiz Difficulty</h4>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase mt-1">Ready to test your knowledge on {topic}?</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {['easy', 'medium', 'hard'].map((d) => (
+                      <Button
+                        key={d}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleStartQuiz(d as any)}
+                        className="h-9 px-6 text-xs font-bold uppercase rounded-xl hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 bg-zinc-950/50"
+                      >
+                        {d}
+                      </Button>
+                    ))}
+                  </div>
+                </motion.div>
               )}
               <div ref={messagesEndRef} />
             </div>

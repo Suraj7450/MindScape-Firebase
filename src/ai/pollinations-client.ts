@@ -16,11 +16,13 @@ export async function generateContentWithPollinations(
     let model = 'mistral'; // Default stable foundation
 
     if (hasImages) {
-        model = 'gemini'; // Force vision model for multimodal (Officially supported)
+        model = 'openai'; // Vision support
     } else if (systemPrompt.toLowerCase().includes('json') || systemPrompt.toLowerCase().includes('schema')) {
-        model = 'qwen-coder'; // Optimized for structured outputs and logic
-    } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert')) {
-        model = 'openai'; // OpenAI for deep reasoning
+        model = 'mistral'; // Stable for JSON
+    } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert') || systemPrompt.toLowerCase().includes('reasoning')) {
+        model = 'openai'; // Strong reasoning
+    } else if (systemPrompt.toLowerCase().includes('search')) {
+        model = 'openai'; // Search/Execution
     }
 
     console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}`);
@@ -80,21 +82,30 @@ export async function generateContentWithPollinations(
 
         if (!response.ok) {
             let errorMessage = response.statusText;
+            const status = response.status;
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.message || errorData.error?.message || JSON.stringify(errorData);
             } catch (e) {
-                // If it's not JSON, try to get raw text
                 try {
                     const text = await response.text();
-                    if (text && text.length < 200) errorMessage = text;
+                    if (text) errorMessage = text.substring(0, 500);
                 } catch { /* ignore */ }
             }
-            throw new Error(`Pollinations API error: ${response.status} ${errorMessage}`);
+            console.error(`❌ Pollinations API Error [Model: ${model}, Status: ${status}]:`, errorMessage);
+            throw new Error(`Pollinations API error: ${status} ${errorMessage}`);
         }
 
         const data = await response.json();
+        console.log(`✅ Pollinations Response Success [Model: ${model}]`);
+        console.log('📦 Response data:', JSON.stringify(data, null, 2).substring(0, 500));
+
         const text = data.choices?.[0]?.message?.content || "";
+
+        if (!text || text.trim() === '') {
+            console.error('❌ Pollinations returned empty content. Full response:', JSON.stringify(data, null, 2));
+            throw new Error('Pollinations returned empty content');
+        }
 
         let parsedResponse;
         try {

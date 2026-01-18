@@ -283,7 +283,6 @@ export const MindMap = ({
     provider: config.provider,
     apiKey: config.apiKey,
     model: config.pollinationsModel,
-    strict: false
   }), [config.provider, config.apiKey, config.pollinationsModel]);
 
   const imageProviderOptions = useMemo(() => ({

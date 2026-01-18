@@ -89,7 +89,7 @@ export interface GenerateMindMapFromImageInput {
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: GenerateMindMapOutput | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);
@@ -144,7 +144,7 @@ export async function updateAIModelPreferenceAction(userId: string, model: strin
  */
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
@@ -198,7 +198,7 @@ export async function generateMindMapFromImageAction(
  */
 export async function generateMindMapFromTextAction(
   input: GenerateMindMapFromTextInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
@@ -230,7 +230,7 @@ export async function generateMindMapFromTextAction(
  */
 export async function explainNodeAction(
   input: ExplainMindMapNodeInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
     const result = await explainMindMapNode({ ...input, ...options });
@@ -253,7 +253,7 @@ export async function explainNodeAction(
  */
 export async function chatAction(
   input: ChatWithAssistantInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
     const result = await chatWithAssistant({ ...input, ...options });
@@ -276,7 +276,7 @@ export async function chatAction(
  */
 export async function translateMindMapAction(
   input: TranslateMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ translation: TranslateMindMapOutput | null; error: string | null }> {
   try {
     const result = await translateMindMap({ ...input, ...options });
@@ -299,7 +299,7 @@ export async function translateMindMapAction(
  */
 export async function explainWithExampleAction(
   input: ExplainWithExampleInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
     const result = await explainWithExample({ ...input, ...options });
@@ -322,7 +322,7 @@ export async function explainWithExampleAction(
  */
 export async function summarizeChatAction(
   input: SummarizeChatInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ summary: SummarizeChatOutput | null; error: string | null }> {
   try {
     const result = await summarizeChat({ ...input, ...options });
@@ -345,7 +345,7 @@ export async function summarizeChatAction(
  */
 export async function conversationalMindMapAction(
   input: ConversationalMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
   try {
     const result = await conversationalMindMap({ ...input, ...options });
@@ -368,7 +368,7 @@ export async function conversationalMindMapAction(
  */
 export async function enhanceImagePromptAction(
   input: EnhanceImagePromptInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{
   enhancedPrompt: EnhanceImagePromptOutput | null;
   error: string | null;
@@ -397,7 +397,7 @@ export async function enhanceImagePromptAction(
  */
 export async function expandNodeAction(
   input: ExpandNodeInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
     const result = await expandNode({ ...input, ...options });
@@ -422,7 +422,7 @@ export async function expandNodeAction(
  */
 export async function generateRelatedQuestionsAction(
   input: RelatedQuestionsInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: RelatedQuestionsOutput | null; error: string | null }> {
   try {
     const result = await generateRelatedQuestions({ ...input, ...options });
@@ -448,7 +448,7 @@ export async function getAIHealthReportAction() {
  */
 export async function generateComparisonMapAction(
   input: GenerateComparisonMapInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: CompareMindMapData | null; error: string | null }> {
   // TODO: Validate Firebase ID token server-side before invoking AI
 
@@ -500,7 +500,7 @@ export async function generateComparisonMapAction(
  */
 export async function generateQuizAction(
   input: GenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: Quiz | null; error: string | null }> {
   try {
     const result = await generateQuizFlow({ ...input, ...options });
@@ -519,7 +519,7 @@ export async function generateQuizAction(
  */
 export async function regenerateQuizAction(
   input: RegenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+  options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: Quiz | null; error: string | null }> {
   try {
     const result = await regenerateQuizFlow({ ...input, ...options });

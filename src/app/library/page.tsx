@@ -304,7 +304,7 @@ export default function DashboardPage() {
         const { data, error } = await generateMindMapAction({
           topic,
           depth: (selectedMapForPreview as any).depth || 'low'
-        }, { strict: false });
+        }, {});
 
         if (error) throw new Error(error);
 

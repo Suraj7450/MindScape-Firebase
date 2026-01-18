@@ -19,10 +19,9 @@ export async function generateComparisonMapV2(
         depth?: 'low' | 'medium' | 'deep';
         provider?: AIProvider;
         apiKey?: string;
-        strict?: boolean;
     }
 ): Promise<GenerateComparisonMapOutputV2> {
-    const { topic1, topic2, depth = 'low', provider, apiKey, strict } = input;
+    const { topic1, topic2, depth = 'low', provider, apiKey } = input;
 
     const system = systemPrompt;
     const user = userPromptTemplate(topic1, topic2, depth);
@@ -37,7 +36,6 @@ export async function generateComparisonMapV2(
                 apiKey,
                 systemPrompt: system,
                 userPrompt: user,
-                strict: strict !== undefined ? strict : false,
             }) as any;
 
             // Ensure topic is present for compatibility

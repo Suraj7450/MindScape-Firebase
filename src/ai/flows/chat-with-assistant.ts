@@ -162,9 +162,9 @@ const chatWithAssistantFlow = ai.defineFlow(
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function chatWithAssistant(
-  input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
+  input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ChatWithAssistantOutput> {
-  const { provider, apiKey, topic, persona, history, question, strict } = input;
+  const { provider, apiKey, topic, persona, history, question } = input;
 
   const historyText = history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
 
@@ -219,7 +219,6 @@ IMPORTANT: Return ONLY the raw JSON object, no other text or explanation.`;
         systemPrompt,
         userPrompt,
         schema: ChatWithAssistantOutputSchema,
-        strict
       });
 
       return result;

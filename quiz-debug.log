@@ -1,0 +1,526 @@
+
+=== QUIZ GENERATION DEBUG 2026-01-18T10:17:39.890Z ===
+Raw output: {
+  "topic": "Clash of Clans",
+  "difficulty": "easy",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What is the primary purpose of a Gold Mine in Clash of Clans?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To train troops"
+        },
+        {
+          "id": "B",
+          "text": "To generate gold"
+        },
+        {
+          "id": "C",
+          "text": "To store elixir"
+        },
+        {
+          "id": "D",
+          "text": "To heal troops"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "Resource Management",
+      "explanation": "Gold Mines are used to generate gold, which is essential for building and upgrading defensive structures."
+    },
+    {
+      "id": "q2",
+      "question": "Which building is used to train ground troops like Barbarians and Archers?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Elixir Collector"
+        },
+        {
+          "id": "B",
+          "text": "Barracks"
+        },
+        {
+          "id": "C",
+          "text": "Gold Storage"
+        },
+        {
+          "id": "D",
+          "text": "Tesla Tower"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "Troop Training",
+      "explanation": "Barracks are the primary buildings for training ground troops."
+    },
+    {
+      "id": "q3",
+      "question": "What type of troops do Dark Barracks train?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Ground troops"
+        },
+        {
+          "id": "B",
+          "text": "Air troops"
+        },
+        {
+          "id": "C",
+          "text": "Dark Elixir troops"
+        },
+        {
+          "id": "D",
+          "text": "Heroes"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "Troop Training",
+      "explanation": "Dark Barracks train Dark Elixir troops, which are more powerful but require rare resources."
+    },
+    {
+      "id": "q4",
+      "question": "Which defensive structure targets both ground and air troops?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Cannons"
+        },
+        {
+          "id": "B",
+          "text": "Archer Towers"
+        },
+        {
+          "id": "C",
+          "text": "Walls"
+        },
+        {
+          "id": "D",
+          "text": "Tesla Towers"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "Defensive Structures",
+      "explanation": "Archer Towers target both ground and air troops, providing versatile defense."
+    },
+    {
+      "id": "q5",
+      "question": "What is the main function of Walls in Clash of Clans?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To generate resources"
+        },
+        {
+          "id": "B",
+          "text": "To train troops"
+        },
+        {
+          "id": "C",
+          "text": "To slow down and potentially stop enemy troops"
+        },
+        {
+          "id": "D",
+          "text": "To heal troops"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "Defensive Structures",
+      "explanation": "Walls form the first line of defense, slowing down and potentially stopping enemy troops."
+    },
+    {
+      "id": "q6",
+      "question": "Which hero deals significant damage and inspires nearby troops?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Archer Queen"
+        },
+        {
+          "id": "B",
+          "text": "Grand Warden"
+        },
+        {
+          "id": "C",
+          "text": "Barbarian King"
+        },
+        {
+          "id": "D",
+          "text": "Royal Champion"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "Heroes",
+      "explanation": "The Barbarian King is a melee hero that deals significant damage and inspires nearby troops."
+    },
+    {
+      "id": "q7",
+      "question": "What does the Lightning Spell primarily do?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Heals troops"
+        },
+        {
+          "id": "B",
+          "text": "Deals damage in a targeted area"
+        },
+        {
+          "id": "C",
+          "text": "Boosts troop speed"
+        },
+        {
+          "id": "D",
+          "text": "Immobilizes enemy troops"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "Spells",
+      "explanation": "The Lightning Spell deals damage in a targeted area, useful for taking out high-value buildings."
+    },
+    {
+      "id": "q8",
+      "question": "What is the purpose of a Farm Base layout?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To maximize resource production and storage"
+        },
+        {
+          "id": "B",
+          "text": "To optimize defense for clan wars"
+        },
+        {
+          "id": "C",
+          "text": "To balance resource production and defense"
+        },
+        {
+          "id": "D",
+          "text": "To prevent opponents from earning two stars"
+        }
+      ],
+      "correctOptionId": "A",
+      "conceptTag": "Base Layout",
+      "explanation": "A Farm Base is designed to maximize resource production and storage while sacrificing some defense."
+    },
+    {
+      "id": "q9",
+      "question": "Which resource is used to train Dark Elixir troops and upgrade heroes?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Gold"
+        },
+        {
+          "id": "B",
+          "text": "Elixir"
+        },
+        {
+          "id": "C",
+          "text": "Dark Elixir"
+        },
+        {
+          "id": "D",
+          "text": "Gems"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "Resource Management",
+      "explanation": "Dark Elixir is a rare resource used for training high-level troops and upgrading heroes."
+    },
+    {
+      "id": "q10",
+      "question": "What is the primary goal of a War Attack?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To loot resources with minimal troop loss"
+        },
+        {
+          "id": "B",
+          "text": "To maximize damage and earn stars"
+        },
+        {
+          "id": "C",
+          "text": "To balance resource looting and damage"
+        },
+        {
+          "id": "D",
+          "text": "To target air defenses"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "Attack Strategies",
+      "explanation": "A War Attack aims to maximize damage and earn stars, using a balanced composition of troops and spells."
+    }
+  ]
+}
+Output type: object
+Has quiz property: false
+Has questions property: true
+===============================================
+2026-01-18T10:19:08.406Z - === QUIZ GENERATION FLOW STARTED ===
+2026-01-18T10:19:08.409Z - Input: {"topic":"Cannons","difficulty":"easy","mindMapContext":"{\"thumbnailPrompt\":\"High-end commercial photography of Clash of Clans. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.\",\"hasSplitContent\":true,\"createdAt\":{\"seconds\":1768410375,\"nanoseconds\":688000000},\"updatedAt\":{\"seconds\":1768410376,\"nanoseconds\":642000000},\"shortTitle\":\"Clash of Clans\",\"mode\":\"single\",\"thumbnailUrl\":\"https://image.pollinations.ai/prompt/High-end%20commercial%20photography%20of%20Clash%20of%20Clans.%20Literal%20subject%20representation%2C%20authentic%20brand%20identity%2C%20sharp%20focus%2C%20professional%20lighting%2C%208k%20resolution%2C%20cinematic%20atmosphere.?width=512&height=288&nologo=true&model=turbo\",\"userId\":\"ykLjl8seAmc3DUevXHheLSIYety1\",\"summary\":\"A detailed mind map exploration of Clash of Clans.\",\"topic\":\"Clash of Clans\",\"icon\":\"sword\",\"isSubMap\":false,\"edges\":[],\"compareData\":null,\"nodes\":[],\"subTopics\":[{\"insight\":\"Understanding the core mechanics is essential to mastering the strategic depth of Clash of Clans.\",\"name\":\"Gameplay Mechanics\",\"icon\":\"gamepad\",\"categories\":[{\"insight\":\"Efficient resource management is the backbone of a thriving clan and successful attacks.\",\"icon\":\"coins\",\"name\":\"Resource Management\",\"subCategories\":[{\"name\":\"Gold Mines\",\"tags\":[\"economy\",\"defense\",\"resources\",\"upgrade\"],\"isExpanded\":false,\"icon\":\"treasure-chest\",\"description\":\"Gold mines generate gold, which is crucial for building and upgrading defensive structures.\"},{\"tags\":[\"economy\",\"troops\",\"research\",\"upgrade\"],\"description\":\"Elixir collectors produce elixir, essential for training troops and researching upgrades.\",\"isExpanded\":false,\"icon\":\"droplet\",\"name\":\"Elixir Collectors\"},{\"tags\":[\"economy\",\"troops\",\"heroes\",\"upgrade\"],\"icon\":\"droplet\",\"isExpanded\":false,\"name\":\"Dark Elixir Drills\",\"description\":\"Dark elixir drills yield dark elixir, a rare resource used for high-level troops and heroes.\"},{\"icon\":\"treasure-chest\",\"name\":\"Gold Storage\",\"tags\":[\"economy\",\"defense\",\"resources\",\"storage\"],\"isExpanded\":false,\"description\":\"Gold storage buildings hold the gold collected from mines, protecting it from enemy raids.\"}]},{\"icon\":\"shield\",\"name\":\"Troop Training\",\"subCategories\":[{\"tags\":[\"troops\",\"training\",\"army\",\"upgrade\"],\"description\":\"Barracks are the primary buildings for training ground troops like barbarians and archers.\",\"isExpanded\":false,\"name\":\"Barracks\",\"icon\":\"sword\"},{\"description\":\"Dark barracks train dark elixir troops, which are more powerful but require rare resources.\",\"isExpanded\":false,\"icon\":\"sword\",\"name\":\"Dark Barracks\",\"tags\":[\"troops\",\"training\",\"dark elixir\",\"upgrade\"]},{\"tags\":[\"research\",\"upgrade\",\"troops\",\"spells\"],\"isExpanded\":false,\"name\":\"Laboratory\",\"description\":\"The laboratory is where troops and spells are researched and upgraded for better performance.\",\"icon\":\"flask\"},{\"description\":\"Army camps hold the trained troops, determining the size of the army that can be deployed.\",\"name\":\"Army Camps\",\"icon\":\"users\",\"isExpanded\":false,\"tags\":[\"troops\",\"army\",\"storage\",\"upgrade\"]}],\"insight\":\"A well-trained army is the key to victorious battles and clan wars.\"},{\"name\":\"Defensive Structures\",\"icon\":\"shield\",\"subCategories\":[{\"icon\":\"target\",\"description\":\"Cannons are basic defensive structures that attack ground troops with projectile fire.\",\"name\":\"Cannons\",\"tags\":[\"defense\",\"ground troops\",\"projectile\",\"upgrade\"],\"isExpanded\":false},{\"tags\":[\"defense\",\"ground troops\",\"air troops\",\"upgrade\"],\"isExpanded\":false,\"name\":\"Archer Towers\",\"icon\":\"target\",\"description\":\"Archer towers target both ground and air troops, providing versatile defense.\"},{\"tags\":[\"defense\",\"protection\",\"barrier\",\"upgrade\"],\"isExpanded\":false,\"description\":\"Walls form the first line of defense, slowing down and potentially stopping enemy troops.\",\"name\":\"Walls\",\"icon\":\"fence\"},{\"tags\":[\"defense\",\"ground troops\",\"hidden\",\"upgrade\"],\"icon\":\"zap\",\"name\":\"Tesla Towers\",\"description\":\"Tesla towers are hidden defensive structures that deal significant damage to ground troops.\",\"isExpanded\":false}],\"insight\":\"A robust defense is vital for protecting resources and maintaining a strong clan presence.\"}]},{\"insight\":\"Clans foster cooperation and strategy, amplifying the collective strength of individual players.\",\"icon\":\"users\",\"categories\":[{\"icon\":\"sword\",\"insight\":\"Clan wars test the strategic prowess and unity of clan members in large-scale battles.\",\"name\":\"Clan Wars\",\"subCategories\":[{\"tags\":[\"defense\",\"war\",\"layout\",\"strategy\"],\"isExpanded\":false,\"icon\":\"home\",\"name\":\"War Bases\",\"description\":\"War bases are specialized layouts designed to maximize defense during clan war attacks.\"},{\"description\":\"War weight determines the matchmaking strength of a clan in clan wars.\",\"icon\":\"balance-scale\",\"isExpanded\":false,\"name\":\"War Weight\",\"tags\":[\"war\",\"matchmaking\",\"strength\",\"balance\"]},{\"tags\":[\"war\",\"strategy\",\"troops\",\"attack\"],\"name\":\"Attack Strategies\",\"icon\":\"target\",\"description\":\"Attack strategies involve planning and executing effective troop deployments to maximize damage.\",\"isExpanded\":false},{\"icon\":\"trophy\",\"name\":\"Clan War Leagues\",\"isExpanded\":false,\"tags\":[\"war\",\"competition\",\"rewards\",\"prestige\"],\"description\":\"Clan war leagues are competitive tiers where clans compete for rewards and prestige.\"}]},{\"icon\":\"trophy\",\"name\":\"Clan Games\",\"insight\":\"Clan games encourage teamwork and coordination, rewarding clans for collective achievements.\",\"subCategories\":[{\"isExpanded\":false,\"tags\":[\"games\",\"points\",\"tasks\",\"rewards\"],\"name\":\"Clan Game Points\",\"icon\":\"award\",\"description\":\"Clan game points are earned by completing tasks and contribute to the clan's overall score.\"},{\"name\":\"Clan Game Rewards\",\"icon\":\"gift\",\"description\":\"Clan game rewards are distributed based on the clan's performance and individual contributions.\",\"isExpanded\":false,\"tags\":[\"games\",\"rewards\",\"performance\",\"contributions\"]},{\"isExpanded\":false,\"name\":\"Clan Game Tasks\",\"tags\":[\"games\",\"tasks\",\"objectives\",\"points\"],\"description\":\"Clan game tasks are specific objectives that members must complete to earn points for the clan.\",\"icon\":\"check-square\"},{\"description\":\"Clan game tiers determine the difficulty and rewards of the games based on the clan's performance.\",\"isExpanded\":false,\"tags\":[\"games\",\"tiers\",\"difficulty\",\"rewards\"],\"name\":\"Clan Game Tiers\",\"icon\":\"layers\"}]},{\"insight\":\"Clan perks enhance the capabilities of clan members, fostering a stronger and more united community.\",\"icon\":\"gift\",\"subCategories\":[{\"name\":\"Clan Capital\",\"description\":\"Clan capital is a collaborative building project where members contribute resources to unlock rewards.\",\"isExpanded\":false,\"icon\":\"home\",\"tags\":[\"clan\",\"capital\",\"resources\",\"rewards\"]},{\"tags\":[\"clan\",\"bonuses\",\"resources\",\"training\"],\"name\":\"Clan Capital Bonuses\",\"icon\":\"zap\",\"description\":\"Clan capital bonuses provide temporary boosts to resource production and troop training.\",\"isExpanded\":false},{\"description\":\"Clan capital donations allow members to contribute resources to the clan's collective building project.\",\"tags\":[\"clan\",\"donations\",\"resources\",\"contributions\"],\"icon\":\"gift\",\"name\":\"Clan Capital Donations\",\"isExpanded\":false},{\"icon\":\"layout\",\"isExpanded\":false,\"name\":\"Clan Capital Master Plan\",\"description\":\"Clan capital master plan outlines the strategic layout and development of the clan capital.\",\"tags\":[\"clan\",\"master plan\",\"layout\",\"development\"]}],\"name\":\"Clan Perks\"}],\"name\":\"Clan System\"},{\"name\":\"Heroes and Spells\",\"icon\":\"superhero\",\"insight\":\"Heroes and spells add a layer of strategic complexity, allowing players to customize their attack and defense tactics.\",\"categories\":[{\"icon\":\"superhero\",\"name\":\"Heroes\",\"insight\":\"Heroes are powerful units that can turn the tide of battle with their unique abilities.\",\"subCategories\":[{\"name\":\"Barbarian King\",\"description\":\"The Barbarian King is a melee hero that deals significant damage and inspires nearby troops.\",\"isExpanded\":false,\"tags\":[\"hero\",\"melee\",\"damage\",\"inspiration\"],\"icon\":\"sword\"},{\"isExpanded\":false,\"tags\":[\"hero\",\"ranged\",\"damage\",\"reveal\"],\"name\":\"Archer Queen\",\"description\":\"The Archer Queen is a ranged hero that deals area damage and can reveal hidden troops.\",\"icon\":\"target\"},{\"icon\":\"shield\",\"description\":\"The Grand Warden is a support hero that boosts the hitpoints of nearby troops and buildings.\",\"name\":\"Grand Warden\",\"tags\":[\"hero\",\"support\",\"hitpoints\",\"boost\"],\"isExpanded\":false},{\"tags\":[\"hero\",\"versatile\",\"damage\",\"heal\"],\"name\":\"Royal Champion\",\"description\":\"The Royal Champion is a versatile hero that can deal damage, heal troops, and provide various buffs.\",\"icon\":\"crown\",\"isExpanded\":false}]},{\"subCategories\":[{\"tags\":[\"spell\",\"damage\",\"area\",\"targeted\"],\"isExpanded\":false,\"name\":\"Lightning Spell\",\"icon\":\"zap\",\"description\":\"The lightning spell deals damage in a targeted area, useful for taking out high-value buildings.\"},{\"name\":\"Healing Spell\",\"icon\":\"heart\",\"tags\":[\"spell\",\"heal\",\"hitpoints\",\"troops\"],\"isExpanded\":false,\"description\":\"The healing spell restores hitpoints to troops, extending their lifespan and effectiveness in battle.\"},{\"description\":\"The rage spell temporarily boosts the speed and damage of troops within its area of effect.\",\"name\":\"Rage Spell\",\"icon\":\"zap\",\"isExpanded\":false,\"tags\":[\"spell\",\"boost\",\"speed\",\"damage\"]},{\"name\":\"Freeze Spell\",\"description\":\"The freeze spell temporarily immobilizes enemy troops, providing a strategic advantage in attacks.\",\"icon\":\"snowflake\",\"tags\":[\"spell\",\"immobilize\",\"troops\",\"strategy\"],\"isExpanded\":false}],\"icon\":\"flask\",\"name\":\"Spells\",\"insight\":\"Spells provide tactical advantages, allowing players to control the battlefield and maximize their army's potential.\"},{\"insight\":\"Hero abilities offer unique tactical options, allowing players to adapt their strategies to different situations.\",\"icon\":\"superhero\",\"name\":\"Hero Abilities\",\"subCategories\":[{\"isExpanded\":false,\"icon\":\"sword\",\"tags\":[\"ability\",\"damage\",\"inspiration\",\"attack speed\"],\"description\":\"The Barbarian King's ability deals area damage and inspires nearby troops, boosting their attack speed.\",\"name\":\"Barbarian King Ability\"},{\"icon\":\"target\",\"isExpanded\":false,\"tags\":[\"ability\",\"damage\",\"reveal\",\"cone\"],\"name\":\"Archer Queen Ability\",\"description\":\"The Archer Queen's ability deals damage in a cone-shaped area and reveals hidden troops.\"},{\"isExpanded\":false,\"name\":\"Grand Warden Ability\",\"tags\":[\"ability\",\"boost\",\"hitpoints\",\"durability\"],\"icon\":\"shield\",\"description\":\"The Grand Warden's ability boosts the hitpoints of nearby troops and buildings, enhancing their durability.\"},{\"tags\":[\"ability\",\"buffs\",\"damage\",\"heal\"],\"icon\":\"crown\",\"isExpanded\":false,\"name\":\"Royal Champion Ability\",\"description\":\"The Royal Champion's ability provides various buffs, including damage boost, healing, and area damage.\"}]}]},{\"insight\":\"Effective building strategies are crucial for optimizing resource production, troop training, and defense.\",\"categories\":[{\"icon\":\"layout\",\"subCategories\":[{\"name\":\"Farm Base\",\"tags\":[\"layout\",\"resources\",\"production\",\"storage\"],\"description\":\"A farm base is designed to maximize resource production and storage while sacrificing some defense.\",\"icon\":\"coins\",\"isExpanded\":false},{\"tags\":[\"layout\",\"defense\",\"war\",\"strategy\"],\"icon\":\"shield\",\"name\":\"War Base\",\"isExpanded\":false,\"description\":\"A war base is optimized for defense, with strategic placement of defensive structures and traps.\"},{\"description\":\"A hybrid base balances resource production and defense, catering to both farming and war needs.\",\"isExpanded\":false,\"tags\":[\"layout\",\"balance\",\"resources\",\"defense\"],\"icon\":\"balance-scale\",\"name\":\"Hybrid Base\"},{\"isExpanded\":false,\"name\":\"Anti-2 Star Base\",\"description\":\"An anti-2 star base is designed to prevent opponents from earning two stars in attacks.\",\"icon\":\"shield\",\"tags\":[\"layout\",\"defense\",\"war\",\"strategy\"]}],\"insight\":\"A well-designed base layout maximizes defense and resource protection while minimizing vulnerabilities.\",\"name\":\"Base Layout\"},{\"icon\":\"coins\",\"subCategories\":[{\"icon\":\"treasure-chest\",\"tags\":[\"resources\",\"gold\",\"production\",\"upgrade\"],\"description\":\"Gold mines generate gold, which is crucial for building and upgrading defensive structures.\",\"isExpanded\":false,\"name\":\"Gold Mines\"},{\"name\":\"Elixir Collectors\",\"isExpanded\":false,\"description\":\"Elixir collectors produce elixir, essential for training troops and researching upgrades.\",\"tags\":[\"resources\",\"elixir\",\"production\",\"upgrade\"],\"icon\":\"droplet\"},{\"icon\":\"droplet\",\"name\":\"Dark Elixir Drills\",\"tags\":[\"resources\",\"dark elixir\",\"production\",\"upgrade\"],\"isExpanded\":false,\"description\":\"Dark elixir drills yield dark elixir, a rare resource used for high-level troops and heroes.\"},{\"tags\":[\"resources\",\"storage\",\"protection\",\"upgrade\"],\"description\":\"Storage buildings hold the resources collected from mines and drills, protecting them from enemy raids.\",\"name\":\"Storage Buildings\",\"isExpanded\":false,\"icon\":\"treasure-chest\"}],\"name\":\"Resource Buildings\",\"insight\":\"Efficient placement and upgrading of resource buildings are essential for sustaining a thriving clan.\"},{\"icon\":\"shield\",\"name\":\"Defensive Buildings\",\"subCategories\":[{\"isExpanded\":false,\"name\":\"Cannons\",\"tags\":[\"defense\",\"ground troops\",\"projectile\",\"upgrade\"],\"description\":\"Cannons are basic defensive structures that attack ground troops with projectile fire.\",\"icon\":\"target\"},{\"description\":\"Archer towers target both ground and air troops, providing versatile defense.\",\"tags\":[\"defense\",\"ground troops\",\"air troops\",\"upgrade\"],\"name\":\"Archer Towers\",\"isExpanded\":false,\"icon\":\"target\"},{\"description\":\"Walls form the first line of defense, slowing down and potentially stopping enemy troops.\",\"name\":\"Walls\",\"icon\":\"fence\",\"isExpanded\":false,\"tags\":[\"defense\",\"protection\",\"barrier\",\"upgrade\"]},{\"isExpanded\":false,\"name\":\"Tesla Towers\",\"tags\":[\"defense\",\"ground troops\",\"hidden\",\"upgrade\"],\"description\":\"Tesla towers are hidden defensive structures that deal significant damage to ground troops.\",\"icon\":\"zap\"}],\"insight\":\"Strategic placement of defensive buildings is vital for protecting resources and maintaining a strong defense.\"}],\"icon\":\"home\",\"name\":\"Building Strategies\"},{\"name\":\"Attack Strategies\",\"categories\":[{\"subCategories\":[{\"description\":\"A farm attack focuses on looting resources with minimal troop loss, often using cheap and disposable troops.\",\"name\":\"Farm Attack\",\"tags\":[\"attack\",\"resources\",\"looting\",\"troops\"],\"isExpanded\":false,\"icon\":\"coins\"},{\"name\":\"War Attack\",\"tags\":[\"attack\",\"war\",\"damage\",\"stars\"],\"isExpanded\":false,\"description\":\"A war attack aims to maximize damage and earn stars, using a balanced composition of troops and spells.\",\"icon\":\"sword\"},{\"description\":\"A hybrid attack combines elements of farming and war attacks, balancing resource looting and damage.\",\"icon\":\"balance-scale\",\"isExpanded\":false,\"name\":\"Hybrid Attack\",\"tags\":[\"attack\",\"hybrid\",\"resources\",\"damage\"]},{\"isExpanded\":false,\"icon\":\"fire\",\"name\":\"Lava Hound Attack\",\"description\":\"A lava hound attack utilizes lava hounds and balloons to target air defenses and deal significant damage.\",\"tags\":[\"attack\",\"lava hound\",\"balloons\",\"air defenses\"]}],\"name\":\"Troop Compositions\",\"insight\":\"Carefully crafted troop compositions can exploit enemy weaknesses and maximize attack effectiveness.\",\"icon\":\"users\"},{\"name\":\"Spell Strategies\",\"icon\":\"flask\",\"subCategories\":[{\"description\":\"The lightning spell can be used to take out high-value buildings or clear clusters of troops.\",\"isExpanded\":false,\"tags\":[\"spell\",\"damage\",\"strategy\",\"high-value\"],\"icon\":\"zap\",\"name\":\"Lightning Spell Strategy\"},{\"description\":\"The healing spell can extend the lifespan of troops, allowing them to deal more damage and survive longer.\",\"tags\":[\"spell\",\"heal\",\"troops\",\"damage\"],\"isExpanded\":false,\"name\":\"Healing Spell Strategy\",\"icon\":\"heart\"},{\"name\":\"Rage Spell Strategy\",\"tags\":[\"spell\",\"boost\",\"speed\",\"damage\"],\"icon\":\"zap\",\"description\":\"The rage spell can temporarily boost the speed and damage of troops, providing a powerful advantage in attacks.\",\"isExpanded\":false},{\"icon\":\"snowflake\",\"isExpanded\":false,\"name\":\"Freeze Spell Strategy\",\"description\":\"The freeze spell can immobilize enemy troops, allowing your troops to deal damage unopposed.\",\"tags\":[\"spell\",\"immobilize\",\"troops\",\"strategy\"]}],\"insight\":\"Strategic use of spells can turn the tide of battle, providing crucial advantages in attacks.\"},{\"insight\":\"Effective use of heroes can significantly enhance attack performance, providing unique advantages and tactical options.\",\"name\":\"Hero Usage\",\"subCategories\":[{\"name\":\"Barbarian King Usage\",\"isExpanded\":false,\"description\":\"The Barbarian King can deal significant damage and inspire nearby troops, boosting their attack speed.\",\"tags\":[\"hero\",\"damage\",\"inspiration\",\"attack speed\"],\"icon\":\"sword\"},{\"description\":\"The Archer Queen can deal damage in a cone-shaped area and reveal hidden troops, providing strategic advantages.\",\"tags\":[\"hero\",\"damage\",\"reveal\",\"cone\"],\"icon\":\"target\",\"name\":\"Archer Queen Usage\",\"isExpanded\":false},{\"icon\":\"shield\",\"name\":\"Grand Warden Usage\",\"tags\":[\"hero\",\"boost\",\"hitpoints\",\"durability\"],\"description\":\"The Grand Warden can boost the hitpoints of nearby troops and buildings, enhancing their durability.\",\"isExpanded\":false},{\"description\":\"The Royal Champion can provide various buffs, including damage boost, healing, and area damage.\",\"name\":\"Royal Champion Usage\",\"icon\":\"crown\",\"isExpanded\":false,\"tags\":[\"hero\",\"buffs\",\"damage\",\"heal\"]}],\"icon\":\"superhero\"}],\"icon\":\"target\",\"insight\":\"Mastering attack strategies is essential for maximizing damage, earning stars, and achieving victory in battles.\"}],\"id\":\"yswdVArP6VpC0gU5aNsS\"}","provider":"pollinations","apiKey":""}
+
+=== QUIZ GENERATION DEBUG 2026-01-18T10:19:24.942Z ===
+Raw output: {
+  "topic": "Cannons",
+  "difficulty": "easy",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What type of troops do cannons primarily target?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Air troops"
+        },
+        {
+          "id": "B",
+          "text": "Ground troops"
+        },
+        {
+          "id": "C",
+          "text": "Both ground and air troops"
+        },
+        {
+          "id": "D",
+          "text": "Heroes"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "cannon functionality",
+      "explanation": "Cannons are designed to attack ground troops with projectile fire."
+    },
+    {
+      "id": "q2",
+      "question": "What is the main purpose of cannons in Clash of Clans?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To train troops"
+        },
+        {
+          "id": "B",
+          "text": "To generate resources"
+        },
+        {
+          "id": "C",
+          "text": "To defend against enemy attacks"
+        },
+        {
+          "id": "D",
+          "text": "To heal troops"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "cannon role",
+      "explanation": "Cannons are defensive structures that help protect your base from enemy attacks."
+    },
+    {
+      "id": "q3",
+      "question": "Which of the following is a key feature of cannons?",
+      "options": [
+        {
+          "id": "A",
+          "text": "They can target both ground and air troops"
+        },
+        {
+          "id": "B",
+          "text": "They are hidden structures"
+        },
+        {
+          "id": "C",
+          "text": "They attack with projectile fire"
+        },
+        {
+          "id": "D",
+          "text": "They slow down enemy troops"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "cannon features",
+      "explanation": "Cannons attack ground troops using projectile fire."
+    },
+    {
+      "id": "q4",
+      "question": "What is one of the primary resources needed to upgrade cannons?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Gold"
+        },
+        {
+          "id": "B",
+          "text": "Elixir"
+        },
+        {
+          "id": "C",
+          "text": "Dark Elixir"
+        },
+        {
+          "id": "D",
+          "text": "Gems"
+        }
+      ],
+      "correctOptionId": "A",
+      "conceptTag": "cannon upgrades",
+      "explanation": "Gold is the primary resource required to upgrade cannons."
+    },
+    {
+      "id": "q5",
+      "question": "What happens when you upgrade a cannon in Clash of Clans?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It becomes invisible to enemies"
+        },
+        {
+          "id": "B",
+          "text": "It gains the ability to target air troops"
+        },
+        {
+          "id": "C",
+          "text": "It becomes more powerful and has increased range or damage"
+        },
+        {
+          "id": "D",
+          "text": "It starts generating resources"
+        }
+      ],
+      "correctOptionId": "C",
+      "conceptTag": "cannon upgrades",
+      "explanation": "Upgrading a cannon makes it more powerful, often increasing its range, damage, or both."
+    },
+    {
+      "id": "q6",
+      "question": "Where are cannons typically placed in a base layout?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Inside the core of the base"
+        },
+        {
+          "id": "B",
+          "text": "Outside the walls"
+        },
+        {
+          "id": "C",
+          "text": "Near the town hall"
+        },
+        {
+          "id": "D",
+          "text": "Behind walls and strategic locations"
+        }
+      ],
+      "correctOptionId": "D",
+      "conceptTag": "cannon placement",
+      "explanation": "Cannons are usually placed behind walls and in strategic locations to maximize their defensive capabilities."
+    },
+    {
+      "id": "q7",
+      "question": "What is the range of a level 1 cannon?",
+      "options": [
+        {
+          "id": "A",
+          "text": "3 tiles"
+        },
+        {
+          "id": "B",
+          "text": "4 tiles"
+        },
+        {
+          "id": "C",
+          "text": "5 tiles"
+        },
+        {
+          "id": "D",
+          "text": "6 tiles"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "cannon range",
+      "explanation": "A level 1 cannon has a range of 4 tiles."
+    },
+    {
+      "id": "q8",
+      "question": "What is the damage per second (DPS) of a level 1 cannon?",
+      "options": [
+        {
+          "id": "A",
+          "text": "5"
+        },
+        {
+          "id": "B",
+          "text": "10"
+        },
+        {
+          "id": "C",
+          "text": "15"
+        },
+        {
+          "id": "D",
+          "text": "20"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "cannon damage",
+      "explanation": "A level 1 cannon has a damage per second (DPS) of 10."
+    },
+    {
+      "id": "q9",
+      "question": "What is the hitpoints (HP) of a level 1 cannon?",
+      "options": [
+        {
+          "id": "A",
+          "text": "50"
+        },
+        {
+          "id": "B",
+          "text": "100"
+        },
+        {
+          "id": "C",
+          "text": "150"
+        },
+        {
+          "id": "D",
+          "text": "200"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "cannon hitpoints",
+      "explanation": "A level 1 cannon has 100 hitpoints (HP)."
+    },
+    {
+      "id": "q10",
+      "question": "What is the cost to upgrade a cannon from level 1 to level 2?",
+      "options": [
+        {
+          "id": "A",
+          "text": "100 gold"
+        },
+        {
+          "id": "B",
+          "text": "200 gold"
+        },
+        {
+          "id": "C",
+          "text": "300 gold"
+        },
+        {
+          "id": "D",
+          "text": "400 gold"
+        }
+      ],
+      "correctOptionId": "B",
+      "conceptTag": "cannon upgrade cost",
+      "explanation": "Upgrading a cannon from level 1 to level 2 costs 200 gold."
+    }
+  ]
+}
+Output type: object
+Has quiz property: false
+Has questions property: true
+===============================================

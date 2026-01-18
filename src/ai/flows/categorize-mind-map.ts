@@ -18,9 +18,9 @@ const CategorizeMindMapOutputSchema = z.object({
 export type CategorizeMindMapOutput = z.infer<typeof CategorizeMindMapOutputSchema>;
 
 export async function categorizeMindMap(
-    input: CategorizeMindMapInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
+    input: CategorizeMindMapInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<CategorizeMindMapOutput> {
-    const { topic, summary, provider, apiKey, strict } = input;
+    const { topic, summary, provider, apiKey } = input;
 
     const prompt = `You are an expert content categorizer. Given a mind map topic and optional summary, categorize it into 3-5 broad, relevant categories.
   
@@ -39,7 +39,6 @@ export async function categorizeMindMap(
         systemPrompt: "System: Mind map categorizer. Output MUST be strictly valid JSON.",
         userPrompt: prompt,
         schema: CategorizeMindMapOutputSchema,
-        strict
     });
 
     return result;
