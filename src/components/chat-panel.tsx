@@ -84,7 +84,7 @@ declare global {
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  type?: 'chat' | 'quiz' | 'quiz-result';
+  type?: 'chat' | 'quiz' | 'quiz-result' | 'quiz-selector';
   quiz?: Quiz;
   quizResult?: QuizResult;
 }
@@ -529,7 +529,19 @@ export function ChatPanel({
       handleSend(initialMessage);
       hasSentInitialMessage.current = true;
     } else if (isOpen && initialMode === 'quiz' && !hasSentInitialMessage.current && activeSession) {
-      setQuizShowingDifficultySelector(true);
+      // Add a specialized selector message
+      const selectorMessage: Message = {
+        role: 'assistant',
+        content: `I'm ready to prepare a comprehensive quiz for you on **${topic}**. Which level of challenge should I architect for you?`,
+        type: 'quiz-selector'
+      };
+
+      setSessions(prev => prev.map(s =>
+        s.id === activeSession.id
+          ? { ...s, messages: [selectorMessage] }
+          : s
+      ));
+
       hasSentInitialMessage.current = true;
     }
   }, [isOpen, initialMessage, initialMode, activeSession, handleSend, handleStartQuiz]);
@@ -1081,6 +1093,32 @@ export function ChatPanel({
                               onRegenerate={() => handleRegenerateQuiz(message.quiz!, message.quizResult!)}
                               isRegenerating={isQuizLoading}
                             />
+                          ) : message.type === 'quiz-selector' ? (
+                            <div className="flex flex-col gap-4">
+                              <p className="text-sm font-medium leading-relaxed">
+                                I'm ready to prepare a comprehensive quiz for you on **{topic}**. Which level of challenge should I architect for you?
+                              </p>
+                              <div className="flex flex-wrap gap-2 pt-2">
+                                {[
+                                  { id: 'easy', label: 'Easy', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+                                  { id: 'medium', label: 'Medium', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+                                  { id: 'hard', label: 'Hard', color: 'bg-red-500/10 text-red-400 border-red-500/20' }
+                                ].map((d) => (
+                                  <Button
+                                    key={d.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleStartQuiz(d.id as any)}
+                                    className={cn(
+                                      "h-10 px-6 text-[10px] font-black font-orbitron uppercase tracking-[0.2em] rounded-2xl border hover:scale-105 active:scale-95 transition-all backdrop-blur-md",
+                                      d.color
+                                    )}
+                                  >
+                                    {d.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
                           ) : (
                             <div
                               className="text-sm prose prose-sm max-w-none leading-relaxed prose-invert"
@@ -1258,38 +1296,6 @@ export function ChatPanel({
                 </div>
               )}
 
-              {/* Floating Difficulty Selector for non-empty chats */}
-              {quizShowingDifficultySelector && messages.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-center gap-3 p-6 mx-4 rounded-2xl bg-secondary/40 backdrop-blur-md border border-emerald-500/30 shadow-2xl relative"
-                >
-                  <div className="absolute top-2 right-2">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setQuizShowingDifficultySelector(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <BrainCircuit className="h-8 w-8 text-emerald-400 animate-pulse" />
-                  <div className="text-center">
-                    <h4 className="text-sm font-black text-white uppercase tracking-widest">Select Quiz Difficulty</h4>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase mt-1">Ready to test your knowledge on {topic}?</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {['easy', 'medium', 'hard'].map((d) => (
-                      <Button
-                        key={d}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStartQuiz(d as any)}
-                        className="h-9 px-6 text-xs font-bold uppercase rounded-xl hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 bg-zinc-950/50"
-                      >
-                        {d}
-                      </Button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
               <div ref={messagesEndRef} />
             </div>
           </div>

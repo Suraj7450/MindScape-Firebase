@@ -11,7 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { MindMapSchema } from '@/ai/mind-map-schema';
+import { AIGeneratedMindMapSchema } from '@/ai/mind-map-schema';
 
 const GenerateMindMapInputSchema = z.object({
   topic: z.string().describe('The main topic for the mind map.'),
@@ -36,7 +36,7 @@ const GenerateMindMapInputSchema = z.object({
 });
 export type GenerateMindMapInput = z.infer<typeof GenerateMindMapInputSchema>;
 
-const GenerateMindMapOutputSchema = MindMapSchema;
+const GenerateMindMapOutputSchema = AIGeneratedMindMapSchema;
 
 export type GenerateMindMapOutput = z.infer<typeof GenerateMindMapOutputSchema>;
 
@@ -52,45 +52,69 @@ export async function generateMindMap(
 ): Promise<GenerateMindMapOutput> {
   const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey } = input;
 
-  // Map depth to structural density
+  // Map depth to structural density with STRICT enforcement
   let densityInstruction = '';
   if (depth === 'medium') {
-    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 6 subTopics. Each subTopic MUST have AT LEAST 4 categories. Each category MUST have AT LEAST 6 subCategories.';
+    // Medium mode: 5×3×5 = 75 items
+    densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
+    - Generate EXACTLY 5 subTopics (no more, no less)
+    - EACH subTopic MUST have EXACTLY 3 categories
+    - EACH category MUST have EXACTLY 5 subCategories
+    - Total items: 5 × 3 × 5 = 75 items
+    - QUALITY CHECK: Every node must have a full name and description.
+    - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets`;
   } else if (depth === 'deep') {
-    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 8 subTopics. Each subTopic MUST have AT LEAST 6 categories. Each category MUST have AT LEAST 9 subCategories. This is a DEEP DIVE, provide maximum detail.';
+    // Deep mode: 5×4×6 = 120 items
+    densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
+    - Generate EXACTLY 5 subTopics (no more, no less)
+    - EACH subTopic MUST have EXACTLY 4 categories
+    - EACH category MUST have EXACTLY 6 subCategories
+    - Total items: 5 × 4 × 6 = 120 items
+    - QUALITY CHECK: Every single sub-category MUST have a substantial name AND a descriptive description.
+    - DO NOT generate empty or placeholder objects.
+    - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets
+    - If approaching token limit, prioritize closing JSON structures over adding more content.`;
   } else {
-    densityInstruction = 'STRUCTURE DENSITY: Generate AT LEAST 4 subTopics. Each subTopic MUST have AT LEAST 2 categories. Each category MUST have AT LEAST 3 subCategories.';
+    // Basic mode: 24-40 items
+    densityInstruction = `STRUCTURE DENSITY (FLEXIBLE):
+    - Generate 4-5 subTopics
+    - EACH subTopic should have 2-3 categories
+    - EACH category should have 3-4 subCategories
+    - Target range: 24 - 40 total items.
+    - Focus on a high-level but substantial overview.`;
   }
 
   let personaInstruction = '';
-  if (persona === 'Teacher') {
+  // Normalized persona selection (handle both casing styles)
+  const selectedPersona = persona?.toLowerCase() || 'teacher';
+
+  if (selectedPersona === 'teacher') {
     personaInstruction = `
     ADOPT PERSONA: "Expert Teacher"
-  - Use educational analogies to explain complex concepts.
-    - Focus on "How" and "Why" in descriptions.
-    - Structure sub - topics like a curriculum, moving from basics to advanced.
-    - Descriptions should be encouraging and clear.`;
-  } else if (persona === 'Concise') {
+    - Explanations should be educational, clear, and encouraging.
+    - Use analogies to explain complex concepts.
+    - Structure content like a curriculum, moving from basics to advanced.`;
+  } else if (selectedPersona === 'concise') {
     personaInstruction = `
     ADOPT PERSONA: "Efficiency Expert"
-  - Keep all text extremely brief and to the point.
-    - Use fragments or high - impact keywords instead of long sentences.
-    - Focus only on the most critical information.
-    - Descriptions should be concise and focused.`;
-  } else if (persona === 'Creative') {
+    - Text must be extremely brief and to the point.
+    - Use powerful keywords and short fragments instead of full sentences.
+    - Eliminate all filler words.`;
+  } else if (selectedPersona === 'creative') {
     personaInstruction = `
     ADOPT PERSONA: "Creative Visionary"
-  - Explore unique, out - of - the - box connections and angles.
-    - Use vivid, evocative language in descriptions.
-    - Include "Future Trends" or "Innovation" as sub - topics.
-    - Make the content feel inspired and non - obvious.`;
-  } else {
+    - Explore non-obvious, imaginative, and out-of-the-box connections.
+    - Use vivid, evocative, and metaphorical language.
+    - Focus on innovation, future trends, and artistic angles.`;
+  } else if (selectedPersona === 'sage') {
     personaInstruction = `
     ADOPT PERSONA: "Cognitive Sage"
     - Provide a profound, intellectually deep, and highly structured overview.
     - Use sophisticated, precise, and insightful language.
-    - CORE PHILOSOPHY: "A wise man possesses the ability to break down complex information into smaller, manageable parts for thorough examination."
-    - Every major node (Sub-Topic and Category) MUST include an 'insight' property that briefly captures this wisdom.`;
+    - Every major node MUST include a high-level 'insight' property capturing deep wisdom.`;
+  } else {
+    // Default safe persona
+    personaInstruction = `ADOPT PERSONA: "Balanced Assistant" - Provide clear, factual, and well-structured information.`;
   }
 
   // Construct Prompt
@@ -103,57 +127,54 @@ export async function generateMindMap(
 
   ${targetLang ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${targetLang}.` : 'The entire mind map MUST be in English.'}
 
-  The mind map must have the following JSON structure:
+  The mind map must have the FOLLOWING JSON structure (MANDATORY):
 {
-    "topic": "Your Topic Here",  // Field name in camelCase, value in proper English
-    "shortTitle": "Short Title", // CRITICAL: A condensed, catchy, and 'smart' version (max 2-4 words). Avoid filler words like 'A guide to...' or 'Introduction to...'. Make it impactful.
-      "icon": "brain-circuit",
-        "subTopics": [
-          {
-            "name": "Subtopic name here",
-            "icon": "flag",
-            "insight": "A profound, wise observation about this sub-topic and its place in the grander scheme of the main topic.",
-            "categories": [
-              {
-                "name": "Category name here",
-                "icon": "folder",
-                "insight": "An analytical breakdown or 'wise man' perspective on why this specific category is vital.",
-                "subCategories": [
-                  {
-                    "name": "Subcategory name",
-                    "description": "A concise statement (exactly one sentence) in proper English.",
-                    "icon": "book-open",
-                    "tags": ["tag1", "tag2", "tag3"]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+  "mode": "single",
+  "topic": "${topic}",
+  "shortTitle": "Impactful Short Title",
+  "icon": "brain-circuit",
+  "subTopics": [
+    {
+      "name": "Subtopic Name",
+      "icon": "flag",
+      "insight": "Wisdom about subtopic",
+      "categories": [
+        {
+          "name": "Category Name",
+          "icon": "folder",
+          "insight": "Wisdom about category",
+          "subCategories": [
+            {
+              "name": "Subcategory Name",
+              "description": "One sentence explanation.",
+              "icon": "book-open"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 
-  IMPORTANT RULES(STRICT ADHERENCE REQUIRED):
-- JSON field names MUST be camelCase: topic, subTopics, categories, subCategories, name, description, icon, tags
-  - Content values(topic names, descriptions) MUST use proper English with normal capitalization and spaces
-    - Example: { "name": "Persian and Greek invasions" } NOT { "name": "persianAndGreekInvasions" }
-- Icons must be valid lucide - react names in kebab -case (e.g., "shield", "sword", "globe")
-  - BE SPECIFIC WITH ICONS: Choose icons that are SEMANTICALLY RELEVANT to the name.If the subtopic is "History", use "scroll" or "landmark".
-  - Sub - category descriptions MUST be exactly one sentence and highly informative.
+  IMPORTANT RULES:
+  - YOU MUST include "mode": "single" in the root object.
+  - JSON field names MUST be EXACTLY: mode, topic, shortTitle, icon, subTopics, categories, subCategories, name, description, insight.
+  - Icons must be valid lucide-react names in kebab-case (e.g., "scroll", "landmark", "shield").
+  - Sub-category descriptions MUST be exactly one sentence.
   - ${densityInstruction}
-  - DO NOT return an empty 'subTopics' array.If you are stuck, explore broad sub - categories of the given topic.
-  - SMART TITLES: The 'shortTitle' must be the "Hero" title of the map. It should be punchy and professional.
-  - FAILURE IS NOT AN OPTION: You must return a full, deep hierarchy. "Short" or "shallow" responses are invalid.
+  - Ensure ALL JSON is properly closed.
+  - DO NOT TRUNCATE. If you must stop, close all open [ and { structures.
 
-  Create an informative and well - structured mind map for the topic: "${topic}".
+  Create an informative and well-structured mind map for the topic: "${topic}".
 
-  IMPORTANT: The output MUST be a valid JSON object that strictly adheres to the MindMapSchema.Do NOT include any extra text, explanations, or markdown formatting like \`\`\`json. Your response should start with '{' and end with '}'.`;
+  CRITICAL: Return ONLY valid JSON. No markdown formatting, no backticks, no extra text.`;
 
   const result = await generateContent({
     provider: provider,
     apiKey: apiKey,
-    systemPrompt: "System: High-density educational mind map generator. Output MUST be strictly valid JSON.",
+    systemPrompt: "You are a mind map generator. Output MUST be strictly valid JSON according to the requested structure.",
     userPrompt: prompt,
-    schema: MindMapSchema,
+    schema: AIGeneratedMindMapSchema,
   });
 
   console.log(`✅ Mind map generated successfully:`, {

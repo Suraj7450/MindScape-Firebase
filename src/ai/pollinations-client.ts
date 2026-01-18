@@ -17,8 +17,10 @@ export async function generateContentWithPollinations(
 
     if (hasImages) {
         model = 'openai'; // Vision support
+    } else if (userPrompt.toLowerCase().includes('deep') || userPrompt.toLowerCase().includes('108 items')) {
+        model = 'openai'; // Heavy lifting for complex structures
     } else if (systemPrompt.toLowerCase().includes('json') || systemPrompt.toLowerCase().includes('schema')) {
-        model = 'mistral'; // Stable for JSON
+        model = 'mistral'; // Stable for standard JSON
     } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert') || systemPrompt.toLowerCase().includes('reasoning')) {
         model = 'openai'; // Strong reasoning
     } else if (systemPrompt.toLowerCase().includes('search')) {
@@ -31,7 +33,13 @@ export async function generateContentWithPollinations(
         const messages: any[] = [
             {
                 role: 'system',
-                content: systemPrompt + "\n\nCRITICAL: Your entire response MUST be a single JSON object. Do not include any reasoning, pre-amble, or explanations. Start your response with '{' and end with '}'."
+                content: systemPrompt + `
+CRITICAL:
+- Do NOT include reasoning, planning, analysis, or internal thoughts.
+- Think minimally.
+- Output ONLY the final JSON object.
+- Start with '{' and end with '}'.
+`
             }
         ];
 
@@ -68,7 +76,7 @@ export async function generateContentWithPollinations(
         // Increase max_tokens for models that support it to accommodate deep mind maps
         const modelsWithLargeContext = ['openai', 'gpt-4o', 'gemini', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
         if (modelsWithLargeContext.includes(model)) {
-            body.max_tokens = 4096;
+            body.max_tokens = 8192; // Increased for deep mode mind maps
         }
 
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -111,19 +119,98 @@ export async function generateContentWithPollinations(
         try {
             parsedResponse = JSON.parse(text);
         } catch (e) {
-            // If it's not valid JSON, try to extract the first JSON object
+            // If it's not valid JSON, try to extract and repair
             const firstBrace = text.indexOf('{');
-            const lastBrace = text.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
+            if (firstBrace === -1) {
+                console.warn("Response contained no JSON object, returning raw text.");
+                return text;
+            }
+
+            // Try to find the last valid closing brace by counting braces
+            let braceCount = 0;
+            let lastValidBrace = -1;
+            for (let i = firstBrace; i < text.length; i++) {
+                if (text[i] === '{') braceCount++;
+                if (text[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        lastValidBrace = i;
+                        break;
+                    }
+                }
+            }
+
+            if (lastValidBrace === -1) {
+                // JSON is incomplete - try to close it
+                console.warn('⚠️ Incomplete JSON detected, attempting to repair...');
+                let extracted = text.substring(firstBrace);
+
+                // Check if we are inside an unfinished string
+                const lastQuote = extracted.lastIndexOf('"');
+                const prevChar = lastQuote > 0 ? extracted[lastQuote - 1] : '';
+                // If the last quote isn't escaped and there's an odd number of quotes in the last level, we might be inside a string
+                const quoteCount = (extracted.match(/"/g) || []).length;
+                if (quoteCount % 2 !== 0) {
+                    extracted += '"';
+                }
+
+                // Remove any trailing incomplete content (after last comma or opening bracket/brace)
+                // We want to stop at the last point where a "value" was completed.
+                const lastComma = extracted.lastIndexOf(',');
+                const lastOpenBracket = extracted.lastIndexOf('[');
+                const lastOpenBrace = extracted.lastIndexOf('{');
+                const lastCloseBracket = extracted.lastIndexOf(']');
+                const lastCloseBrace = extracted.lastIndexOf('}');
+
+                // We find the safest cut point
+                const cutPoint = Math.max(lastComma, lastCloseBracket, lastCloseBrace);
+
+                if (cutPoint > 0 && cutPoint < extracted.length - 1) {
+                    extracted = extracted.substring(0, cutPoint);
+                }
+
+                // Add missing closing brackets and braces
+                let openBraces = (extracted.match(/{/g) || []).length;
+                let closeBraces = (extracted.match(/}/g) || []).length;
+                let openBrackets = (extracted.match(/\[/g) || []).length;
+                let closeBrackets = (extracted.match(/]/g) || []).length;
+
+                extracted += ']'.repeat(Math.max(0, openBrackets - closeBrackets));
+                extracted += '}'.repeat(Math.max(0, openBraces - closeBraces));
+
                 try {
-                    parsedResponse = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+                    parsedResponse = JSON.parse(extracted);
+                    console.log('✅ Successfully repaired incomplete JSON');
+                } catch (repairError) {
+                    // One final attempt: just keep adding brackets until it works or we hit a limit
+                    let salvageRetry = extracted;
+                    let success = false;
+                    for (let i = 1; i < 5; i++) {
+                        try {
+                            salvageRetry += '}';
+                            parsedResponse = JSON.parse(salvageRetry);
+                            success = true;
+                            break;
+                        } catch {
+                            try {
+                                salvageRetry = salvageRetry.substring(0, salvageRetry.length - 1) + ']';
+                                parsedResponse = JSON.parse(salvageRetry);
+                                success = true;
+                                break;
+                            } catch { /* continue */ }
+                        }
+                    }
+                    if (!success) {
+                        throw new Error(`Failed to parse or repair JSON: ${repairError}`);
+                    }
+                }
+            } else {
+                // Found valid closing brace
+                try {
+                    parsedResponse = JSON.parse(text.substring(firstBrace, lastValidBrace + 1));
                 } catch (innerE) {
                     throw new Error(`Failed to parse extracted JSON: ${innerE}`);
                 }
-            } else {
-                // If no JSON found, return the raw text (might be intentional for some flows)
-                console.warn("Response contained no valid JSON object, returning raw text.");
-                return text;
             }
         }
 

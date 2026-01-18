@@ -32,7 +32,7 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
             onClick={() => onClick(map.id!)}
             className="group relative cursor-pointer rounded-2xl bg-white/5 backdrop-blur-xl p-4 flex flex-col h-full overflow-hidden border border-white/10 transition-all duration-500 hover:border-purple-600/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:-translate-y-1"
         >
-            <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A]">
+            <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A] group/image">
                 <img
                     src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
                     alt={`Thumbnail for ${map.topic}`}
@@ -41,6 +41,15 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
                 />
                 <div className="absolute top-2 left-2 z-10">
                     <DepthBadge depth={map.depth} className="backdrop-blur-md bg-black/40 border-white/10" />
+                </div>
+                {/* Glassmorphism overlay with button on hover */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 group-hover/image:bg-black/40 transition-all duration-300">
+                    <div className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open Full Map
+                    </div>
                 </div>
             </div>
 

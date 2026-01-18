@@ -155,6 +155,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                     throw new Error('Pollinations returned reasoning-only output (retryable)');
                 }
 
+                console.log(`✅ Pollinations Response Success. Raw length: ${JSON.stringify(raw).length} chars`);
                 return validateAndParse(raw, schema, strict);
             }, 5); // Increased to 5 retries for Pollinations stability
 
@@ -179,7 +180,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
             const geminiModel = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash-exp'
+                model: 'gemini-2.5-flash'
             });
 
             const userParts: any[] = [{ text: userPrompt }];
@@ -189,7 +190,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
             const text = await retry(async () => {
                 console.log('🔵 Calling Gemini with:', {
-                    model: 'gemini-1.5-pro',
+                    model: 'gemini-2.5-flash',
                     systemPromptLength: effectiveSystemPrompt.length,
                     userPromptLength: userPrompt.length,
                     hasSchema: !!schema
@@ -216,7 +217,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                 return response.text();
             }, 3);
 
-            console.log(`📝 Raw AI text response: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
+            console.log(`📝 Raw AI text response Success. Length: ${text.length} chars. Snippet: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
 
             const finalResult = validateAndParse(text, schema, strict);
             providerMonitor.recordSuccess('gemini');
@@ -296,6 +297,18 @@ function performSchemaValidation(parsed: any, schema: any, originalRaw: string, 
 
     const result = schema.safeParse(parsed);
     if (!result.success) {
+        // --- FIX 3: Partial Salvage Acceptance ---
+        // If schema fails but we have at least 4 subTopics, accept it as a "salvaged" map.
+        const partial = parsed as any;
+        if (
+            partial?.subTopics &&
+            Array.isArray(partial.subTopics) &&
+            partial.subTopics.length >= 4
+        ) {
+            console.warn('⚠️ Accepting partial deep-mode mind map due to size limits. Zod Error:', result.error.message);
+            return partial;
+        }
+
         if (strict) {
             console.error("❌ Schema Validation Error:", result.error);
             throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);

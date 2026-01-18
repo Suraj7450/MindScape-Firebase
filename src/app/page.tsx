@@ -16,6 +16,10 @@ import {
   Zap,
   Image as ImageIcon,
   Loader2,
+  UserRound,
+  Zap as ZapIcon,
+  Palette,
+  Brain,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -59,6 +63,8 @@ function Hero({
   fileInputRef,
   depth,
   setDepth,
+  persona,
+  setPersona,
 }: {
   onGenerate: (
     topic: string,
@@ -72,6 +78,8 @@ function Hero({
   fileInputRef: React.RefObject<HTMLInputElement>;
   depth: string;
   setDepth: (depth: string) => void;
+  persona: string;
+  setPersona: (persona: string) => void;
 }) {
   const [topic, setTopic] = useState('');
   const [topic2, setTopic2] = useState('');
@@ -167,34 +175,34 @@ function Hero({
           <div className="relative rounded-[2.5rem] border border-white/5 bg-zinc-900/40 backdrop-blur-3xl p-3 shadow-2xl ring-1 ring-white/10">
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center px-4 pt-1">
-                <div className="flex items-center gap-1 p-1 bg-black/40 rounded-full border border-white/5">
+                <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-full border border-white/5">
                   <Button
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-5 h-8 transition-all duration-300",
-                      !isCompareMode ? "bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
+                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-4 h-7 transition-all duration-300",
+                      !isCompareMode ? "bg-primary text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
                     )}
                     onClick={() => setIsCompareMode(false)}
                   >
-                    Single Topic
+                    Single
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-5 h-8 transition-all duration-300",
-                      isCompareMode ? "bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
+                      "rounded-full text-[10px] font-bold tracking-widest uppercase px-4 h-7 transition-all duration-300",
+                      isCompareMode ? "bg-primary text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]" : "text-zinc-500 hover:text-zinc-300"
                     )}
                     onClick={() => setIsCompareMode(true)}
                   >
-                    Compare Mode
+                    Compare
                   </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Select value={depth} onValueChange={setDepth}>
-                    <SelectTrigger className="w-auto min-w-[100px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group">
+                    <SelectTrigger className="w-auto h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group px-3">
                       <List className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
                       <SelectValue placeholder="Depth" />
                     </SelectTrigger>
@@ -205,15 +213,48 @@ function Hero({
                     </SelectContent>
                   </Select>
 
+                  <Select value={persona} onValueChange={setPersona}>
+                    <SelectTrigger className="w-auto h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group px-3">
+                      <Bot className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
+                      <SelectValue placeholder="Persona" />
+                    </SelectTrigger>
+                    <SelectContent className="glassmorphism border-white/10">
+                      <SelectItem value="teacher" className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <UserRound className="w-3 h-3 text-blue-400" />
+                          <span>Teacher</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="concise" className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <ZapIcon className="w-3 h-3 text-amber-400" />
+                          <span>Concise</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="creative" className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <Palette className="w-3 h-3 text-pink-400" />
+                          <span>Creative</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="sage" className="text-xs">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-3 h-3 text-purple-400" />
+                          <span>Cognitive Sage</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <Select value={lang} onValueChange={setLang}>
                     <SelectTrigger
                       ref={languageSelectRef}
-                      className="w-auto min-w-[110px] h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group"
+                      className="w-auto h-8 border border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 transition group px-3"
                     >
                       <Globe className="w-3 h-3 mr-2 group-hover:text-primary transition-colors" />
                       <SelectValue placeholder="Language" />
                     </SelectTrigger>
-                    <SelectContent className="glassmorphism border-white/10">
+                    <SelectContent className="glassmorphism border-white/10 max-h-[300px]">
                       {languages.map((language) => (
                         <SelectItem key={language.code} value={language.code} className="text-xs">
                           {language.name}
@@ -446,6 +487,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lang, setLang] = useState('en');
   const [depth, setDepth] = useState('low');
+  const [persona, setPersona] = useState('teacher');
   const languageSelectRef = createRef<HTMLButtonElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -525,8 +567,9 @@ export default function Home() {
 
         sessionStorage.setItem(`session-content-${sessionId}`, contentToStore);
         sessionStorage.setItem(`session-type-${sessionId}`, finalSessionType);
+        sessionStorage.setItem(`session-persona-${sessionId}`, persona);
 
-        router.push(`/canvas?sessionId=${sessionId}&lang=${lang}&depth=${depth}`);
+        router.push(`/canvas?sessionId=${sessionId}&lang=${lang}&depth=${depth}&persona=${persona}`);
       } catch (error: any) {
         toast({
           variant: 'destructive',
@@ -539,13 +582,13 @@ export default function Home() {
     }
 
     // Handle regular text-based generation
-    const query = new URLSearchParams({ topic, lang, depth }).toString();
+    const query = new URLSearchParams({ topic, lang, depth, persona }).toString();
     router.push(`/canvas?${query}`);
   };
 
   const handleCompare = (topic1: string, topic2: string) => {
     setIsGenerating(true);
-    const query = new URLSearchParams({ topic1, topic2, lang, depth }).toString();
+    const query = new URLSearchParams({ topic1, topic2, lang, depth, persona }).toString();
     router.push(`/canvas?${query}`);
   };
 
@@ -562,6 +605,8 @@ export default function Home() {
         setLang={setLang}
         depth={depth}
         setDepth={setDepth}
+        persona={persona}
+        setPersona={setPersona}
         isGenerating={isGenerating}
         languageSelectRef={languageSelectRef}
         fileInputRef={fileInputRef}

@@ -105,7 +105,7 @@ const LayoutEngine = (data: MindMapData) => {
 
     // Process SubTopics (Level 1)
     if (data.mode === 'single') {
-        data.subTopics.forEach((st, stIdx) => {
+        (data.subTopics || []).forEach((st, stIdx) => {
             const stHeight = calculateSubtreeHeight(st, 'subtopic');
             const stY = currentY + stHeight / 2; // Center relative to own subtree range
 
@@ -125,7 +125,7 @@ const LayoutEngine = (data: MindMapData) => {
             // Process Categories (Level 2)
             let catCurrentY = currentY; // Start at the top of this subtopic's slot
 
-            st.categories.forEach((cat, catIdx) => {
+            (st.categories || []).forEach((cat, catIdx) => {
                 const catHeight = calculateSubtreeHeight(cat, 'category');
                 const catY = catCurrentY + catHeight / 2;
 
@@ -143,7 +143,7 @@ const LayoutEngine = (data: MindMapData) => {
 
                 // Process SubCategories (Level 3 - Leaves)
                 let subCatCurrentY = catCurrentY;
-                cat.subCategories.forEach((subCat, scIdx) => {
+                (cat.subCategories || []).forEach((subCat, scIdx) => {
                     const subCatHeight = LEAF_HEIGHT;
                     const subCatY = subCatCurrentY + subCatHeight / 2;
 

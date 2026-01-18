@@ -69,8 +69,17 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 const remoteData = snapshot.data();
 
                 // Track update times for synchronization
-                const remoteUpdatedAt = (remoteData as any).updatedAt?.toMillis?.() || 0;
-                const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
+                const getMillis = (ts: any) => {
+                    if (!ts) return 0;
+                    if (typeof ts === 'number') return ts;
+                    if (ts instanceof Date) return ts.getTime();
+                    if (typeof ts.toMillis === 'function') return ts.toMillis();
+                    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+                    return 0;
+                };
+
+                const remoteUpdatedAt = getMillis((remoteData as any).updatedAt);
+                const localUpdatedAt = getMillis((currentMap as any)?.updatedAt);
 
                 if (remoteUpdatedAt > localUpdatedAt && onRemoteUpdateRef.current) {
                     if (!remoteData.hasSplitContent) {
@@ -88,8 +97,17 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             if (snapshot.metadata.hasPendingWrites) return;
             if (snapshot.exists()) {
                 const contentData = snapshot.data();
-                const remoteUpdatedAt = (contentData as any).updatedAt?.toMillis?.() || 0;
-                const localUpdatedAt = (currentMap as any)?.updatedAt?.toMillis?.() || 0;
+                const getMillis = (ts: any) => {
+                    if (!ts) return 0;
+                    if (typeof ts === 'number') return ts;
+                    if (ts instanceof Date) return ts.getTime();
+                    if (typeof ts.toMillis === 'function') return ts.toMillis();
+                    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+                    return 0;
+                };
+
+                const remoteUpdatedAt = getMillis((contentData as any).updatedAt);
+                const localUpdatedAt = getMillis((currentMap as any)?.updatedAt);
 
                 if (remoteUpdatedAt > localUpdatedAt && onRemoteUpdateRef.current && currentMap) {
                     onRemoteUpdateRef.current({ ...currentMap, ...contentData, id: mapId });

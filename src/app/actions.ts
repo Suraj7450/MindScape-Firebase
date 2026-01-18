@@ -72,8 +72,67 @@ import {
   GenerateComparisonMapOutputV2,
 } from '@/ai/compare/flow';
 import { GenerateComparisonMapInput } from '@/ai/compare/schema';
-import { CompareMindMapData } from '@/types/mind-map';
+import { MindMapData, SingleMindMapData, CompareMindMapData, SubTopic, Category, SubCategory } from '@/types/mind-map';
 import { addDoc, collection } from 'firebase/firestore';
+
+/**
+ * Ensures AI-generated data strictly adheres to the frontend MindMapData interface.
+ * Fills in default values for required fields like tags and isExpanded.
+ */
+function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): MindMapData {
+  if (raw.mode === 'compare' || raw.compareData) {
+    return {
+      ...raw,
+      mode: 'compare',
+      depth,
+      createdAt: raw.createdAt || Date.now(),
+      updatedAt: raw.updatedAt || Date.now(),
+      compareData: {
+        ...raw.compareData,
+        similarities: (raw.compareData.similarities || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+        differences: {
+          topicA: (raw.compareData.differences?.topicA || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+          topicB: (raw.compareData.differences?.topicB || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+        }
+      }
+    } as CompareMindMapData;
+  }
+
+  // Handle single mode
+  return {
+    ...raw,
+    mode: 'single',
+    depth,
+    createdAt: raw.createdAt || Date.now(),
+    updatedAt: raw.updatedAt || Date.now(),
+    nestedExpansions: (raw.nestedExpansions || []).map((ne: any) => ({
+      ...ne,
+      subCategories: (ne.subCategories || []).map((sub: any) => ({
+        ...sub,
+        tags: Array.isArray(sub.tags) ? sub.tags : []
+      }))
+    })),
+    subTopics: (raw.subTopics || []).map((st: any): SubTopic => ({
+      name: st.name || '',
+      icon: st.icon || 'flag',
+      insight: st.insight || '',
+      categories: (st.categories || []).map((cat: any): Category => ({
+        name: cat.name || '',
+        icon: cat.icon || 'folder',
+        insight: cat.insight || '',
+        subCategories: (cat.subCategories || [])
+          .filter((sub: any) => sub && typeof sub.name === 'string' && sub.name.trim() !== '')
+          .map((sub: any): SubCategory => ({
+            name: sub.name || '',
+            description: sub.description || '',
+            icon: sub.icon || 'book-open',
+            tags: Array.isArray(sub.tags) ? sub.tags : [],
+            isExpanded: false
+          }))
+      }))
+    }))
+  } as SingleMindMapData;
+}
 
 export interface GenerateMindMapFromImageInput {
   imageDataUri: string;
@@ -90,7 +149,7 @@ export interface GenerateMindMapFromImageInput {
 export async function generateMindMapAction(
   input: GenerateMindMapInput,
   options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ data: GenerateMindMapOutput | null; error: string | null }> {
+): Promise<{ data: MindMapData | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);
 
@@ -100,8 +159,10 @@ export async function generateMindMapAction(
 
   try {
     const result = await generateMindMap({ ...input, topic, ...options });
-    if (result) (result as any).depth = input.depth;
-    return { data: result, error: null };
+    if (!result) return { data: null, error: 'AI failed to generate content.' };
+
+    const sanitized = mapToMindMapData(result, input.depth || 'low');
+    return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapAction:', error);
     const errorMessage =
@@ -145,7 +206,7 @@ export async function updateAIModelPreferenceAction(userId: string, model: strin
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
   options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ data: GenerateMindMapFromImageOutput | null; error: string | null }> {
+): Promise<{ data: MindMapData | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
   }
@@ -153,33 +214,10 @@ export async function generateMindMapFromImageAction(
   try {
     const depth = input.depth || 'low';
     const rawResult = await generateMindMapFromImage({ ...input, depth, ...options });
+    if (!rawResult) return { data: null, error: 'AI failed to process image.' };
 
-    // Defensive mapping to ensure structure matches MindMapData
-    const result: GenerateMindMapFromImageOutput = {
-      mode: 'single',
-      topic: rawResult.topic || '',
-      shortTitle: rawResult.shortTitle || rawResult.topic || '',
-      icon: rawResult.icon || 'brain-circuit',
-      subTopics: ((rawResult as any).subTopics || []).map((st: any) => ({
-        name: st.name || '',
-        icon: st.icon || 'flag',
-        insight: st.insight || st.description || '',
-        categories: (st.categories || []).map((cat: any) => ({
-          name: cat.name || '',
-          icon: cat.icon || 'folder',
-          insight: cat.insight || cat.description || '',
-          subCategories: (cat.subCategories || []).map((sub: any) => ({
-            name: sub.name || '',
-            description: sub.description || '',
-            icon: sub.icon || 'book-open',
-            tags: Array.isArray(sub.tags) ? sub.tags : []
-          }))
-        }))
-      })),
-      depth: input.depth || 'low',
-    };
-
-    return { data: result, error: null };
+    const sanitized = mapToMindMapData(rawResult, depth);
+    return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromImageAction:', error);
     const errorMessage =
@@ -199,7 +237,7 @@ export async function generateMindMapFromImageAction(
 export async function generateMindMapFromTextAction(
   input: GenerateMindMapFromTextInput,
   options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ data: GenerateMindMapFromTextOutput | null; error: string | null }> {
+): Promise<{ data: MindMapData | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
   }
@@ -207,8 +245,10 @@ export async function generateMindMapFromTextAction(
   try {
     const depth = input.depth || 'low';
     const result = await generateMindMapFromText({ ...input, depth, ...options });
-    if (result) (result as any).depth = depth;
-    return { data: result, error: null };
+    if (!result) return { data: null, error: 'AI failed to process text.' };
+
+    const sanitized = mapToMindMapData(result, depth);
+    return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromTextAction:', error);
     const errorMessage =
@@ -277,10 +317,12 @@ export async function chatAction(
 export async function translateMindMapAction(
   input: TranslateMindMapInput,
   options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ translation: TranslateMindMapOutput | null; error: string | null }> {
+): Promise<{ translation: MindMapData | null; error: string | null }> {
   try {
     const result = await translateMindMap({ ...input, ...options });
-    return { translation: result, error: null };
+    if (!result) return { translation: null, error: 'AI failed to get translation.' };
+    const sanitized = mapToMindMapData(result);
+    return { translation: sanitized, error: null };
   } catch (error) {
     console.error(error);
     const errorMessage =
@@ -462,30 +504,10 @@ export async function generateComparisonMapAction(
 
   try {
     const result = await generateComparisonMapV2({ ...input, ...options });
+    if (!result) return { data: null, error: 'AI failed to generate comparison.' };
 
-    // Transform to CompareMindMapData structure with defensive defaults
-    const formattedData: CompareMindMapData = {
-      mode: 'compare',
-      topic: result.topic || result.root?.title || `${input.topic1} vs ${input.topic2}`,
-      compareData: {
-        root: {
-          title: result.root?.title || `${input.topic1} vs ${input.topic2}`,
-          description: result.root?.description || '',
-          icon: result.root?.icon || 'scale',
-        },
-        similarities: Array.isArray(result.similarities) ? result.similarities : [],
-        differences: {
-          topicA: Array.isArray(result.differences?.topicA) ? result.differences.topicA : [],
-          topicB: Array.isArray(result.differences?.topicB) ? result.differences.topicB : [],
-        },
-        relevantLinks: Array.isArray(result.relevantLinks) ? result.relevantLinks : [],
-        topicADeepDive: Array.isArray(result.topicADeepDive) ? result.topicADeepDive : [],
-        topicBDeepDive: Array.isArray(result.topicBDeepDive) ? result.topicBDeepDive : [],
-      },
-      depth: input.depth || 'low'
-    };
-
-    return { data: formattedData, error: null };
+    const sanitized = mapToMindMapData(result, input.depth || 'low');
+    return { data: sanitized as CompareMindMapData, error: null };
   } catch (error) {
     console.error('Error in generateComparisonMapAction:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';

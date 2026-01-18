@@ -113,7 +113,7 @@ export const MindMapAccordion = ({
             onValueChange={setOpenSubTopics}
             className="space-y-4"
         >
-            {mindMap.mode === 'single' && mindMap.subTopics.map((subTopic, index) => {
+            {mindMap.mode === 'single' && (mindMap.subTopics || []).map((subTopic, index) => {
                 const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
                 const subTopicId = `topic-${index}`;
 
@@ -140,7 +140,7 @@ export const MindMapAccordion = ({
                                     <div className="flex gap-4 mt-1">
                                         <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                                            {subTopic.categories.length} Concept Categories
+                                            {subTopic.categories?.length || 0} Concept Categories
                                         </span>
                                         {subTopic.insight && (
                                             <button
@@ -204,7 +204,7 @@ export const MindMapAccordion = ({
 
                         <AccordionContent className="px-8 pb-8 pt-2">
                             <div className="space-y-3">
-                                {subTopic.categories.map((category: any, catIndex: number) => {
+                                {(subTopic.categories || []).map((category: any, catIndex: number) => {
                                     const CategoryIcon = (LucideIcons as any)[toPascalCase(category.icon)] || FolderOpen;
                                     const catId = `cat-${index}-${catIndex}`;
 
@@ -276,7 +276,7 @@ export const MindMapAccordion = ({
                                             {openCategories.includes(catId) && (
                                                 <div className="px-6 pb-6 pt-2 animate-in slide-in-from-top-4 duration-500">
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                        {category.subCategories.map((sub: any, subIndex: number) => (
+                                                        {(category.subCategories || []).map((sub: any, subIndex: number) => (
                                                             <LeafNodeCard
                                                                 key={subIndex}
                                                                 node={sub}

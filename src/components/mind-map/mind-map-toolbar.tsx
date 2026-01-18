@@ -23,7 +23,11 @@ import {
     Layers,
     Share,
     BookOpen,
-    X
+    X,
+    Bot,
+    UserRound,
+    Palette,
+    Brain
 } from 'lucide-react';
 import {
     Select,
@@ -47,8 +51,6 @@ interface MindMapToolbarProps {
     languageUI: string;
     onLanguageChange: (lang: string) => void;
     isTranslating: boolean;
-    personaUI: string;
-    onPersonaChange: (persona: string) => void;
     isAllExpanded: boolean;
     onToggleExpandAll: () => void;
     isCopied: boolean;
@@ -74,6 +76,7 @@ interface MindMapToolbarProps {
     isPublishing: boolean;
     isPublic: boolean;
     isCompare?: boolean;
+    onStartGlobalQuiz?: () => void;
 }
 
 export const MindMapToolbar = ({
@@ -106,7 +109,8 @@ export const MindMapToolbar = ({
     onPublish,
     isPublishing,
     isPublic,
-    isCompare = false
+    isCompare = false,
+    onStartGlobalQuiz
 }: MindMapToolbarProps) => {
     const isBusy = status !== 'idle';
     const isSyncing = status === 'syncing';
@@ -155,25 +159,13 @@ export const MindMapToolbar = ({
                 {(viewMode === 'accordion' || isCompare) && (
                     <div className="flex items-center gap-1.5 px-1.5 pr-3 border-r border-white/10">
                         <Select value={languageUI} onValueChange={onLanguageChange} disabled={isTranslating || isBusy}>
-                            <SelectTrigger className="h-9 w-fit min-w-[70px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest">
+                            <SelectTrigger className="h-9 w-fit min-w-[70px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest text-center">
                                 <Languages className="w-3.5 h-3.5 mr-2 text-primary" />
                                 <span className="mr-1">{(languages.find(l => l.code === languageUI)?.code || 'EN').toUpperCase()}</span>
                             </SelectTrigger>
                             <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
                                 {languages.map(l => (
                                     <SelectItem key={l.code} value={l.code} className="text-xs font-space-grotesk">{l.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={personaUI} onValueChange={onPersonaChange} disabled={isBusy}>
-                            <SelectTrigger className="h-9 w-fit min-w-[100px] px-3 bg-white/5 border-none text-[10px] rounded-xl hover:bg-white/10 transition-all font-black text-zinc-200 disabled:opacity-50 font-orbitron uppercase tracking-widest">
-                                <Zap className="w-3.5 h-3.5 mr-2 text-amber-400" />
-                                <SelectValue placeholder="Mode" />
-                            </SelectTrigger>
-                            <SelectContent className="glassmorphism rounded-2xl overflow-hidden">
-                                {['Standard', 'Teacher', 'Concise', 'Creative'].map(p => (
-                                    <SelectItem key={p} value={p} className="text-xs font-space-grotesk">{p}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -223,6 +215,18 @@ export const MindMapToolbar = ({
                                     )}
                                 </Button>
                             </>
+                        )}
+
+                        {(!isCompare && onStartGlobalQuiz) && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onStartGlobalQuiz}
+                                className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 transition-all hover:scale-105 active:scale-95"
+                            >
+                                <GraduationCap className="h-4 w-4" />
+                                Challenge
+                            </Button>
                         )}
 
                         {!isCompare && (

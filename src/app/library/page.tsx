@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Filter, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe } from 'lucide-react';
+import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Filter, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe, BarChart3, Binary, Layers } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +39,7 @@ import { DepthBadge } from '@/components/mind-map/depth-badge';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMindMapPersistence } from '@/hooks/use-mind-map-persistence';
+import { sanitizeFirestoreData } from '@/lib/sanitize-firestore';
 
 function DashboardLoadingSkeleton() {
   return (
@@ -133,7 +134,11 @@ export default function DashboardPage() {
         const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', selectedMapForPreview.id, 'content', 'tree');
         getDoc(contentRef).then(snap => {
           if (isMounted && snap.exists()) {
-            setSelectedMapFullData(snap.data() as MindMapData);
+            // Merge metadata (containing mode) with content data
+            setSelectedMapFullData({
+              ...selectedMapForPreview,
+              ...snap.data()
+            } as any);
           }
           if (isMounted) setIsFullDataLoading(false);
         }).catch(err => {
@@ -147,6 +152,51 @@ export default function DashboardPage() {
     return () => { isMounted = false; };
   }, [selectedMapForPreview, user, firestore]);
 
+  // Calculate detailed stats for the previewed map
+  const previewStats = useMemo(() => {
+    if (!selectedMapFullData) return { totalNodes: 0, concepts: 0 };
+
+    let totalNodes = 1; // Root
+    let concepts = 0;
+
+    const countNodesRecursive = (items: any[]): number => {
+      let count = 0;
+      items.forEach(item => {
+        count++;
+        if (item.categories) count += countNodesRecursive(item.categories);
+        if (item.subCategories) count += countNodesRecursive(item.subCategories);
+      });
+      return count;
+    };
+
+    if (selectedMapFullData.mode === 'single') {
+      const subTopics = selectedMapFullData.subTopics || [];
+      concepts = subTopics.length;
+      totalNodes += countNodesRecursive(subTopics);
+    } else if (selectedMapFullData.mode === 'compare' || (selectedMapFullData as any).compareData) {
+      const cd = (selectedMapFullData as any).compareData;
+      if (cd) {
+        totalNodes = 1; // root
+        const simCount = cd.similarities?.length || 0;
+        const diffACount = cd.differences?.topicA?.length || 0;
+        const diffBCount = cd.differences?.topicB?.length || 0;
+
+        concepts = simCount + diffACount + diffBCount;
+        totalNodes += concepts;
+        totalNodes += (cd.relevantLinks?.length || 0);
+        totalNodes += (cd.topicADeepDive?.length || 0);
+        totalNodes += (cd.topicBDeepDive?.length || 0);
+      }
+    }
+
+    return { totalNodes, concepts };
+  }, [selectedMapFullData]);
+
+  // Helper function to convert Firestore Timestamps to plain Date objects
+  const sanitizeMapForState = (map: SavedMindMap): SavedMindMap => {
+    return sanitizeFirestoreData(map);
+  };
+
   const handleDownloadFullData = async (map: SavedMindMap) => {
     if (!selectedMapFullData) {
       toast({ variant: "destructive", title: "Data Error", description: "Full mind map content is not yet aavailable. Please wait a moment." });
@@ -158,31 +208,18 @@ export default function DashboardPage() {
       const doc = new jsPDF();
       let y = 20;
 
-      // Title
-      doc.setFontSize(22);
+      // Title - Centered and All Caps
+      const topicUpper = (map.topic || 'UNTITLED').toUpperCase();
+      doc.setFontSize(24);
       doc.setTextColor(124, 58, 237); // Purple
       doc.setFont("helvetica", "bold");
-      const titleLines = doc.splitTextToSize(map.topic, 170);
-      doc.text(titleLines, 20, y);
-      y += (titleLines.length * 10);
 
-      // Header info (Left Top side)
-      doc.setFontSize(9);
-      doc.setTextColor(150);
-      doc.setFont("helvetica", "normal");
-      doc.text(`MindScape Knowledge Package • Created on ${map.createdAt?.toDate()?.toLocaleDateString() || 'Recently'}`, 20, y);
-      y += 15;
-
-      // Summary Section
-      doc.setFontSize(14);
-      doc.setTextColor(124, 58, 237);
-      doc.text("Executive Summary", 20, y);
-      y += 8;
-      doc.setFontSize(11);
-      doc.setTextColor(60);
-      const summaryLines = doc.splitTextToSize(map.summary || "No summary available.", 170);
-      doc.text(summaryLines, 20, y);
-      y += (summaryLines.length * 6) + 15;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const titleLines = doc.splitTextToSize(topicUpper, 160);
+      titleLines.forEach((line: string, index: number) => {
+        doc.text(line, pageWidth / 2, y + (index * 10), { align: 'center' });
+      });
+      y += (titleLines.length * 10) + 15;
 
       // Detailed Content
       doc.setFontSize(18);
@@ -267,6 +304,33 @@ export default function DashboardPage() {
           y += 10;
         });
       }
+
+      const addHeaderFooter = (doc: any) => {
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+
+          // Header - Cleaner look
+          doc.setDrawColor(240);
+          doc.line(20, 12, pageWidth - 20, 12);
+
+          // Footer
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(150);
+          doc.text(`MindScape Intelligence • mindscape-free.vercel.app`, 20, pageHeight - 10);
+
+          // Clickable link overlay
+          doc.link(20, pageHeight - 15, 80, 10, { url: 'https://mindscape-free.vercel.app/' });
+
+          doc.text(`Page ${i} of ${pageCount}`, pageWidth - 40, pageHeight - 10);
+        }
+      };
+
+      addHeaderFooter(doc);
 
       doc.save(`${map.topic.replace(/\s+/g, '_')}_Knowledge_Pack.pdf`);
       toast({ title: "Knowledge Pack Ready", description: "Detailed PDF has been downloaded." });
@@ -362,35 +426,60 @@ export default function DashboardPage() {
     try {
       const doc = new jsPDF();
 
-      // Title
-      doc.setFontSize(22);
+      // Title - Centered and All Caps
+      const topicUpper = (map.topic || 'UNTITLED').toUpperCase();
+      doc.setFontSize(24);
       doc.setTextColor(124, 58, 237); // Purple
-      doc.text(map.topic, 20, 20);
+      doc.setFont("helvetica", "bold");
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const titleLines = doc.splitTextToSize(topicUpper, 160);
+      titleLines.forEach((line: string, index: number) => {
+        doc.text(line, pageWidth / 2, 20 + (index * 10), { align: 'center' });
+      });
+      let y = 20 + (titleLines.length * 10) + 15;
 
       // Metadata
       doc.setFontSize(10);
       doc.setTextColor(100);
-      doc.text(`Created: ${map.createdAt?.toDate()?.toLocaleDateString() || 'Recently'}`, 20, 30);
-      doc.text(`Complexity: ${(map as any).depth || 'Low'}`, 20, 35);
-
-      // Summary
-      doc.setFontSize(14);
-      doc.setTextColor(0);
-      doc.text("Summary", 20, 50);
-      doc.setFontSize(11);
-      const splitSummary = doc.splitTextToSize(map.summary || "No summary available.", 170);
-      doc.text(splitSummary, 20, 60);
+      const pdfCreatedDate = map.createdAt instanceof Date ? map.createdAt : (map.createdAt as any)?.toDate ? (map.createdAt as any).toDate() : null;
+      doc.text(`Created: ${pdfCreatedDate?.toLocaleDateString() || 'Recently'}`, 20, y);
+      y += 5;
+      doc.text(`Complexity: ${(map as any).depth || 'Low'}`, 20, y);
+      y += 15;
 
       // Suggestions
       if (suggestedTopics.length > 0) {
-        let y = 60 + (splitSummary.length * 7) + 10;
         doc.setFontSize(14);
+        doc.setTextColor(0);
         doc.text("AI Recommendations", 20, y);
         doc.setFontSize(11);
         suggestedTopics.forEach((topic, i) => {
           doc.text(`• ${topic}`, 25, y + 10 + (i * 7));
         });
       }
+
+      const addHeaderFooter = (doc: any) => {
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setDrawColor(240);
+          doc.line(20, 12, pageWidth - 20, 12);
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(150);
+          doc.text(`MindScape Intelligence • mindscape-free.vercel.app`, 20, pageHeight - 10);
+          doc.link(20, pageHeight - 15, 80, 10, { url: 'https://mindscape-free.vercel.app/' });
+
+          doc.text(`Page ${i} of ${pageCount}`, pageWidth - 40, pageHeight - 10);
+        }
+      };
+
+      addHeaderFooter(doc);
 
       doc.save(`${map.topic.replace(/\s+/g, '_')}_MindMap.pdf`);
       toast({ title: "PDF Downloaded", description: "Your mind map overview is ready." });
@@ -636,15 +725,18 @@ export default function DashboardPage() {
           </div>
         ) : filteredAndSortedMaps.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredAndSortedMaps.map((map) => {
-              const updatedAt = map.updatedAt?.toDate();
+            {filteredAndSortedMaps.map((rawMap) => {
+              // Sanitize map to prevent Firestore Timestamp serialization errors
+              const map = sanitizeMapForState(rawMap);
+              const updatedAt = map.updatedAt instanceof Date ? map.updatedAt : null;
+
 
               return (
                 <div
                   key={map.id}
                   className="group relative cursor-pointer rounded-2xl bg-[#0D0D0E] p-4 flex flex-col h-full overflow-hidden border border-white/5 transition-all duration-500 hover:border-purple-600/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] hover:-translate-y-1"
                 >
-                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505]" onClick={() => handleMindMapClick(map.id)}>
+                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image" onClick={() => handleMindMapClick(map.id)}>
                     <img
                       src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`High-end commercial photography of ${map.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`)}?width=400&height=225&nologo=true&model=flux`}
                       alt={map.topic}
@@ -663,6 +755,13 @@ export default function DashboardPage() {
                         </Badge>
                       </div>
                     )}
+                    {/* Glassmorphism overlay with button on hover */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 group-hover/image:bg-black/40 transition-all duration-300 z-20">
+                      <div className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Full Map
+                      </div>
+                    </div>
                   </div>
 
                   <h3 className="font-bold text-lg text-white mb-1.5 truncate transition-colors group-hover:text-purple-400" onClick={() => handleMindMapClick(map.id)}>
@@ -684,7 +783,7 @@ export default function DashboardPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300"
-                            onClick={() => setSelectedMapForPreview(map)}
+                            onClick={() => setSelectedMapForPreview(sanitizeMapForState(map))}
                           >
                             <Info className="h-4 w-4" />
                           </Button>
@@ -777,8 +876,7 @@ export default function DashboardPage() {
             <>
               <div className="flex-1 flex flex-col p-6 space-y-5 overflow-hidden">
                 <SheetHeader className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <DepthBadge depth={(selectedMapForPreview as any).depth} className="scale-100" />
+                  <div className="flex items-center justify-end">
                     {(selectedMapForPreview as any).isPublic && (
                       <Badge className="bg-emerald-500/10 text-emerald-400 border-none uppercase text-[10px] font-bold">Community</Badge>
                     )}
@@ -842,25 +940,50 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="flex gap-2">
-                  <div className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col">
-                    <p className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest mb-1">Complexity</p>
-                    <p className="text-sm font-bold text-purple-400 capitalize">{(selectedMapForPreview as any).depth || 'Low'}</p>
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                    <BarChart3 className="h-3.5 w-3.5 text-purple-400 mb-2 opacity-60" />
+                    <p className="text-[8px] uppercase font-bold text-zinc-500 tracking-widest mb-1.5 leading-none">Complexity</p>
+                    <p className="text-[11px] font-bold text-zinc-200 capitalize leading-none">{(selectedMapForPreview as any).depth || 'Low'}</p>
                   </div>
-                  <div className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col">
-                    <p className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest mb-1">Updated</p>
-                    <p className="text-sm font-bold text-zinc-200">
-                      {selectedMapForPreview.updatedAt?.toDate() ? formatShortDistanceToNow(selectedMapForPreview.updatedAt.toDate()) : 'Recently'}
+
+                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                    <Binary className="h-3.5 w-3.5 text-green-400 mb-2 opacity-60" />
+                    <p className="text-[8px] uppercase font-bold text-zinc-500 tracking-widest mb-1.5 leading-none">Total Nodes</p>
+                    <p className="text-[11px] font-bold text-zinc-200 leading-none">
+                      {isFullDataLoading ? '...' : previewStats.totalNodes}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                    <Layers className="h-3.5 w-3.5 text-blue-400 mb-2 opacity-60" />
+                    <p className="text-[8px] uppercase font-bold text-zinc-500 tracking-widest mb-1.5 leading-none">Concepts</p>
+                    <p className="text-[11px] font-bold text-zinc-200 leading-none">
+                      {isFullDataLoading ? '...' : previewStats.concepts}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
+                    <Clock className="h-3.5 w-3.5 text-orange-400 mb-2 opacity-60" />
+                    <p className="text-[8px] uppercase font-bold text-zinc-500 tracking-widest mb-1.5 leading-none">Updated</p>
+                    <p className="text-[11px] font-bold text-zinc-200 leading-none truncate w-full">
+                      {selectedMapForPreview.updatedAt instanceof Date
+                        ? formatShortDistanceToNow(selectedMapForPreview.updatedAt).replace(' ago', '')
+                        : (selectedMapForPreview.updatedAt as any)?.toDate
+                          ? formatShortDistanceToNow((selectedMapForPreview.updatedAt as any).toDate()).replace(' ago', '')
+                          : 'Recent'}
                     </p>
                   </div>
                 </div>
 
                 {/* AI Recommendations */}
                 <div className="flex-1 flex flex-col min-h-0 space-y-3">
-                  <div className="flex items-center gap-2 px-1">
+                  <div className="flex items-center gap-2 px-1 mb-1">
                     <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">AI Recommendations</h4>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">
+                      Generate new maps from these related topics
+                    </h4>
                   </div>
                   <ScrollArea className="flex-1 pr-3">
                     <div className="grid gap-2">

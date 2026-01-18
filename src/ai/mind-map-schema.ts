@@ -13,9 +13,8 @@ const NestedSubCategorySchema: z.ZodType<any> = z.lazy(() =>
       .describe(
         'A relevant icon name from the lucide-react library, in kebab-case (e.g., "book-open").'
       ),
-    tags: z
-      .array(z.string())
-      .describe('A list of 2-3 relevant keywords or tags for the sub-category.'),
+    // Tags removed as they are not used in UI
+
     // Nested expansion support
     nestedExpansion: z
       .object({
@@ -39,9 +38,8 @@ const SubCategorySchema = z.object({
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "book-open").'
     ),
-  tags: z
-    .array(z.string())
-    .describe('A list of 2-3 relevant keywords or tags for the sub-category.'),
+  // Tags removed as they are not used in UI
+
   // Nested expansion support
   nestedExpansion: z
     .object({
@@ -98,7 +96,7 @@ export const NestedExpansionItemSchema = z.object({
     name: z.string(),
     description: z.string(),
     icon: z.string(),
-    tags: z.array(z.string()),
+    tags: z.array(z.string()).optional(),
   })),
   createdAt: z.number(),
   depth: z.number(),
@@ -167,12 +165,38 @@ export const NestedExpansionOutputSchema = z.object({
       name: z.string(),
       description: z.string(),
       icon: z.string(),
-      tags: z.array(z.string()),
+      tags: z.array(z.string()).optional(),
     })
   ).min(4).describe('4-6 sub-categories for the expanded node'),
 });
 
-export type NestedExpansionOutput = z.infer<typeof NestedExpansionOutputSchema>;
+/**
+ * CLEAN SCHEMA for AI GENERATION
+ * This schema only contains fields the AI should actually produce.
+ */
+export const AIGeneratedMindMapSchema = z.object({
+  mode: z.literal('single').default('single'),
+  topic: z.string().describe('The main topic of the mind map.'),
+  shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words).'),
+  icon: z.string().describe('Icon name in kebab-case.'),
+  subTopics: z.array(z.object({
+    name: z.string(),
+    icon: z.string(),
+    insight: z.string().optional(),
+    categories: z.array(z.object({
+      name: z.string(),
+      icon: z.string(),
+      insight: z.string().optional(),
+      subCategories: z.array(z.object({
+        name: z.string(),
+        description: z.string(),
+        icon: z.string()
+      })).min(1)
+    })).min(1)
+  })).min(1)
+});
+
+export type AIGeneratedMindMap = z.infer<typeof AIGeneratedMindMapSchema>;
 export type SubCategory = z.infer<typeof SubCategorySchema>;
 export type Category = z.infer<typeof CategorySchema>;
 export type SubTopic = z.infer<typeof SubTopicSchema>;

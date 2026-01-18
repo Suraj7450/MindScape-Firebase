@@ -903,8 +903,6 @@ export const MindMap = ({
         languageUI={languageUI}
         onLanguageChange={handleLanguageChangeInternal}
         isTranslating={isTranslating}
-        personaUI={personaUI}
-        onPersonaChange={handlePersonaChangeInternal}
         isAllExpanded={isAllExpanded}
         onToggleExpandAll={isAllExpanded ? collapseAll : expandAll}
         isCopied={isCopied}
@@ -917,6 +915,7 @@ export const MindMap = ({
         onDuplicate={handleDuplicate}
         isDuplicating={isDuplicating}
         onRegenerate={onRegenerate}
+        onStartGlobalQuiz={() => onStartQuiz(data.topic)}
         isRegenerating={isRegenerating}
         canRegenerate={canRegenerate}
         nestedExpansionsCount={nestedExpansions.length}
@@ -957,6 +956,8 @@ export const MindMap = ({
               onStackSelect={onStackSelect as any}
               showBadge={true}
               badgeText="Focused Intelligence"
+              persona={aiPersona}
+              depth={data.depth}
             />
 
             {(!data.subTopics || data.subTopics.length === 0) ? (

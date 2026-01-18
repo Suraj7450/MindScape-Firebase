@@ -2,7 +2,14 @@ import React from 'react';
 import {
     ChevronRight,
     BrainCircuit,
-    Sparkles
+    Sparkles,
+    Bot,
+    UserRound,
+    Zap,
+    Palette,
+    Brain,
+    RefreshCw,
+    List
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MindMapData } from '@/types/mind-map';
@@ -16,8 +23,13 @@ interface TopicHeaderProps {
     description?: string;
     showBadge?: boolean;
     badgeText?: string;
+    persona?: string;
+    depth?: 'low' | 'medium' | 'deep';
 }
 
+/**
+ * TopicHeader component for MindScape
+ */
 export const TopicHeader = ({
     mindMap,
     mindMapStack,
@@ -25,7 +37,9 @@ export const TopicHeader = ({
     onStackSelect,
     description,
     showBadge,
-    badgeText
+    badgeText,
+    persona,
+    depth
 }: TopicHeaderProps) => {
     return (
         <div className="relative mb-12 animate-in fade-in slide-in-from-top-4 duration-1000">
@@ -52,10 +66,28 @@ export const TopicHeader = ({
 
                     {/* Badge Integration */}
                     {showBadge && (
-                        <div className="mb-6">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black tracking-[0.2em] uppercase backdrop-blur-md">
+                        <div className="mb-6 flex flex-wrap gap-2">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black tracking-[0.2em] uppercase backdrop-blur-md shadow-[0_0_15px_rgba(var(--primary),0.1)]">
                                 <Sparkles className="h-3.5 w-3.5" />
                                 {badgeText || 'Mind Map'}
+                            </div>
+
+                            {/* Persona Badge */}
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900/50 border border-white/10 text-zinc-300 text-[10px] font-black tracking-[0.2em] uppercase backdrop-blur-md">
+                                {(!persona || persona === 'Standard') && <Bot className="h-3 w-3 text-zinc-400" />}
+                                {persona === 'Teacher' && <UserRound className="h-3 w-3 text-blue-400" />}
+                                {persona === 'Concise' && <Zap className="h-3 w-3 text-amber-400" />}
+                                {persona === 'Creative' && <Palette className="h-3 w-3 text-pink-400" />}
+                                {persona === 'Sage' && <Brain className="h-3 w-3 text-purple-400" />}
+                                {persona || 'Standard'}
+                            </div>
+
+                            {/* Depth Badge */}
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900/50 border border-white/10 text-zinc-300 text-[10px] font-black tracking-[0.2em] uppercase backdrop-blur-md">
+                                {depth === 'low' && <RefreshCw className="h-3 w-3 opacity-50" />}
+                                {depth === 'medium' && <List className="h-3 w-3 opacity-50" />}
+                                {depth === 'deep' && <Sparkles className="h-3 w-3 text-purple-400" />}
+                                {depth === 'low' ? 'Quick' : depth === 'medium' ? 'Balanced' : depth === 'deep' ? 'Deep' : 'Standard'}
                             </div>
                         </div>
                     )}

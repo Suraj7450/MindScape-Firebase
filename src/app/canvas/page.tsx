@@ -16,8 +16,23 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
 
 import { Button } from '@/components/ui/button';
 import {
-  RefreshCw, Sparkles, Loader2, ZapOff
+  RefreshCw, Sparkles, Loader2, ZapOff, List, Bot, UserRound, Zap as ZapIcon, Palette, Brain
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
@@ -62,6 +77,9 @@ function MindMapPageContent() {
   const [chatMode, setChatMode] = useState<'chat' | 'quiz'>('chat');
   const [chatTopic, setChatTopic] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isRegenDialogOpen, setIsRegenDialogOpen] = useState(false);
+  const [tempPersona, setTempPersona] = useState<string>('Standard');
+  const [tempDepth, setTempDepth] = useState<'low' | 'medium' | 'deep'>('low');
 
   const aiHealth = useAIHealth();
   const handleUpdateRef = useRef<(data: Partial<MindMapData>) => void>(() => { });
@@ -71,6 +89,13 @@ function MindMapPageContent() {
   }), []);
 
   const { aiPersona, updatePersona: handlePersonaChange, subscribeToMap, saveMap: handleSaveMap, setupAutoSave } = useMindMapPersistence(persistenceOptions);
+
+  // Sync URL persona with persistence on mount
+  useEffect(() => {
+    if (params.persona && params.persona.toLowerCase() !== aiPersona.toLowerCase()) {
+      handlePersonaChange(params.persona);
+    }
+  }, [params.persona, handlePersonaChange, aiPersona]);
 
   // 1. ADAPTERS
   const expansionAdapter = useMemo(() => ({
@@ -477,6 +502,26 @@ function MindMapPageContent() {
     setIsChatOpen(true);
   }, []);
 
+  const handleRegenerateClick = useCallback(() => {
+    // Ensure we match the Title Case values in our SelectItems
+    const currentPersona = aiPersona || 'Standard';
+    const normalizedPersona = currentPersona.charAt(0).toUpperCase() + currentPersona.slice(1).toLowerCase();
+    setTempPersona(normalizedPersona);
+    setTempDepth(params.depth || 'low');
+    setIsRegenDialogOpen(true);
+  }, [aiPersona, params.depth]);
+
+  const handleConfirmRegeneration = useCallback(() => {
+    setIsRegenDialogOpen(false);
+
+    const newParams = new URLSearchParams(window.location.search);
+    newParams.set('persona', tempPersona);
+    newParams.set('depth', tempDepth);
+    newParams.set('_r', Date.now().toString());
+
+    router.replace(`/canvas?${newParams.toString()}`);
+  }, [router, tempPersona, tempDepth]);
+
 
 
 
@@ -613,7 +658,7 @@ function MindMapPageContent() {
             onLanguageChange={changeLanguage}
             onAIPersonaChange={handlePersonaChange}
             aiPersona={aiPersona}
-            onRegenerate={regenerate}
+            onRegenerate={handleRegenerateClick}
             isRegenerating={isLoading}
             canRegenerate={mode !== 'self-reference'}
             nestedExpansions={mindMap?.nestedExpansions || []}
@@ -623,10 +668,105 @@ function MindMapPageContent() {
             onUpdate={onMapUpdate}
             status={hookStatus}
             aiHealth={aiHealth}
-
           />
         </div>
       </div>
+
+      {/* Regeneration Configuration Dialog */}
+      <Dialog open={isRegenDialogOpen} onOpenChange={setIsRegenDialogOpen}>
+        <DialogContent className="glassmorphism border-white/10 sm:max-w-[425px] rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-white flex items-center gap-3 font-orbitron uppercase tracking-tighter">
+              <RefreshCw className="h-6 w-6 text-purple-400" />
+              Regenerate Mind Map
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400 font-medium tracking-tight">
+              Customize how you want the AI to rethink this topic.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-6">
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1 font-orbitron">AI Persona</label>
+              <Select value={tempPersona} onValueChange={setTempPersona}>
+                <SelectTrigger className="w-full h-12 border border-white/10 bg-black/60 text-[11px] font-bold uppercase tracking-widest text-zinc-100 rounded-2xl hover:bg-black/80 transition px-4 font-orbitron shadow-inner flex items-center justify-between group">
+                  <SelectValue placeholder="Select Persona" />
+                </SelectTrigger>
+                <SelectContent className="glassmorphism border-white/10 z-[1000] !pointer-events-auto">
+                  <SelectItem value="Standard" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-zinc-400" />
+                      <span>Standard (Balanced)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Teacher" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <UserRound className="w-4 h-4 text-blue-400" />
+                      <span>Teacher (Educational)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Concise" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <ZapIcon className="w-4 h-4 text-amber-400" />
+                      <span>Concise (Brief)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Creative" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-pink-400" />
+                      <span>Creative (Imaginative)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="Sage" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-purple-400" />
+                      <span>Cognitive Sage (Philosophical)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1 font-orbitron">Structural Depth</label>
+              <Select value={tempDepth} onValueChange={(val: any) => setTempDepth(val)}>
+                <SelectTrigger className="w-full h-12 border border-white/10 bg-black/60 text-[11px] font-bold uppercase tracking-widest text-zinc-100 rounded-2xl hover:bg-black/80 transition px-4 font-orbitron shadow-inner flex items-center justify-between group">
+                  <SelectValue placeholder="Select Depth" />
+                </SelectTrigger>
+                <SelectContent className="glassmorphism border-white/10 z-[1000] !pointer-events-auto">
+                  <SelectItem value="low" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 opacity-40 shrink-0" />
+                      <span>Quick Overview (24-40 items)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="medium" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <List className="w-4 h-4 opacity-40 shrink-0" />
+                      <span>Balanced Exploration (75 items)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="deep" className="text-[11px] font-bold uppercase font-orbitron py-3 focus:bg-white/10 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>Deep Knowledge Dive (120 items)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setIsRegenDialogOpen(false)} className="rounded-2xl border border-white/5 text-zinc-400 hover:text-white hover:bg-white/5 font-black font-orbitron uppercase tracking-widest px-6 h-12">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRegeneration} className="rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black font-orbitron uppercase tracking-widest px-8 h-12 shadow-[0_0_25px_rgba(139,92,246,0.2)] hover:shadow-[0_0_35px_rgba(139,92,246,0.4)] transition-all">
+              Regenerate Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <button
         onClick={() => setIsChatOpen(true)}
         className="fixed bottom-6 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white shadow-lg transition-transform hover:scale-110 z-50"

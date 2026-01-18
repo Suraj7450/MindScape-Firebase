@@ -78,7 +78,7 @@ export interface NestedExpansionItem {
   parentName: string;
   topic: string;
   icon: string;
-  subCategories: Array<{ name: string; description: string; icon: string; tags: string[] }>;
+  subCategories: Array<{ name: string; description: string; icon: string; tags?: string[] }>;
   createdAt: number;
   depth: number;
   path?: string;
