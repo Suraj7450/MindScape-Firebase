@@ -13,7 +13,6 @@ import {
     Library,
     Network,
     Image as ImageIcon,
-    TestTube2,
     Database,
     Loader2,
     RefreshCw,
@@ -368,6 +367,8 @@ export const MindMapToolbar = ({
                             <TooltipContent className="glassmorphism"><p>Regenerate Map</p></TooltipContent>
                         </Tooltip>
                     )}
+
+
                 </div>
             </div >
         </div >

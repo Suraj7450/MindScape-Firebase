@@ -666,7 +666,7 @@ export default function DashboardPage() {
                   </div>
 
                   <h3 className="font-bold text-lg text-white mb-1.5 truncate transition-colors group-hover:text-purple-400" onClick={() => handleMindMapClick(map.id)}>
-                    {map.topic}
+                    {(map as any).shortTitle || map.topic}
                   </h3>
 
                   <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
@@ -784,7 +784,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <SheetTitle className="text-xl font-bold tracking-tight text-white leading-tight">
-                    {selectedMapForPreview.topic}
+                    {(selectedMapForPreview as any).shortTitle || selectedMapForPreview.topic}
                   </SheetTitle>
                   <SheetDescription className="text-zinc-400 text-xs line-clamp-2">
                     {selectedMapForPreview.summary}

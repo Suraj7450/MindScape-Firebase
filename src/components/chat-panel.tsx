@@ -6,6 +6,7 @@ import {
   Sheet,
   SheetContent,
   SheetTitle,
+  SheetDescription,
   SheetClose,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,9 +41,10 @@ import {
   Download,
   Eraser,
   Github,
-  ChevronRight
+  ChevronRight,
+  BrainCircuit
 } from 'lucide-react';
-import { chatAction, summarizeChatAction, generateRelatedQuestionsAction } from '@/app/actions';
+import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction, regenerateQuizAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText } from '@/lib/utils';
 import { Separator } from './ui/separator';
@@ -51,12 +53,14 @@ import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
-import { QuizComponent } from '@/components/quiz/quiz-component';
-import { Quiz } from '@/ai/schemas/quiz-schema';
+
 import { MindMapData } from '@/types/mind-map';
+import { Quiz, QuizResult } from '@/ai/schemas/quiz-schema';
+import { QuizCard } from './chat/quiz-card';
+import { QuizResultCard } from './chat/quiz-result';
 
 import { doc, getDoc, collection, getDocs, query, where, limit, serverTimestamp, setDoc } from 'firebase/firestore';
-import { generateQuizAction } from '@/app/actions';
+
 import { toPlainObject } from '@/lib/serialize';
 import {
   DropdownMenu,
@@ -80,6 +84,9 @@ declare global {
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  type?: 'chat' | 'quiz' | 'quiz-result';
+  quiz?: Quiz;
+  quizResult?: QuizResult;
 }
 
 /**
@@ -90,8 +97,6 @@ interface ChatSession {
   topic: string;
   messages: Message[];
   timestamp: number;
-  type?: 'chat' | 'quiz';
-  quiz?: Quiz;
 }
 
 type Persona = 'Standard' | 'Teacher' | 'Concise' | 'Creative';
@@ -118,10 +123,10 @@ const allSuggestionPrompts = [
   // Science & Tech
   { icon: Wand2, text: 'Generate a mind map about space exploration', color: 'text-purple-400' },
   { icon: GitCompareArrows, text: 'Compare AI vs Machine Learning', color: 'text-blue-400' },
-  { icon: TestTube2, text: 'Quiz me on world history', color: 'text-green-400' },
+
   { icon: HelpCircle, text: 'Explain quantum computing simply', color: 'text-yellow-400' },
   { icon: Zap, text: 'Explain the theory of relativity', color: 'text-orange-400' },
-  { icon: TestTube2, text: 'How does photosynthesis work?', color: 'text-green-500' },
+
   { icon: Github, text: 'Explain Blockchain technology', color: 'text-gray-400' }, // Assuming Github icon available or use generic
 
   // Creative & Ideas
@@ -138,7 +143,7 @@ const allSuggestionPrompts = [
   // Fun & Random
   { icon: Wand2, text: 'Suggest a creative hobby to start', color: 'text-pink-500' },
   { icon: Sparkles, text: 'Plan a 3-day trip to Japan', color: 'text-red-400' },
-  { icon: TestTube2, text: 'Fun facts about the deep ocean', color: 'text-cyan-400' },
+
 ];
 
 /**
@@ -151,46 +156,52 @@ export function ChatPanel({
   initialMessage,
   mindMapData
 }: ChatPanelProps) {
-  const [sessions, setSessions] = useLocalStorage<ChatSession[]>('chat-sessions', []);
-  const [isQuizLoading, setIsQuizLoading] = useState(false);
-  const [quizTopic, setQuizTopic] = useState<string | undefined>(undefined);
+  const { toast } = useToast();
+  const { user, firestore } = useFirebase();
+  const { config: providerOptionsConfig } = useAIConfig();
+  const providerOptions = useMemo(() => ({
+    provider: providerOptionsConfig.provider,
+    apiKey: providerOptionsConfig.apiKey,
+    model: providerOptionsConfig.pollinationsModel,
+    strict: false
+  }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsModel]);
 
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  // 1. STATE MANAGEMENT
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [persona, setPersona] = useState<Persona>('Standard');
-  const [isListening, setIsListening] = useState(false);
-  const [displayedPrompts, setDisplayedPrompts] = useState(allSuggestionPrompts.slice(0, 4));
-  const { config } = useAIConfig();
-  const providerOptions = useMemo(() => ({
-    provider: config.provider,
-    apiKey: config.apiKey,
-    model: config.pollinationsModel,
-    strict: false
-  }), [config.provider, config.apiKey, config.pollinationsModel]);
+  const [sessions, setSessions] = useLocalStorage<ChatSession[]>('mindscape-chat-sessions', []);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [displayedPrompts, setDisplayedPrompts] = useState<any[]>([]);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isListening, setIsListening] = useState(false);
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [isGeneratingRelated, setIsGeneratingRelated] = useState(false);
+
   const [showRelatedQuestions, setShowRelatedQuestions] = useState(true);
 
-  const { toast } = useToast();
-  const { user, firestore } = useFirebase();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
+
+  // QUIZ STATE
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [quizDifficulty, setQuizDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [quizShowingDifficultySelector, setQuizShowingDifficultySelector] = useState(false);
 
   /**
    * Starts a new chat session.
    */
-  const startNewChat = useCallback((newTopic: string = 'General Conversation', type: 'chat' | 'quiz' = 'chat', quiz?: Quiz) => {
+  const startNewChat = useCallback((newTopic: string = 'General Conversation') => {
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       topic: newTopic,
       messages: [],
-      timestamp: Date.now(),
-      type: type,
-      quiz: quiz
+      timestamp: Date.now()
     };
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
@@ -268,108 +279,143 @@ export function ChatPanel({
     }
   }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions, mindMapData]);
 
-  const handleStartInteractiveQuiz = useCallback(async (quizTopicOverride?: string) => {
-    const quizTitle = quizTopicOverride || topic;
-    const normalizedTopic = quizTitle.trim();
-
-    setIsLoading(true);
-    const { id: toastId, update } = toast({
-      title: 'Preparing Your Quiz...',
-      description: 'Checking for existing knowledge checks...',
-      duration: Infinity,
-    });
-
-    try {
-      // 1. Check Firestore
-      if (user && firestore) {
-        const quizzesRef = collection(firestore, 'users', user.uid, 'quizzes');
-        const q = query(quizzesRef, where('topic', '==', normalizedTopic), limit(1));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const existingQuiz = querySnapshot.docs[0].data() as Quiz;
-          startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', existingQuiz);
-          update({ id: toastId, title: 'Quiz Loaded!', description: 'Resuming your existing knowledge check.', duration: 3000 });
-          return;
-        }
-      }
-
-      // 2. Generate New
-      update({ id: toastId, title: 'Generating New Quiz...', description: `AI is hand-crafting questions for "${normalizedTopic}".` });
-      const { data: quizData, error } = await generateQuizAction({
-        topic: normalizedTopic,
-        mindMapData: mindMapData ? (toPlainObject(mindMapData) as any) : undefined,
-      }, providerOptions);
-
-      if (error) throw new Error(error);
-      if (!quizData) throw new Error("Failed to generate quiz data.");
-
-      // 3. Save to database
-      if (user && firestore) {
-        const quizRef = doc(collection(firestore, 'users', user.uid, 'quizzes'));
-        await setDoc(quizRef, {
-          ...quizData,
-          topic: normalizedTopic,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-      }
-
-      startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', quizData);
-      update({ id: toastId, title: 'Quiz Ready!', description: 'Time to test your knowledge.', duration: 3000 });
-    } catch (err: any) {
-      update({ id: toastId, title: 'Quiz Generation Failed', description: err.message, variant: 'destructive', duration: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [topic, user, firestore, mindMapData, providerOptions, startNewChat, toast]);
-
-  const handleRegenerateQuiz = useCallback(async (topicToRegen: string, wrongConcepts?: string[]) => {
-    if (isQuizLoading) return;
+  /**
+   * Generates a quiz based on the current topic.
+   */
+  const handleStartQuiz = useCallback(async (difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
+    if (!activeSessionId) return;
 
     setIsQuizLoading(true);
-    const normalizedTopic = topicToRegen.trim();
-    setQuizTopic(normalizedTopic);
+    setQuizShowingDifficultySelector(false);
 
-    try {
-      const { data: quizData, error } = await generateQuizAction({
-        topic: normalizedTopic,
-        mindMapData: mindMapData ? (toPlainObject(mindMapData) as any) : undefined,
-        wrongConcepts: wrongConcepts
-      }, providerOptions);
+    // Context for mind map if available
+    const mindMapContext = mindMapData ? JSON.stringify(mindMapData) : undefined;
 
-      if (error) throw new Error(error);
-      if (!quizData) throw new Error("Failed to generate quiz data.");
+    const { data, error } = await generateQuizAction({
+      topic: topic === 'General Conversation' ? 'General Knowledge' : topic,
+      difficulty,
+      mindMapContext
+    }, providerOptions);
 
-      // Replace in database for next time
-      if (user && firestore) {
-        const quizzesRef = collection(firestore, 'users', user.uid, 'quizzes');
-        const q = query(quizzesRef, where('topic', '==', normalizedTopic), limit(1));
-        const querySnapshot = await getDocs(q);
+    setIsQuizLoading(false);
 
-        if (!querySnapshot.empty) {
-          const existingDocId = querySnapshot.docs[0].id;
-          const quizRef = doc(firestore, 'users', user.uid, 'quizzes', existingDocId);
-          await setDoc(quizRef, {
-            ...quizData,
-            topic: normalizedTopic,
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-        }
-      }
-
-      // Add as a new session card as per usual flow
-      startNewChat(`Quiz: ${normalizedTopic}`, 'quiz', quizData);
-    } catch (err: any) {
+    if (error || !data) {
       toast({
-        title: 'Regeneration Failed',
-        description: err.message,
-        variant: 'destructive',
+        title: "Quiz Generation Failed",
+        description: error || "Try again later",
+        variant: "destructive"
       });
-    } finally {
-      setIsQuizLoading(false);
+      return;
     }
-  }, [mindMapData, providerOptions, isQuizLoading, toast, user, firestore, startNewChat]);
+
+    const quizMessage: Message = {
+      role: 'assistant',
+      content: `I've generated a ${difficulty} quiz about ${topic}. Let's test your knowledge!`,
+      type: 'quiz',
+      quiz: data
+    };
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: [...s.messages, quizMessage] }
+        : s
+    ));
+  }, [activeSessionId, topic, mindMapData, providerOptions, setSessions, toast]);
+
+  /**
+   * Handles quiz submission and results calculation
+   */
+  const handleQuizSubmit = useCallback(async (messageIndex: number, answers: Record<string, string>) => {
+    if (!activeSession || !activeSessionId) return;
+    const message = activeSession.messages[messageIndex];
+    if (!message.quiz) return;
+
+    const results: QuizResult = {
+      score: 0,
+      totalQuestions: message.quiz.questions.length,
+      correctAnswers: [],
+      wrongAnswers: [],
+      weakAreas: {},
+      strongAreas: []
+    };
+
+    const strongAreaTags = new Set<string>();
+
+    message.quiz.questions.forEach(q => {
+      if (answers[q.id] === q.correctOptionId) {
+        results.score++;
+        results.correctAnswers.push(q.id);
+        strongAreaTags.add(q.conceptTag);
+      } else {
+        results.wrongAnswers.push(q.id);
+        results.weakAreas[q.conceptTag] = (results.weakAreas[q.conceptTag] || 0) + 1;
+      }
+    });
+
+    results.strongAreas = Array.from(strongAreaTags).filter(tag => !results.weakAreas[tag]);
+
+    const resultMessage: Message = {
+      role: 'assistant',
+      content: `Quiz Results: You scored ${results.score}/${results.totalQuestions}`,
+      type: 'quiz-result',
+      quizResult: results,
+      quiz: message.quiz // Keep original quiz for reference in regeneration
+    };
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: [...s.messages, resultMessage] }
+        : s
+    ));
+  }, [activeSession, activeSessionId, setSessions]);
+
+  /**
+   * Handles adaptive quiz regeneration
+   */
+  const handleRegenerateQuiz = useCallback(async (prevQuiz: Quiz, result: QuizResult) => {
+    if (!activeSessionId) return;
+
+    setIsQuizLoading(true);
+    const weakAreas = Object.keys(result.weakAreas);
+    const otherAreas = result.strongAreas;
+    const previousQuestions = prevQuiz.questions.map(q => q.question);
+
+    const { data, error } = await regenerateQuizAction({
+      topic: prevQuiz.topic,
+      difficulty: prevQuiz.difficulty,
+      weakAreas,
+      otherAreas,
+      previousQuestions
+    }, providerOptions);
+
+    setIsQuizLoading(false);
+
+    if (error || !data) {
+      toast({
+        title: "Regeneration Failed",
+        description: error || "Try again later",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const quizMessage: Message = {
+      role: 'assistant',
+      content: `I've prepared a follow-up quiz focusing on your weak areas: ${weakAreas.join(', ')}. Let's try again!`,
+      type: 'quiz',
+      quiz: data
+    };
+
+    setSessions(prev => prev.map(s =>
+      s.id === activeSessionId
+        ? { ...s, messages: [...s.messages, quizMessage] }
+        : s
+    ));
+  }, [activeSessionId, providerOptions, setSessions, toast]);
+
+
+
+
 
   // Load persona preference from user profile
   useEffect(() => {
@@ -422,7 +468,7 @@ export function ChatPanel({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, view, messages, isGeneratingRelated, relatedQuestions]);
+  }, [isOpen, view, messages, isGeneratingRelated, relatedQuestions, isQuizLoading]);
 
   // Summarize chat to generate a topic title
   useEffect(() => {
@@ -452,9 +498,7 @@ export function ChatPanel({
   useEffect(() => {
     if (isOpen) {
       // Find matching session, checking both plain topic and Quiz prefix
-      const existingSession = sessions.find(s =>
-        s.topic === topic || s.topic === `Quiz: ${topic}`
-      );
+      const existingSession = sessions.find(s => s.topic === topic);
 
       if (existingSession) {
         setActiveSessionId(existingSession.id);
@@ -538,27 +582,7 @@ export function ChatPanel({
       let yPosition = 55;
       const margin = 20;
 
-      // Add Quiz Summary if it's a quiz session
-      if (activeSession.type === 'quiz' && activeSession.quiz) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('Quiz Summary', margin, yPosition);
-        yPosition += 8;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-
-        // Simple heuristic: count occurrences of assistant messages in history to see if quiz was "taken", 
-        // but it's better to just show the quiz metadata we have.
-        doc.text(`Total Questions: ${activeSession.quiz.questions.length}`, margin, yPosition);
-        yPosition += 6;
-
-        // Add a note about adaptive learning
-        doc.setFont('helvetica', 'italic');
-        doc.text('This quiz was generated using MindScape Adaptive Learning Intelligence.', margin, yPosition);
-        yPosition += 10;
-        doc.setFont('helvetica', 'normal');
-      }
 
       // Messages
       const pageHeight = doc.internal.pageSize.height;
@@ -826,412 +850,455 @@ export function ChatPanel({
   };
 
 
-  const renderChatView = () => (
-    <>
-      <ScrollArea className="flex-grow px-4">
-        <div className="flex flex-col gap-4 py-4">
-          {messages.length === 0 && (
-            <div className="text-center p-6 relative min-h-[400px] flex flex-col items-center justify-center">
-              {/* Dynamic Persona Indicator */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute top-0 right-0"
-              >
-                <div className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5 bg-white/5 transition-all shadow-sm",
-                  personas.find(p => p.id === persona)?.color
-                )}>
-                  <Sparkles className="w-3 h-3" />
-                  <span>{persona} Mode</span>
-                </div>
-              </motion.div>
-
-              {/* Enhanced Animated Gradient Background Layer */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-                <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-indigo-500/10 blur-[80px] animate-pulse-glow" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
-              </div>
-
-              {/* Central Hero Section */}
-              <div className="relative z-10 mb-10 w-full">
+  const renderChatView = () => {
+    return (
+      <>
+        <ScrollArea className="flex-grow px-4">
+          <div className="flex flex-col gap-4 py-4">
+            {messages.length === 0 && (
+              <div className="text-center p-6 relative min-h-[400px] flex flex-col items-center justify-center">
+                {/* Dynamic Persona Indicator */}
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute top-0 right-0"
                 >
-                  <div className="relative inline-block mb-6">
-                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
-                    <Avatar className="h-20 w-20 border-2 border-primary/50 mx-auto shadow-2xl relative z-10 group-hover:scale-110 transition-transform duration-500">
-                      <AvatarFallback className="bg-zinc-950 text-primary">
-                        <Bot className="h-10 w-10 animate-float" />
-                      </AvatarFallback>
-                    </Avatar>
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5 bg-white/5 transition-all shadow-sm",
+                    personas.find(p => p.id === persona)?.color
+                  )}>
+                    <Sparkles className="w-3 h-3" />
+                    <span>{persona} Mode</span>
                   </div>
-
-                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-2">
-                    {topic === 'General Conversation' ? "How can I help you?" : `Explore ${topic}`}
-                  </h2>
-                  <p className="text-zinc-500 text-xs font-medium uppercase tracking-[0.2em] animate-pulse">
-                    AI Knowledge Assistant Active
-                  </p>
                 </motion.div>
-              </div>
 
-              {/* Bento Grid Suggestions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg relative z-10">
-                {[
-                  {
-                    title: "Deep Dive",
-                    icon: Wand2,
-                    prompt: `Give me a comprehensive deep dive into ${topic === 'General Conversation' ? 'a random interesting topic' : topic}`,
-                    color: "bg-purple-500/10 hover:bg-purple-500/20",
-                    border: "border-purple-500/20",
-                    iconColor: "text-purple-400"
-                  },
-                  {
-                    title: "Quick Quiz",
-                    icon: TestTube2,
-                    prompt: `Challenge me with a quick quiz about ${topic === 'General Conversation' ? 'General Knowledge' : topic}`,
-                    color: "bg-emerald-500/10 hover:bg-emerald-500/20",
-                    border: "border-emerald-500/20",
-                    iconColor: "text-emerald-400"
-                  },
-                  {
-                    title: "Key Concepts",
-                    icon: GraduationCap,
-                    prompt: `What are the most important concepts to master in ${topic === 'General Conversation' ? 'Learning' : topic}?`,
-                    color: "bg-blue-500/10 hover:bg-blue-500/20",
-                    border: "border-blue-500/20",
-                    iconColor: "text-blue-400"
-                  },
-                  {
-                    title: "Fact Check",
-                    icon: History,
-                    prompt: `Surprise me with some incredible facts about ${topic === 'General Conversation' ? 'the universe' : topic}`,
-                    color: "bg-orange-500/10 hover:bg-orange-500/20",
-                    border: "border-orange-500/20",
-                    iconColor: "text-orange-400"
-                  }
-                ].map((item, index) => (
-                  <motion.button
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
+                {/* Enhanced Animated Gradient Background Layer */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                  <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-indigo-500/10 blur-[80px] animate-pulse-glow" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px]" />
+                </div>
+
+                {/* Central Hero Section */}
+                <div className="relative z-10 mb-10 w-full">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + index * 0.05 }}
-                    onClick={() => {
-                      if (item.title === "Quick Quiz") {
-                        handleStartInteractiveQuiz();
-                      } else {
-                        handleSend(item.prompt);
-                      }
-                    }}
-                    className={cn(
-                      "group flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-lg active:scale-95",
-                      item.color,
-                      item.border
-                    )}
+                    transition={{ duration: 0.5 }}
                   >
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center bg-zinc-950 border border-white/5 shadow-inner transition-transform group-hover:rotate-12",
-                      item.iconColor
-                    )}>
-                      <item.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">{item.title}</h4>
-                      <p className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors line-clamp-1">
-                        Get started instantly
-                      </p>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-
-              {/* Quick Resume Link - Subtly placed at bottom */}
-              {sessions.filter(s => s.id !== activeSessionId && s.messages.length > 0).length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="mt-8 flex items-center gap-2 text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
-                  onClick={() => setView('history')}
-                >
-                  <History className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">View Recent Sessions</span>
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          {/* Messages and Suggestions List */}
-          <div className="flex flex-col gap-6">
-            {messages.map((message, index) => (
-              <div key={index} className="flex flex-col gap-3">
-                <div
-                  className={cn(
-                    'flex items-start gap-3',
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  )}
-                >
-                  {message.role === 'assistant' ? (
-                    <Avatar className="h-8 w-8 border">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Bot className="h-5 w-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <div className="order-2">
-                      <Avatar className="h-8 w-8 border shadow-sm">
-                        <AvatarFallback className="bg-secondary text-secondary-foreground">
-                          <User className="h-5 w-5 text-muted-foreground" />
+                    <div className="relative inline-block mb-6">
+                      <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
+                      <Avatar className="h-20 w-20 border-2 border-primary/50 mx-auto shadow-2xl relative z-10 group-hover:scale-110 transition-transform duration-500">
+                        <AvatarFallback className="bg-zinc-950 text-primary">
+                          <Bot className="h-10 w-10 animate-float" />
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                  )}
-                  <div
-                    className={cn(
-                      'rounded-lg max-w-[80%]',
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-br-none order-1'
-                        : 'bg-secondary/80 rounded-bl-none'
-                    )}
-                  >
-                    <div className="p-3">
-                      <div
-                        className="text-sm prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                      />
-                    </div>
-                    {message.role === 'assistant' && (
-                      <div className="flex items-center gap-1 px-3 pb-2 pt-0">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                onClick={() => handleCopy(message.content, index)}
-                              >
-                                {copiedIndex === index ? (
-                                  <Check className="h-3 w-3 text-green-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Copy</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
 
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                onClick={() => handleRegenerate(index)}
-                              >
-                                <RefreshCw className={cn("h-3 w-3", isLoading && index === messages.length - 1 && "animate-spin")} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Regenerate</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    )}
-                  </div>
+                    <h2 className="text-xl md:text-2xl font-black text-white tracking-tight mb-2 line-clamp-2 px-6">
+                      {topic === 'General Conversation' ? "How can I help you?" : `Explore ${topic}`}
+                    </h2>
+                    <p className="text-zinc-500 text-xs font-medium uppercase tracking-[0.2em] animate-pulse">
+                      AI Knowledge Assistant Active
+                    </p>
+                  </motion.div>
                 </div>
 
-                {/* Related Questions Section */}
-                {message.role === 'assistant' && index === messages.length - 1 && (
-                  <div className="ml-11 flex flex-col gap-3">
-                    {/* Toggle Header */}
-                    {(isGeneratingRelated || relatedQuestions.length > 0) && (
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => setShowRelatedQuestions(!showRelatedQuestions)}
-                          className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
-                        >
-                          <Sparkles className={cn("h-3 w-3", isGeneratingRelated ? "animate-spin text-primary" : "text-primary/50 group-hover:text-primary")} />
-                          <span>Related Questions</span>
-                          <motion.div
-                            animate={{ rotate: showRelatedQuestions ? 0 : -90 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </motion.div>
-                        </button>
-
-                        {relatedQuestions.length > 0 && !isGeneratingRelated && (
-                          <div className="h-[1px] flex-grow bg-border/30 ml-3" />
+                {/* Bento Grid Suggestions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg relative z-10">
+                  {[
+                    {
+                      title: "Deep Dive",
+                      icon: Wand2,
+                      prompt: `Give me a comprehensive deep dive into ${topic === 'General Conversation' ? 'a random interesting topic' : topic}`,
+                      color: "bg-purple-500/10 hover:bg-purple-500/20",
+                      border: "border-purple-500/20",
+                      iconColor: "text-purple-400"
+                    },
+                    {
+                      title: "Quick Quiz",
+                      icon: BrainCircuit,
+                      prompt: "quiz",
+                      color: "bg-emerald-500/10 hover:bg-emerald-500/20",
+                      border: "border-emerald-500/20",
+                      iconColor: "text-emerald-400"
+                    },
+                    {
+                      title: "Key Concepts",
+                      icon: GraduationCap,
+                      prompt: `What are the most important concepts to master in ${topic === 'General Conversation' ? 'Learning' : topic}?`,
+                      color: "bg-blue-500/10 hover:bg-blue-500/20",
+                      border: "border-blue-500/20",
+                      iconColor: "text-blue-400"
+                    },
+                    {
+                      title: "Fact Check",
+                      icon: History,
+                      prompt: `Surprise me with some incredible facts about ${topic === 'General Conversation' ? 'the universe' : topic}`,
+                      color: "bg-orange-500/10 hover:bg-orange-500/20",
+                      border: "border-orange-500/20",
+                      iconColor: "text-orange-400"
+                    }
+                  ].map((item, index) => (
+                    <div key={index} className="relative group">
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 + index * 0.05 }}
+                        onClick={() => {
+                          console.log('[DEBUG] Suggestion Clicked:', item.title);
+                          if (item.title === 'Quick Quiz') {
+                            setQuizShowingDifficultySelector(true);
+                          } else {
+                            handleSend(item.prompt);
+                          }
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-300 text-left hover:scale-[1.02] hover:shadow-lg active:scale-95 cursor-pointer",
+                          item.color,
+                          item.border
                         )}
-                      </div>
-                    )}
+                      >
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center bg-zinc-950 border border-white/5 shadow-inner transition-transform group-hover:rotate-12",
+                          item.iconColor
+                        )}>
+                          <item.icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-grow">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">{item.title}</h4>
+                          <p className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors line-clamp-1">
+                            {item.title === 'Quick Quiz' ? 'Adaptive Learning Engine' : 'Get started instantly'}
+                          </p>
+                        </div>
+                      </motion.div>
 
-                    {/* Content Area */}
-                    <AnimatePresence mode="wait">
-                      {isGeneratingRelated ? (
+                      {item.title === 'Quick Quiz' && quizShowingDifficultySelector && (
                         <motion.div
-                          key="loading"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse py-1"
+                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="absolute inset-0 z-20 bg-zinc-950/90 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-2 flex flex-col justify-center gap-1.5"
                         >
-                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                          <span>Finding relevant insights...</span>
-                        </motion.div>
-                      ) : showRelatedQuestions && relatedQuestions.length > 0 && (
-                        <motion.div
-                          key="questions"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3, ease: 'easeInOut' }}
-                          className="overflow-hidden"
-                        >
-                          <div className="flex flex-col gap-2.5 pt-1">
-                            {relatedQuestions.map((q: string, qIndex: number) => (
-                              <motion.button
-                                key={qIndex}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: qIndex * 0.05 }}
-                                onClick={() => handleSend(q)}
-                                className="text-[11px] bg-secondary/40 hover:bg-secondary/60 text-muted-foreground hover:text-primary border border-border/50 py-2.5 px-4 rounded-2xl transition-all flex items-start gap-3 group text-left w-full sm:w-auto sm:max-w-md shadow-sm hover:shadow-md hover:border-primary/30"
+                          <p className="text-[9px] font-bold text-center text-emerald-400 uppercase tracking-widest mb-1">Choose Difficulty</p>
+                          <div className="flex items-center justify-center gap-1">
+                            {['easy', 'medium', 'hard'].map((d) => (
+                              <Button
+                                key={d}
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartQuiz(d as any);
+                                }}
+                                className="h-8 text-[10px] font-bold uppercase rounded-lg hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5"
                               >
-                                <HelpCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 opacity-50 group-hover:opacity-100 text-primary/70" />
-                                <span className="flex-grow leading-relaxed font-medium">{q}</span>
-                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all mt-0.5" />
-                              </motion.button>
+                                {d}
+                              </Button>
                             ))}
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setQuizShowingDifficultySelector(false); }}
+                            className="text-[9px] text-zinc-500 hover:text-white uppercase font-bold mt-1"
+                          >
+                            Cancel
+                          </button>
                         </motion.div>
                       )}
-                    </AnimatePresence>
-                  </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Resume Link - Subtly placed at bottom */}
+                {sessions.filter(s => s.id !== activeSessionId && s.messages.length > 0).length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                    className="mt-8 flex items-center gap-2 text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
+                    onClick={() => setView('history')}
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest leading-none">View Recent Sessions</span>
+                  </motion.div>
                 )}
               </div>
-            ))}
-          </div>
-
-          {isQuizLoading && (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in duration-500">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                  className="relative w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center"
-                >
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Sparkles className="h-8 w-8 text-primary shadow-glow" />
-                  </motion.div>
-                </motion.div>
-                <div className="absolute -top-1 -right-1">
-                  <span className="flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                  </span>
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <h3 className="text-sm font-bold text-white tracking-tight">Generating Quiz</h3>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-medium">
-                  {quizTopic || topic}
-                </p>
-              </div>
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
-                    className="w-1 h-1 bg-primary rounded-full"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-
-          {activeSession?.type === 'quiz' && activeSession.quiz && (
-            <div className="mt-4 px-1 pb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <QuizComponent
-                quiz={activeSession.quiz}
-                onClose={() => {
-                  toast({ title: "Quiz Finished", description: "You've completed the knowledge check." });
-                }}
-                onRestart={(wrongConcepts) => {
-                  if (activeSession.topic) {
-                    handleRegenerateQuiz(activeSession.topic.replace('Quiz: ', ''), wrongConcepts);
-                  }
-                }}
-              />
-            </div>
-          )}
-          {isLoading && (
-            <div className="flex items-center gap-3 justify-start">
-              <Avatar className="h-8 w-8 border">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Bot className="h-5 w-5" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="p-3 rounded-lg bg-secondary/80 rounded-bl-none">
-                <Loader2 className="h-5 w-5 animate-spin" />
-              </div>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-      <div className="px-4 pb-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex gap-2"
-        >
-          <div className="relative flex-grow">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={isListening ? "Listening..." : "Ask a question..."}
-              disabled={isLoading}
-              className={cn("glassmorphism pr-10", isListening && "border-primary ring-1 ring-primary")}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent",
-                isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={handleVoiceInput}
-              disabled={isLoading}
-            >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button>
-          </div>
-          <Button type="submit" disabled={isLoading || !input.trim()}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
             )}
-          </Button>
-        </form>
-      </div>
-    </>
-  );
+
+            {/* Messages and Suggestions List */}
+            <div className="flex flex-col gap-6">
+              <AnimatePresence initial={false} mode="popLayout">
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={`${activeSessionId}-${index}`}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    className="flex flex-col gap-3"
+                  >
+                    <div
+                      className={cn(
+                        'flex items-start gap-3',
+                        message.role === 'user' ? 'justify-end' : 'justify-start'
+                      )}
+                    >
+                      {message.role === 'assistant' ? (
+                        <Avatar className="h-8 w-8 border">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            <Bot className="h-5 w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="order-2">
+                          <Avatar className="h-8 w-8 border shadow-sm">
+                            <AvatarFallback className="bg-secondary text-secondary-foreground">
+                              <User className="h-5 w-5 text-muted-foreground" />
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          'rounded-3xl max-w-[85%] overflow-hidden transition-all duration-300',
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-br-none order-1'
+                            : 'bg-secondary/40 backdrop-blur-sm border border-white/5 rounded-bl-none'
+                        )}
+                      >
+                        <div className="p-4">
+                          {message.type === 'quiz' && message.quiz ? (
+                            <QuizCard
+                              quiz={message.quiz}
+                              onSubmit={(answers) => handleQuizSubmit(index, answers)}
+                              isSubmitting={isQuizLoading}
+                            />
+                          ) : message.type === 'quiz-result' && message.quizResult ? (
+                            <QuizResultCard
+                              result={message.quizResult}
+                              quiz={message.quiz}
+                              onRegenerate={() => handleRegenerateQuiz(message.quiz!, message.quizResult!)}
+                              isRegenerating={isQuizLoading}
+                            />
+                          ) : (
+                            <div
+                              className="text-sm prose prose-sm max-w-none leading-relaxed prose-invert"
+                              dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                            />
+                          )}
+                        </div>
+                        {message.role === 'assistant' && (
+                          <div className="flex items-center gap-1 px-3 pb-2 pt-0">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                    onClick={() => handleCopy(message.content, index)}
+                                  >
+                                    {copiedIndex === index ? (
+                                      <Check className="h-3 w-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                    onClick={() => handleRegenerate(index)}
+                                  >
+                                    <RefreshCw className={cn("h-3 w-3", isLoading && index === messages.length - 1 && "animate-spin")} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Regenerate</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Related Questions Section */}
+                    {message.role === 'assistant' && index === messages.length - 1 && (
+                      <div className="ml-11 flex flex-col gap-3">
+                        {/* Toggle Header */}
+                        {(isGeneratingRelated || relatedQuestions.length > 0) && (
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={() => setShowRelatedQuestions(!showRelatedQuestions)}
+                              className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
+                            >
+                              <Sparkles className={cn("h-3 w-3", isGeneratingRelated ? "animate-spin text-primary" : "text-primary/50 group-hover:text-primary")} />
+                              <span>Related Questions</span>
+                              <motion.div
+                                animate={{ rotate: showRelatedQuestions ? 0 : -90 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                              </motion.div>
+                            </button>
+
+                            {relatedQuestions.length > 0 && !isGeneratingRelated && (
+                              <div className="h-[1px] flex-grow bg-border/30 ml-3" />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Content Area */}
+                        <AnimatePresence mode="wait">
+                          {isGeneratingRelated ? (
+                            <motion.div
+                              key="loading"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse py-1"
+                            >
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                              <span>Finding relevant insights...</span>
+                            </motion.div>
+                          ) : showRelatedQuestions && relatedQuestions.length > 0 && (
+                            <motion.div
+                              key="questions"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              className="overflow-hidden"
+                            >
+                              <div className="flex flex-col gap-2.5 pt-1">
+                                {relatedQuestions.map((q: string, qIndex: number) => (
+                                  <motion.button
+                                    key={qIndex}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: qIndex * 0.05 }}
+                                    onClick={() => handleSend(q)}
+                                    className="text-[11px] bg-secondary/40 hover:bg-secondary/60 text-muted-foreground hover:text-primary border border-border/50 py-2.5 px-4 rounded-2xl transition-all flex items-start gap-3 group text-left w-full sm:w-auto sm:max-w-md shadow-sm hover:shadow-md hover:border-primary/30"
+                                  >
+                                    <HelpCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 opacity-50 group-hover:opacity-100 text-primary/70" />
+                                    <span className="flex-grow leading-relaxed font-medium">{q}</span>
+                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all mt-0.5" />
+                                  </motion.button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {/* Quiz Generation / Regeneration Loading State */}
+              {isQuizLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-start gap-3 justify-start"
+                >
+                  <Avatar className="h-8 w-8 border">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Bot className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-secondary/40 backdrop-blur-sm border border-white/5 rounded-2xl rounded-bl-none overflow-hidden p-6 w-full max-w-lg shadow-xl relative mt-2">
+                    {/* Animated background pulse */}
+                    <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+
+                    <div className="relative z-10 flex flex-col items-center justify-center space-y-4">
+                      <div className="relative">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                          className="w-16 h-16 rounded-full border-2 border-dashed border-primary/30"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <BrainCircuit className="w-8 h-8 text-primary animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest">Architecting Quiz</h4>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-1 h-1 bg-primary rounded-full animate-bounce" />
+                        </div>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-tighter pt-2">AI is mapping your progress nodes...</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {isLoading && (
+                <div className="flex items-center gap-3 justify-start">
+                  <Avatar className="h-8 w-8 border">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Bot className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="p-3 rounded-lg bg-secondary/80 rounded-bl-none">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+        </ScrollArea>
+        <div className="px-4 pb-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex gap-2"
+          >
+            <div className="relative flex-grow">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isListening ? "Listening..." : "Ask a question..."}
+                disabled={isLoading}
+                className={cn("glassmorphism pr-10", isListening && "border-primary ring-1 ring-primary")}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent",
+                  isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={handleVoiceInput}
+                disabled={isLoading}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            </div>
+            <Button type="submit" disabled={isLoading || !input.trim()}>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+        </div>
+      </>
+    );
+  };
 
   const renderHistoryView = () => {
     const filteredSessions = sessions.filter(s => s.topic !== 'General Conversation');
@@ -1280,25 +1347,44 @@ export function ChatPanel({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col p-0 glassmorphism [&>button]:hidden">
-        <div className="flex justify-between items-center p-2 border-b">
-          <div className="flex items-center gap-1">
+      <SheetContent
+        className="w-full sm:max-w-lg flex flex-col p-0 glassmorphism [&>button]:hidden"
+        aria-describedby={undefined}
+      >
+        <div className="flex items-center gap-2 p-2 border-b">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
             {view === 'history' && activeSession && (
-              <Button variant="ghost" size="icon" onClick={() => setView('chat')}>
+              <Button variant="ghost" size="icon" onClick={() => setView('chat')} className="flex-shrink-0">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             )}
-            <SheetTitle className="text-lg font-semibold pl-2">
-              {view === 'history'
-                ? 'Chat History'
-                : isQuizLoading
-                  ? `Quiz: ${quizTopic || topic}`
-                  : activeSession?.type === 'quiz'
-                    ? `Quiz: ${activeSession.topic.replace('Quiz: ', '')}`
-                    : activeSession?.topic ?? 'AI Chat'}
-            </SheetTitle>
+            <div className="min-w-0 flex-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-col min-w-0">
+                      <SheetTitle className="text-sm sm:text-base font-bold truncate cursor-help">
+                        {view === 'history'
+                          ? 'Chat History'
+                          : activeSession?.topic ?? 'AI Chat'}
+                      </SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Assistant for {topic}
+                      </SheetDescription>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-[300px]">
+                    <p className="text-xs break-words">
+                      {view === 'history'
+                        ? 'Chat History'
+                        : activeSession?.topic ?? 'AI Chat'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
-          <div className='flex items-center gap-1'>
+          <div className='flex items-center gap-1 flex-shrink-0'>
             {view === 'chat' && (
               <>
                 {/* Persona Selector */}
@@ -1379,30 +1465,6 @@ export function ChatPanel({
                   <History className="h-5 w-5" />
                   <span className="sr-only">Chat History</span>
                 </Button>
-
-                {activeSession?.type === 'quiz' && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const cleanTopic = activeSession.topic.replace('Quiz: ', '').trim();
-                            handleRegenerateQuiz(cleanTopic);
-                          }}
-                          disabled={isQuizLoading}
-                        >
-                          <RefreshCw className={cn("h-5 w-5", isQuizLoading && "animate-spin")} />
-                          <span className="sr-only">Regenerate Quiz</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p>Regenerate Quiz</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
 
                 <Button variant="ghost" size="icon" onClick={() => startNewChat(topic)}>
                   <Plus className="h-5 w-5" />

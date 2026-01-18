@@ -140,6 +140,7 @@ export const SingleMindMapSchema = z.object({
   shortTitle: z.string().optional().describe('A condensed version of the topic (max 3-4 words) for focused display.'),
   icon: z
     .string()
+    .optional()
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "brain-circuit").'
     ),
@@ -150,6 +151,7 @@ export const SingleMindMapSchema = z.object({
   nestedExpansions: z.array(NestedExpansionItemSchema).optional(),
   savedImages: z.array(GeneratedImageSchema).optional(),
   thumbnailUrl: z.string().optional(),
+  depth: z.enum(['low', 'medium', 'deep']).optional(),
 });
 
 export const MindMapSchema = z.union([SingleMindMapSchema, CompareMindMapSchema]);

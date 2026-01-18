@@ -105,8 +105,8 @@ export async function generateMindMap(
 
   The mind map must have the following JSON structure:
 {
-  "topic": "Your Topic Here",  // Field name in camelCase, value in proper English
-    "shortTitle": "Short Title", // A condensed version (max 3-4 words)
+    "topic": "Your Topic Here",  // Field name in camelCase, value in proper English
+    "shortTitle": "Short Title", // CRITICAL: A condensed, catchy, and 'smart' version (max 2-4 words). Avoid filler words like 'A guide to...' or 'Introduction to...'. Make it impactful.
       "icon": "brain-circuit",
         "subTopics": [
           {
@@ -141,6 +141,7 @@ export async function generateMindMap(
   - Sub - category descriptions MUST be exactly one sentence and highly informative.
   - ${densityInstruction}
   - DO NOT return an empty 'subTopics' array.If you are stuck, explore broad sub - categories of the given topic.
+  - SMART TITLES: The 'shortTitle' must be the "Hero" title of the map. It should be punchy and professional.
   - FAILURE IS NOT AN OPTION: You must return a full, deep hierarchy. "Short" or "shallow" responses are invalid.
 
   Create an informative and well - structured mind map for the topic: "${topic}".

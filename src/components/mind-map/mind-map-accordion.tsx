@@ -111,7 +111,7 @@ export const MindMapAccordion = ({
             onValueChange={setOpenSubTopics}
             className="space-y-4"
         >
-            {mindMap.subTopics?.map((subTopic: any, index: number) => {
+            {mindMap.mode === 'single' && mindMap.subTopics.map((subTopic, index) => {
                 const SubTopicIcon = (LucideIcons as any)[toPascalCase(subTopic.icon)] || Library;
                 const subTopicId = `topic-${index}`;
 

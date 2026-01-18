@@ -199,9 +199,9 @@ function Hero({
                       <SelectValue placeholder="Depth" />
                     </SelectTrigger>
                     <SelectContent className="glassmorphism border-white/10">
-                      <SelectItem value="low" className="text-xs">Low (Quick)</SelectItem>
-                      <SelectItem value="medium" className="text-xs">Medium (Balanced)</SelectItem>
-                      <SelectItem value="deep" className="text-xs">Deep (Detailed)</SelectItem>
+                      <SelectItem value="low" className="text-xs">Quick</SelectItem>
+                      <SelectItem value="medium" className="text-xs">Balanced</SelectItem>
+                      <SelectItem value="deep" className="text-xs">Detailed</SelectItem>
                     </SelectContent>
                   </Select>
 

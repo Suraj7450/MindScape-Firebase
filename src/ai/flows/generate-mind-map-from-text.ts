@@ -88,7 +88,7 @@ export async function generateMindMapFromText(
   
     The mind map must have the following structure:
     - Topic: The main topic identified from the text. If the user provided context, use it to refine the topic.
-    - ShortTitle: A condensed version of the topic (max 3-4 words) for focused display.
+    - ShortTitle: A condensed, catchy, and smart version (max 2-4 words) for focused display.
     - Icon: A relevant icon name from the lucide-react library, in kebab-case (e.g., "file-text").
     - Sub-Topics: A list of at least 4-5 main sub-topics.
       - Icon: A relevant lucide-react icon for each sub-topic.

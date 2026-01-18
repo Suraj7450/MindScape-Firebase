@@ -129,13 +129,11 @@ const LucideIcons = {
 };
 import {
   enhanceImagePromptAction,
-  generateQuizAction,
   translateMindMapAction,
   explainNodeAction,
   explainWithExampleAction,
 } from '@/app/actions';
-import { QuizComponent } from './quiz/quiz-component';
-import { Quiz } from '@/ai/schemas/quiz-schema';
+
 import {
   MindMapData,
   NestedExpansionItem,
@@ -800,9 +798,10 @@ export const MindMap = ({
       collectIds(data.compareData.topicBDeepDive);
       setOpenCompareNodes(allIds);
     } else {
-      const allTopicIds = data.subTopics.map((_, i) => `topic-${i}`);
-      const allCategoryIds = ((data as any).subTopics as any[]).flatMap((t, i) =>
-        t.categories.map((_: any, j: number) => `cat-${i}-${j}`)
+      const singleData = data as any;
+      const allTopicIds = (singleData.subTopics as any[] || []).map((_: any, i: number) => `topic-${i}`);
+      const allCategoryIds = (singleData.subTopics as any[] || []).flatMap((t: any, i: number) =>
+        (t.categories as any[] || []).map((_: any, j: number) => `cat-${i}-${j}`)
       );
       setOpenSubTopics(allTopicIds);
       setOpenCategories(allCategoryIds);
@@ -929,6 +928,7 @@ export const MindMap = ({
         isPublishing={isPublishing}
         isPublic={!!data.isPublic}
         isCompare={data.mode === 'compare'}
+
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
@@ -954,7 +954,6 @@ export const MindMap = ({
               mindMapStack={mindMapStack}
               activeStackIndex={activeStackIndex}
               onStackSelect={onStackSelect as any}
-              description={data.summary}
               showBadge={true}
               badgeText="Focused Intelligence"
             />

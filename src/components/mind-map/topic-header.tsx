@@ -86,7 +86,7 @@ export const TopicHeader = ({
 
                     <div className="space-y-4 max-w-3xl">
                         <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-[0.9] transition-transform duration-500 group-hover:-translate-x-1">
-                            {mindMap.topic}
+                            {mindMap.shortTitle || mindMap.topic}
                         </h1>
                         {description && (
                             <p className="text-lg md:text-xl text-zinc-400 font-medium leading-relaxed max-w-2xl animate-in fade-in slide-in-from-left-4 duration-700 delay-300">

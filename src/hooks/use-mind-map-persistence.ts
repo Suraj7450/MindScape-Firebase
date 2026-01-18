@@ -107,17 +107,19 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
     const saveMap = useCallback(async (mapToSave: MindMapData, existingId?: string, isSilent: boolean = false) => {
         if (!mapToSave || !user || !firestore || isSavingRef.current) return;
 
-        const isCompare = (mapToSave as any).mode === 'compare';
-
-        if (!isCompare && (!mapToSave.subTopics || mapToSave.subTopics.length === 0)) {
-            console.warn('Refused to save empty mind map');
-            return;
+        if (mapToSave.mode === 'compare') {
+            if (!mapToSave.compareData) {
+                console.warn('Refused to save empty comparison map');
+                return;
+            }
+        } else {
+            if (!mapToSave.subTopics || mapToSave.subTopics.length === 0) {
+                console.warn('Refused to save empty mind map');
+                return;
+            }
         }
 
-        if (isCompare && !(mapToSave as any).compareData) {
-            console.warn('Refused to save empty comparison map');
-            return;
-        }
+        const isCompare = mapToSave.mode === 'compare';
 
         const targetId = existingId || mapToSave.id;
         isSavingRef.current = true;
@@ -183,12 +185,12 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 thumbnailUrl: thumbnailUrl || '', // Save empty initially if not exists
                 thumbnailPrompt,
                 userId: user.uid,
-                isSubMap: mapToSave.isSubMap || false,
+                isSubMap: mapToSave.mode === 'single' ? (mapToSave.isSubMap || false) : false,
                 hasSplitContent: true, // Flag for migration/loading logic
             };
 
             // Only include parentMapId if it exists (Firestore doesn't allow undefined)
-            if (mapToSave.parentMapId) {
+            if (mapToSave.mode === 'single' && mapToSave.parentMapId) {
                 metadataToSave.parentMapId = mapToSave.parentMapId;
             }
 

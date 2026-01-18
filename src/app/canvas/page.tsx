@@ -13,7 +13,7 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   ssr: false,
   loading: () => null
 });
-import { Quiz } from '@/ai/schemas/quiz-schema';
+
 import { Button } from '@/components/ui/button';
 import {
   RefreshCw, Sparkles, Loader2, ZapOff
@@ -31,7 +31,6 @@ import {
   generateMindMapAction,
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
-  generateQuizAction,
   generateComparisonMapAction,
 } from '@/app/actions';
 import { toPlainObject } from '@/lib/serialize';
@@ -472,6 +471,8 @@ function MindMapPageContent() {
 
 
 
+
+
   const handleGenerateAndOpenSubMap = useCallback(async (subTopic: string, nodeId: string, contextPath: string, mode: 'foreground' | 'background' = 'background') => {
     try {
       if (user) {
@@ -613,6 +614,7 @@ function MindMapPageContent() {
             onUpdate={onMapUpdate}
             status={hookStatus}
             aiHealth={aiHealth}
+
           />
         </div>
       </div>
@@ -629,7 +631,7 @@ function MindMapPageContent() {
           setIsChatOpen(false);
           setChatInitialMessage(undefined);
         }}
-        topic={mindMap?.topic || 'Mind Map Details'}
+        topic={mindMap?.shortTitle || mindMap?.topic || 'Mind Map Details'}
         mindMapData={mindMap}
         initialMessage={chatInitialMessage}
       />

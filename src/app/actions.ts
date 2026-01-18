@@ -52,14 +52,16 @@ import {
   EnhanceImagePromptInput,
   EnhanceImagePromptOutput,
 } from '@/ai/flows/enhance-image-prompt';
-import { generateQuiz, GenerateQuizInput } from '@/ai/flows/generate-quiz';
-import { Quiz } from '@/ai/schemas/quiz-schema';
+
 
 import {
   expandNode,
   ExpandNodeInput,
   ExpandNodeOutput,
 } from '@/ai/flows/expand-node';
+import { generateQuizFlow, GenerateQuizInput } from '@/ai/flows/generate-quiz';
+import { regenerateQuizFlow, RegenerateQuizInput } from '@/ai/flows/regenerate-quiz';
+import { Quiz } from '@/ai/schemas/quiz-schema';
 import {
   generateRelatedQuestions,
   RelatedQuestionsInput,
@@ -411,35 +413,7 @@ export async function expandNodeAction(
   }
 }
 
-/**
- * Server action to generate a quiz based on a topic and optional mind map data.
- * @param {GenerateQuizInput} input - The input for the quiz generation.
- * @returns {Promise<{ data: Quiz | null; error: string | null }>} The generated quiz or an error.
- */
-export async function generateQuizAction(
-  input: GenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
-): Promise<{ data: Quiz | null; error: string | null }> {
-  try {
-    const result = await generateQuiz({ ...input, ...options });
-    return { data: result, error: null };
-  } catch (error: any) {
-    console.error('Error in generateQuizAction:', error);
-    let errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
 
-    // Friendly handling for 429 quota errors
-    if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
-      errorMessage = 'AI service quota exceeded. Please wait a moment or check your Gemini API billing details.';
-    } else if (errorMessage.includes('500') || errorMessage.includes('Pollinations API error')) {
-      errorMessage = 'The AI service is currently overwhelmed or refusing the request. Please try again with a simpler topic or wait a few seconds.';
-    }
-
-    return {
-      data: null,
-      error: `Failed to generate quiz: ${errorMessage}`,
-    };
-  }
-}
 
 /**
  * Server action to generate related questions based on the current context.
@@ -518,6 +492,43 @@ export async function generateComparisonMapAction(
     return {
       data: null,
       error: `Failed to generate comparison map: ${errorMessage}`,
+    };
+  }
+}
+/**
+ * Server action to generate a quiz based on a topic and optional mind map data.
+ */
+export async function generateQuizAction(
+  input: GenerateQuizInput,
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+): Promise<{ data: Quiz | null; error: string | null }> {
+  try {
+    const result = await generateQuizFlow({ ...input, ...options });
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('Error in generateQuizAction:', error);
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to generate quiz.',
+    };
+  }
+}
+
+/**
+ * Server action to regenerate an adaptive quiz based on previous results.
+ */
+export async function regenerateQuizAction(
+  input: RegenerateQuizInput,
+  options: { apiKey?: string; provider?: AIProvider; strict?: boolean } = {}
+): Promise<{ data: Quiz | null; error: string | null }> {
+  try {
+    const result = await regenerateQuizFlow({ ...input, ...options });
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('Error in regenerateQuizAction:', error);
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to regenerate quiz.',
     };
   }
 }

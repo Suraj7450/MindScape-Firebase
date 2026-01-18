@@ -110,7 +110,7 @@ export async function generateMindMapFromImage(
     {
       "mode": "single",
       "topic": "The main topic identified from the content",
-      "shortTitle": "A condensed version (max 3-4 words)",
+      "shortTitle": "A condensed, smart, and catchy version (max 2-4 words)",
       "icon": "relevant-lucide-icon",
       "subTopics": [
         {

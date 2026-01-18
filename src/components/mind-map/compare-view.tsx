@@ -91,7 +91,6 @@ export const CompareView = ({
                 mindMap={data}
                 mindMapStack={[]} // Breadcrumbs not yet fully implemented for compare in terms of persistent stack, but component handles it
                 activeStackIndex={0}
-                description={compareData.root.description}
                 showBadge={true}
                 badgeText="Comparative Intelligence"
             />
@@ -449,7 +448,7 @@ const CompareNodeItem = ({
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 transition-all" onClick={handleCopy}>
-                                        {isCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                                        {isCopied ? <CheckIcon className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="glassmorphism"><p>{isCopied ? 'Copied!' : 'Copy Context'}</p></TooltipContent>

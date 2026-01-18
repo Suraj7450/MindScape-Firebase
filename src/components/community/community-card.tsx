@@ -44,7 +44,7 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
                 </div>
             </div>
 
-            <h3 className="font-bold text-lg text-white mb-2 line-clamp-1 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pt-2">{map.topic}</h3>
+            <h3 className="font-bold text-lg text-white mb-2 line-clamp-1 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pt-2">{map.shortTitle || map.topic}</h3>
 
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px] items-center">
                 {map.publicCategories?.map(cat => (

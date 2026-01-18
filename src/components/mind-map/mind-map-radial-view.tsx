@@ -104,77 +104,79 @@ const LayoutEngine = (data: MindMapData) => {
     let totalTreeHeight = 0;
 
     // Process SubTopics (Level 1)
-    data.subTopics.forEach((st, stIdx) => {
-        const stHeight = calculateSubtreeHeight(st, 'subtopic');
-        const stY = currentY + stHeight / 2; // Center relative to own subtree range
+    if (data.mode === 'single') {
+        data.subTopics.forEach((st, stIdx) => {
+            const stHeight = calculateSubtreeHeight(st, 'subtopic');
+            const stY = currentY + stHeight / 2; // Center relative to own subtree range
 
-        // Place SubTopic Node
-        const stNode: NodePosition = {
-            id: `st-${stIdx}`,
-            x: ROOT_X + H_SPACING,
-            y: stY,
-            data: { label: st.name, icon: st.icon },
-            type: 'subtopic',
-            parentId: 'root',
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT
-        };
-        nodes.push(stNode);
-
-        // Process Categories (Level 2)
-        let catCurrentY = currentY; // Start at the top of this subtopic's slot
-
-        st.categories.forEach((cat, catIdx) => {
-            const catHeight = calculateSubtreeHeight(cat, 'category');
-            const catY = catCurrentY + catHeight / 2;
-
-            const catNode: NodePosition = {
-                id: `st-${stIdx}-cat-${catIdx}`,
-                x: ROOT_X + H_SPACING * 2,
-                y: catY,
-                data: { label: cat.name, icon: cat.icon },
-                type: 'category',
-                parentId: `st-${stIdx}`,
+            // Place SubTopic Node
+            const stNode: NodePosition = {
+                id: `st-${stIdx}`,
+                x: ROOT_X + H_SPACING,
+                y: stY,
+                data: { label: st.name, icon: st.icon },
+                type: 'subtopic',
+                parentId: 'root',
                 width: NODE_WIDTH,
                 height: NODE_HEIGHT
             };
-            nodes.push(catNode);
+            nodes.push(stNode);
 
-            // Process SubCategories (Level 3 - Leaves)
-            let subCatCurrentY = catCurrentY;
-            cat.subCategories.forEach((subCat, scIdx) => {
-                const subCatHeight = LEAF_HEIGHT;
-                const subCatY = subCatCurrentY + subCatHeight / 2;
+            // Process Categories (Level 2)
+            let catCurrentY = currentY; // Start at the top of this subtopic's slot
 
-                const subCatNode: NodePosition = {
-                    id: `st-${stIdx}-cat-${catIdx}-sub-${scIdx}`,
-                    x: ROOT_X + H_SPACING * 3,
-                    y: subCatY,
-                    data: { label: subCat.name, ...subCat }, // pass full data for actions
-                    type: 'subcategory',
-                    parentId: `st-${stIdx}-cat-${catIdx}`,
-                    width: LEAF_WIDTH,
-                    height: LEAF_HEIGHT
+            st.categories.forEach((cat, catIdx) => {
+                const catHeight = calculateSubtreeHeight(cat, 'category');
+                const catY = catCurrentY + catHeight / 2;
+
+                const catNode: NodePosition = {
+                    id: `st-${stIdx}-cat-${catIdx}`,
+                    x: ROOT_X + H_SPACING * 2,
+                    y: catY,
+                    data: { label: cat.name, icon: cat.icon },
+                    type: 'category',
+                    parentId: `st-${stIdx}`,
+                    width: NODE_WIDTH,
+                    height: NODE_HEIGHT
                 };
-                nodes.push(subCatNode);
+                nodes.push(catNode);
 
-                subCatCurrentY += subCatHeight + V_SPACING;
+                // Process SubCategories (Level 3 - Leaves)
+                let subCatCurrentY = catCurrentY;
+                cat.subCategories.forEach((subCat, scIdx) => {
+                    const subCatHeight = LEAF_HEIGHT;
+                    const subCatY = subCatCurrentY + subCatHeight / 2;
+
+                    const subCatNode: NodePosition = {
+                        id: `st-${stIdx}-cat-${catIdx}-sub-${scIdx}`,
+                        x: ROOT_X + H_SPACING * 3,
+                        y: subCatY,
+                        data: { label: subCat.name, ...subCat }, // pass full data for actions
+                        type: 'subcategory',
+                        parentId: `st-${stIdx}-cat-${catIdx}`,
+                        width: LEAF_WIDTH,
+                        height: LEAF_HEIGHT
+                    };
+                    nodes.push(subCatNode);
+
+                    subCatCurrentY += subCatHeight + V_SPACING;
+                });
+
+                if (cat.subCategories.length === 0) {
+                    // Reserve space even if empty to avoid overlap
+                    catCurrentY += catHeight + V_SPACING;
+                } else {
+                    catCurrentY = subCatCurrentY; // Advance by what was consumed
+                }
             });
 
-            if (cat.subCategories.length === 0) {
-                // Reserve space even if empty to avoid overlap
-                catCurrentY += catHeight + V_SPACING;
+            if (st.categories.length === 0) {
+                currentY += stHeight + V_SPACING;
             } else {
-                catCurrentY = subCatCurrentY; // Advance by what was consumed
+                currentY = catCurrentY; // Advance outer Y
             }
         });
-
-        if (st.categories.length === 0) {
-            currentY += stHeight + V_SPACING;
-        } else {
-            currentY = catCurrentY; // Advance outer Y
-        }
-    });
+    }
 
     totalTreeHeight = currentY;
 

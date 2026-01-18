@@ -1,78 +1,50 @@
-'use server';
-
 import { z } from 'zod';
-import { QuizSchema } from '@/ai/schemas/quiz-schema';
-import { generateContent, AIProvider } from '@/ai/client-dispatcher';
+import { ai } from '@/ai/genkit';
+import { QuizSchema } from '../schemas/quiz-schema';
 
-const GenerateQuizInputSchema = z.object({
-  topic: z.string().describe('The main topic for the quiz.'),
-  mindMapData: z.any().optional().describe('Optional mind map data to provide more context for the quiz.'),
-  targetLang: z.string().optional().describe('The target language for the quiz content (e.g., "es").'),
-  count: z.number().optional().describe('Number of questions to generate.'),
-  wrongConcepts: z.array(z.string()).optional().describe('Concepts the user has struggled with previously.'),
+export const GenerateQuizInputSchema = z.object({
+    topic: z.string(),
+    difficulty: z.enum(['easy', 'medium', 'hard']),
+    mindMapContext: z.string().optional().describe('Text representation of the mind map nodes and structure'),
 });
 
-export type GenerateQuizInput = z.input<typeof GenerateQuizInputSchema>;
+export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
-export async function generateQuiz(
-  input: GenerateQuizInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
-): Promise<z.infer<typeof QuizSchema>> {
-  const { topic, mindMapData, targetLang, count = 5, wrongConcepts, provider, apiKey, strict } = input;
+export const generateQuizFlow = ai.defineFlow(
+    {
+        name: 'generateQuizFlow',
+        inputSchema: GenerateQuizInputSchema,
+        outputSchema: QuizSchema,
+    },
+    async (input) => {
+        const { topic, difficulty, mindMapContext } = input;
 
-  const prompt = `You are an expert educator creating a quiz to test a student's knowledge on a specific topic.
+        const systemPrompt = `You are an educational assessment generator for MindScape, an adaptive learning platform.
+    Your goal is to generate a high-quality, multiple-choice quiz that helps users master a topic.
+    
+    Rules:
+    - Generate strictly 5-10 questions.
+    - Each question MUST have exactly 4 options (A, B, C, D).
+    - Provide a "conceptTag" for each question that identifies the specific sub-topic or skill (e.g., "Auto Layout", "Hooks").
+    - If mindMapContext is provided, ground the questions in that specific hierarchy.
+    - Ensure difficulty level "${difficulty}" is strictly followed.
+    - Return ONLY valid JSON matching the schema.`;
 
-  TOPIC: "${topic}"
-  ${mindMapData ? `CONTEXT DATA (Mind Map Summary): 
-  - Topic: ${mindMapData.topic}
-  - Summary: ${mindMapData.summary || 'N/A'}
-  - Sub-topics: ${mindMapData.subTopics?.map((st: any) => `${st.name} (${st.categories?.map((c: any) => c.name).join(', ')})`).join('; ')}` : ''}
+        const userPrompt = `Generate a ${difficulty} quiz for the topic: "${topic}".
+    ${mindMapContext ? `Use the following mind map structure for context:\n${mindMapContext}` : ''}
+    
+    Make sure the conceptTags are concise and consistent so we can track performance across those tags.`;
 
-  TASK:
-  Generate a high-quality, challenging but fair multiple-choice quiz with exactly ${count} questions.
-  ${wrongConcepts && wrongConcepts.length > 0 ? `REINFORCEMENT: Focus more on these concepts that the student struggled with: ${wrongConcepts.join(', ')}.` : ''}
-  Each question must have 4 options, one correct answer, and a clear explanation for the correct answer.
+        const { output } = await ai.generate({
+            system: systemPrompt,
+            prompt: userPrompt,
+            output: { schema: QuizSchema },
+        });
 
-  ${targetLang ? `The entire quiz content MUST be in the following language: ${targetLang}.` : 'The entire quiz content MUST be in English.'}
+        if (!output) {
+            throw new Error('AI failed to generate a valid quiz.');
+        }
 
-  RULES:
-  1. Questions should cover different aspects of the topic.
-  2. Options should be plausible but distinct.
-  3. The explanation should be informative and help the student learn.
-  4. Ensure the output is a valid JSON object matching the QuizSchema.
-  5. ADAPTIVE METADATA: Each question MUST include:
-     - "difficulty": "basic" | "intermediate" | "advanced"
-     - "conceptTag": A short label of the concept being tested (e.g., "Closure", "Syntax")
-     - "questionType": "conceptual" (theory) | "application" (puzzles/code snippets) | "trap" (common mistakes)
-  6. Do NOT include markdown formatting.
-
-  OUTPUT STRUCTURE:
-  {
-    "topic": "${topic}",
-    "questions": [
-      {
-        "id": "q1",
-        "question": "...",
-        "options": ["...", "...", "...", "..."],
-        "correctAnswer": "...",
-        "explanation": "...",
-        "difficulty": "...",
-        "conceptTag": "...",
-        "questionType": "..."
-      },
-      ...
-    ]
-  }
-
-  Generate the quiz now.`;
-
-  const result = await generateContent({
-    provider,
-    apiKey,
-    systemPrompt: "System: High-quality educational quiz generator. Output MUST be strictly valid JSON.",
-    userPrompt: prompt,
-    schema: QuizSchema,
-    strict
-  });
-
-  return result;
-}
+        return output;
+    }
+);
