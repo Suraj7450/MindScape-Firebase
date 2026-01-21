@@ -281,15 +281,15 @@ export const MindMap = ({
   const { config } = useAIConfig();
   const providerOptions = useMemo(() => ({
     provider: config.provider,
-    apiKey: config.apiKey,
+    apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
     model: config.pollinationsModel,
-  }), [config.provider, config.apiKey, config.pollinationsModel]);
+  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);
 
   const imageProviderOptions = useMemo(() => ({
     provider: config.provider === 'gemini' ? 'pollinations' : config.provider as 'pollinations' | 'bytez',
-    apiKey: config.apiKey,
+    apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
     model: config.pollinationsModel
-  }), [config.provider, config.apiKey, config.pollinationsModel]);
+  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);
 
 
 
@@ -629,7 +629,8 @@ export const MindMap = ({
           prompt: subCategory.name,
           description: subCategory.description,
           style: 'Photorealistic',
-          provider: imageProviderOptions?.provider
+          provider: imageProviderOptions?.provider,
+          apiKey: imageProviderOptions?.provider === 'pollinations' ? (imageProviderOptions as any).apiKey : undefined
         })
       });
 

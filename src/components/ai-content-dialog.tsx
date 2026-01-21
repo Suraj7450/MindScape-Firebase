@@ -121,8 +121,8 @@ export function AiContentDialog({
         y += 8;
 
         const topics = [
-          { name: cd.root.title.split(' vs ')[0] || 'Topic A', data: cd.differences.topicA },
-          { name: cd.root.title.split(' vs ')[1] || 'Topic B', data: cd.differences.topicB }
+          { name: cd.root?.title?.split(' vs ')[0] || 'Topic A', data: cd.differences.topicA },
+          { name: cd.root?.title?.split(' vs ')[1] || 'Topic B', data: cd.differences.topicB }
         ];
 
         topics.forEach(topic => {
@@ -223,26 +223,30 @@ export function AiContentDialog({
       });
 
       md += `## Topic Differences\n\n`;
-      md += `### Unique to ${compareData.root.title.split(' vs ')[0]}\n`;
+      md += `### Unique to ${compareData.root?.title?.split(' vs ')[0] || 'Topic A'}\n`;
       compareData.differences.topicA.forEach(node => {
         md += `- **${node.title}**: ${node.description || ''}\n`;
       });
 
-      md += `\n### Unique to ${compareData.root.title.split(' vs ')[1]}\n`;
+      md += `\n### Unique to ${compareData.root?.title?.split(' vs ')[1] || 'Topic B'}\n`;
       compareData.differences.topicB.forEach(node => {
         md += `- **${node.title}**: ${node.description || ''}\n`;
       });
 
       md += `\n## Structured Deep Dives\n\n`;
-      md += `### Exploration of ${compareData.root.title.split(' vs ')[0]}\n`;
-      compareData.topicADeepDive.forEach(node => {
-        md += `#### ${node.title}\n${node.description || ''}\n`;
-      });
+      if (compareData.topicADeepDive && compareData.topicADeepDive.length > 0) {
+        md += `### Exploration of ${compareData.root?.title?.split(' vs ')[0] || 'Topic A'}\n`;
+        compareData.topicADeepDive.forEach(node => {
+          md += `#### ${node.title}\n${node.description || ''}\n`;
+        });
+      }
 
-      md += `\n### Exploration of ${compareData.root.title.split(' vs ')[1]}\n`;
-      compareData.topicBDeepDive.forEach(node => {
-        md += `#### ${node.title}\n${node.description || ''}\n`;
-      });
+      if (compareData.topicBDeepDive && compareData.topicBDeepDive.length > 0) {
+        md += `\n### Exploration of ${compareData.root?.title?.split(' vs ')[1] || 'Topic B'}\n`;
+        compareData.topicBDeepDive.forEach(node => {
+          md += `#### ${node.title}\n${node.description || ''}\n`;
+        });
+      }
     } else {
       mindMap.subTopics.forEach(st => {
         md += `## ${st.name}\n\n`;
@@ -333,7 +337,7 @@ export function AiContentDialog({
                 <Card className="bg-zinc-900/50 border-white/5">
                   <CardHeader>
                     <CardTitle className="text-xl text-primary font-bold uppercase tracking-tight">
-                      {mindMap.compareData.root.title.split(' vs ')[0] || 'Topic A'}
+                      {mindMap.compareData.root?.title?.split(' vs ')[0] || 'Topic A'}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -349,7 +353,7 @@ export function AiContentDialog({
                 <Card className="bg-zinc-900/50 border-white/5">
                   <CardHeader>
                     <CardTitle className="text-xl text-primary font-bold uppercase tracking-tight">
-                      {mindMap.compareData.root.title.split(' vs ')[1] || 'Topic B'}
+                      {mindMap.compareData.root?.title?.split(' vs ')[1] || 'Topic B'}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">

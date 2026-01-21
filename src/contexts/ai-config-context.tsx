@@ -9,6 +9,7 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 interface AIConfig {
     provider: AIProvider;
     apiKey: string;
+    pollinationsApiKey: string;
     temperature: number;
     topP: number;
     pollinationsModel?: string;
@@ -23,6 +24,7 @@ interface AIConfigContextType {
 const DEFAULT_CONFIG: AIConfig = {
     provider: 'pollinations',
     apiKey: '',
+    pollinationsApiKey: '',
     temperature: 0.7,
     topP: 0.9,
 };
@@ -76,6 +78,7 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
 
                 if (settings.provider) remoteConfig.provider = settings.provider;
                 if (settings.apiKey) remoteConfig.apiKey = settings.apiKey;
+                if (settings.pollinationsApiKey) remoteConfig.pollinationsApiKey = settings.pollinationsApiKey;
                 if (settings.pollinationsModel) remoteConfig.pollinationsModel = settings.pollinationsModel;
 
                 if (Object.keys(remoteConfig).length > 0) {

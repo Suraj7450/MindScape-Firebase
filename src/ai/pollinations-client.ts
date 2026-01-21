@@ -83,7 +83,8 @@ CRITICAL:
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
+                ...(options.apiKey ? { 'Authorization': `Bearer ${options.apiKey}` } :
+                    process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
             },
             body: JSON.stringify(body),
         });

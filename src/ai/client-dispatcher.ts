@@ -131,7 +131,8 @@ function isReasoningOnly(raw: any): boolean {
  * based on the user's configuration.
  */
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
-    let { provider = 'pollinations' } = options;
+    const originalProvider = options.provider || 'pollinations';
+    let { provider = originalProvider } = options;
     const { apiKey, systemPrompt, userPrompt, images, schema } = options;
     const strict = false; // Rigidly disabled
 
@@ -148,6 +149,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             const result = await retry(async () => {
                 const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
                     model: options.model,
+                    apiKey: provider === 'pollinations' ? options.apiKey : undefined,
                     response_format: schema ? { type: 'json_object' } : undefined
                 });
 
@@ -171,7 +173,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
     // 3. Gemini (Selected OR Fallback)
     if (provider === 'gemini') {
-        const effectiveApiKey = apiKey || process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+        const effectiveApiKey = (provider === originalProvider ? options.apiKey : undefined) || process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
 
         if (!effectiveApiKey) {
             throw new Error("Gemini provider requires an API Key. Please configure GOOGLE_GENAI_API_KEY or GEMINI_API_KEY or provide a custom key.");

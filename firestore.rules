@@ -10,6 +10,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() && request.auth.uid == 'ykLjl8seAmc3DUevXHheLSIYety1';
+    }
+
     /* =========================
        USER PRIVATE DATA
     ========================== */
@@ -51,8 +55,11 @@ service cloud.firestore {
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])) // Others can only update views
       );
 
-      // Delete: only author
-      allow delete: if isSignedIn() && resource.data.originalAuthorId == request.auth.uid;
+      // Delete: author or admin
+      allow delete: if isSignedIn() && (
+        resource.data.originalAuthorId == request.auth.uid  // Original author
+        || isAdmin()  // Admin user
+      );
     }
   }
 }

@@ -80,7 +80,14 @@ import { addDoc, collection } from 'firebase/firestore';
  * Fills in default values for required fields like tags and isExpanded.
  */
 function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): MindMapData {
-  if (raw.mode === 'compare' || raw.compareData) {
+  if (raw.mode === 'compare' || raw.compareData || raw.similarities || raw.root) {
+    // Handle both formats: nested (raw.compareData) and flat (raw.similarities/root directly)
+    const compareData = raw.compareData || {
+      root: raw.root,
+      similarities: raw.similarities,
+      differences: raw.differences
+    };
+
     return {
       ...raw,
       mode: 'compare',
@@ -89,10 +96,10 @@ function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): M
       updatedAt: raw.updatedAt || Date.now(),
       compareData: {
         ...raw.compareData,
-        similarities: (raw.compareData.similarities || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+        similarities: (compareData.similarities || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
         differences: {
-          topicA: (raw.compareData.differences?.topicA || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
-          topicB: (raw.compareData.differences?.topicB || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+          topicA: (compareData.differences?.topicA || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+          topicB: (compareData.differences?.topicB || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
         }
       }
     } as CompareMindMapData;

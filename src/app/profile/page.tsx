@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
     Loader2, ArrowLeft, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
@@ -36,6 +37,7 @@ interface UserProfile {
         provider?: 'gemini' | 'pollinations' | 'bytez';
         imageProvider?: 'pollinations' | 'bytez';
         pollinationsModel?: string;
+        pollinationsApiKey?: string;
     };
 }
 
@@ -88,6 +90,7 @@ export default function ProfilePage() {
     const [editName, setEditName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isPollinationsKeyConfigured, setIsPollinationsKeyConfigured] = useState(false);
+    const [manualPollinationsKey, setManualPollinationsKey] = useState('');
 
     // Initial key check
     useEffect(() => {
@@ -127,10 +130,14 @@ export default function ProfilePage() {
                             },
                             apiSettings: {
                                 provider: data.apiSettings?.provider || 'gemini',
+                                imageProvider: data.apiSettings?.imageProvider || 'pollinations',
+                                pollinationsModel: data.apiSettings?.pollinationsModel || '',
+                                pollinationsApiKey: data.apiSettings?.pollinationsApiKey || '',
                             }
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
+                        setManualPollinationsKey(profileData.apiSettings?.pollinationsApiKey || '');
                     } else {
                         const defaultData: UserProfile = {
                             displayName: user.displayName || 'User',
@@ -139,11 +146,15 @@ export default function ProfilePage() {
                             preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
                             apiSettings: {
                                 provider: 'gemini',
+                                imageProvider: 'pollinations',
+                                pollinationsModel: '',
+                                pollinationsApiKey: '',
                             },
                             statistics: { currentStreak: 0 },
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
+                        setManualPollinationsKey('');
                     }
                     setLoading(false);
                 }, (error) => {
@@ -259,6 +270,28 @@ export default function ProfilePage() {
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
         }
+    };
+
+    const savePollinationsKey = async () => {
+        if (!user || !firestore) return;
+        setIsSaving(true);
+        try {
+            await setDoc(doc(firestore, 'users', user.uid), {
+                apiSettings: { pollinationsApiKey: manualPollinationsKey.trim() }
+            }, { merge: true });
+            toast({ title: 'Saved', description: 'Pollinations API Key updated.' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save API key' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const connectPollinations = () => {
+        const redirectUrl = encodeURIComponent(window.location.origin + '/profile');
+        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance&models=flux,openai,mistral,qwen&expiry=30`;
+        window.location.href = authUrl;
     };
 
 
@@ -527,8 +560,75 @@ export default function ProfilePage() {
                                 </Select>
 
                                 {activeMode === 'pollinations' && (
-                                    <div className="flex flex-col gap-2 pt-1 pl-1 animation-in slide-in-from-top-1 duration-300">
-                                        <p className="text-[10px] text-zinc-500 leading-relaxed italic">
+                                    <div className="flex flex-col gap-3 pt-2 pl-1 animation-in slide-in-from-top-1 duration-300">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Pollinations Connection</span>
+                                                {profile.apiSettings?.pollinationsApiKey ? (
+                                                    <Badge variant="outline" className="h-4 text-[8px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-1.5 flex items-center gap-1">
+                                                        <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                                                        Connected
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="h-4 text-[8px] bg-zinc-800 text-zinc-500 border-zinc-700 px-1.5">
+                                                        Not Linked
+                                                    </Badge>
+                                                )}
+                                            </div>
+
+                                            <Button
+                                                onClick={connectPollinations}
+                                                className="w-full h-8 text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-medium shadow-lg shadow-violet-500/20"
+                                            >
+                                                <Sparkles className="h-3 w-3 mr-2" />
+                                                Connect with Pollinations
+                                            </Button>
+
+                                            <div className="relative py-1">
+                                                <div className="absolute inset-0 flex items-center">
+                                                    <span className="w-full border-t border-zinc-800" />
+                                                </div>
+                                                <div className="relative flex justify-center text-[8px] uppercase tracking-widest">
+                                                    <span className="bg-zinc-900 px-2 text-zinc-600">or manual key</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <Input
+                                                        type="password"
+                                                        placeholder="sk-..."
+                                                        value={manualPollinationsKey}
+                                                        onChange={(e) => setManualPollinationsKey(e.target.value)}
+                                                        className="h-8 text-[10px] bg-zinc-950/50 border-zinc-800 focus:border-violet-500/50 transition-colors pr-8"
+                                                    />
+                                                    {manualPollinationsKey && (
+                                                        <button
+                                                            onClick={() => setManualPollinationsKey('')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={savePollinationsKey}
+                                                    disabled={isSaving || manualPollinationsKey === (profile.apiSettings?.pollinationsApiKey || '')}
+                                                    className="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs"
+                                                >
+                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Apply'}
+                                                </Button>
+                                            </div>
+
+                                            <p className="text-[10px] text-zinc-500 leading-relaxed italic">
+                                                Use your own Pollen for generation. <a href="https://enter.pollinations.ai" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">Visit Pollinations</a> to manage your credits.
+                                            </p>
+                                        </div>
+
+                                        <div className="h-px bg-zinc-800 my-1" />
+
+                                        <p className="text-[10px] text-zinc-500 leading-relaxed">
                                             Intelligent Model Switching enabled. MindScape automatically selects the optimal engine (Qwen, Mistral, or Gemini) based on your task for maximum precision.
                                         </p>
                                     </div>

@@ -40,6 +40,7 @@ function BackgroundGlow() {
 }
 
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { PollinationsAuthHandler } from '@/components/pollinations-auth-handler';
 
 /**
  * The root layout component for the entire application.
@@ -63,6 +64,7 @@ export default function RootLayout({
 
         <FirebaseClientProvider>
           <AIConfigProvider>
+            <PollinationsAuthHandler />
             <NotificationProvider>
               <TooltipProvider delayDuration={400}>
                 <BackgroundGlow />

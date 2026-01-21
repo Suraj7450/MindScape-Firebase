@@ -7,7 +7,7 @@ const pollinationsModels = ['flux', 'turbo', 'gptimage', 'kontext', 'seedream', 
 
 export async function POST(req: Request) {
   try {
-    const { prompt, size, style, provider } = await req.json();
+    const { prompt, size, style, provider, apiKey } = await req.json();
 
     if (!prompt) {
       return NextResponse.json(
@@ -21,7 +21,10 @@ export async function POST(req: Request) {
       await enhanceImagePromptAction(
         { prompt, style },
         // Pass provider from request if valid, otherwise undefined (defaults to Pollinations)
-        { provider: (provider === 'gemini' ? 'gemini' : 'pollinations') }
+        {
+          provider: (provider === 'gemini' ? 'gemini' : 'pollinations'),
+          apiKey: provider === 'pollinations' ? apiKey : undefined
+        }
       );
 
     if (enhanceError || !enhancedPrompt) {
@@ -43,7 +46,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function generateWithPollinations(prompt: string, size?: string) {
+async function generateWithPollinations(prompt: string, size?: string, apiKey?: string) {
   const [width, height] = (size || '1024x1024').split('x').map(Number);
 
   // Refined model list with latest stable Pollinations options
@@ -59,9 +62,10 @@ async function generateWithPollinations(prompt: string, size?: string) {
 
       console.log(`🎨 Attempting image generation with model: ${model}`);
 
+      const effectiveApiKey = apiKey || process.env.POLLINATIONS_API_KEY;
       const imageResponse = await fetch(imageUrl, {
         headers: {
-          ...(process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
+          ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
         }
       });
 

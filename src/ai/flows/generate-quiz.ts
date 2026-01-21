@@ -16,6 +16,10 @@ export async function generateQuizFlow(input: GenerateQuizInput): Promise<any> {
     console.log('🚀 This is the NEW plain async version, NOT Genkit!');
     const { topic, difficulty, mindMapContext } = input;
 
+
+    // Determine question count based on difficulty
+    const questionCount = difficulty === 'easy' ? 5 : difficulty === 'medium' ? 8 : 12;
+
     const systemPrompt = `You are an educational assessment generator for MindScape, an adaptive learning platform.
     Your goal is to generate a high-quality, multiple-choice quiz that helps users master a topic.
     
@@ -41,7 +45,7 @@ export async function generateQuizFlow(input: GenerateQuizInput): Promise<any> {
     }
     
     Rules:
-    - Generate strictly 5-10 questions.
+    - Generate EXACTLY ${questionCount} questions (${difficulty} difficulty = ${questionCount} questions).
     - Each question MUST have exactly 4 options (A, B, C, D).
     - Provide a "conceptTag" for each question that identifies the specific sub-topic or skill.
     - If mindMapContext is provided, ground the questions in that specific hierarchy.

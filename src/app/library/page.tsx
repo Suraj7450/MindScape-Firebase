@@ -30,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { useNotifications } from '@/contexts/notification-context';
+import { useAIConfig } from '@/contexts/ai-config-context';
 import { categorizeMindMapAction, suggestRelatedTopicsAction } from '@/app/actions/community';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
@@ -88,6 +89,7 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { saveMap: persistMindMap } = useMindMapPersistence();
+  const { config } = useAIConfig();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('recent');
@@ -98,6 +100,8 @@ export default function DashboardPage() {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isSuggestingTopics, setIsSuggestingTopics] = useState(false);
   const [isPublishingMapId, setIsPublishingMapId] = useState<string | null>(null);
+  const [isUnpublishingMapId, setIsUnpublishingMapId] = useState<string | null>(null);
+  const [previewMapPublishStatus, setPreviewMapPublishStatus] = useState<boolean | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [isDownloadingFullData, setIsDownloadingFullData] = useState(false);
@@ -368,7 +372,10 @@ export default function DashboardPage() {
         const { data, error } = await generateMindMapAction({
           topic,
           depth: (selectedMapForPreview as any).depth || 'low'
-        }, {});
+        }, {
+          provider: config.provider,
+          apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+        });
 
         if (error) throw new Error(error);
 
@@ -541,6 +548,11 @@ export default function DashboardPage() {
       await setDoc(publicDocRef, publicData);
       await updateDoc(docRef, { isPublic: true, publicCategories: categories });
 
+      // Update only the publish status without triggering full re-render
+      if (selectedMapForPreview && selectedMapForPreview.id === map.id) {
+        setPreviewMapPublishStatus(true);
+      }
+
       update({
         id: toastId,
         title: 'Mind Map Published!',
@@ -561,6 +573,53 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUnpublish = async (map: SavedMindMap) => {
+    if (!user || !firestore || isUnpublishingMapId) return;
+
+    setIsUnpublishingMapId(map.id);
+
+    const { id: toastId, update } = toast({
+      title: 'Unpublishing from Community...',
+      description: 'Removing your mind map from the community.',
+      duration: Infinity,
+    });
+
+    try {
+      // Delete from publicMindmaps collection
+      const publicDocRef = doc(firestore, 'publicMindmaps', map.id);
+      await deleteDoc(publicDocRef);
+
+      // Update user's map to set isPublic = false
+      const userMapRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
+      await updateDoc(userMapRef, {
+        isPublic: false,
+        updatedAt: Date.now()
+      });
+
+      // Update only the publish status without triggering full re-render
+      if (selectedMapForPreview && selectedMapForPreview.id === map.id) {
+        setPreviewMapPublishStatus(false);
+      }
+
+      update({
+        id: toastId,
+        title: 'Unpublished Successfully',
+        description: 'Your mind map has been removed from the community.',
+        duration: 5000,
+      });
+    } catch (err: any) {
+      console.error('Unpublish error:', err);
+      update({
+        id: toastId,
+        title: 'Unpublish Failed',
+        variant: 'destructive',
+        description: err.message || 'An error occurred.',
+        duration: 5000,
+      });
+    } finally {
+      setIsUnpublishingMapId(null);
+    }
+  };
 
 
   const mindMapsQuery = useMemoFirebase(() => {
@@ -605,11 +664,19 @@ export default function DashboardPage() {
         maps.sort((a, b) => a.topic.localeCompare(b.topic));
         break;
       case 'oldest':
-        maps.sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+        maps.sort((a, b) => {
+          const aTime = typeof a.createdAt === 'number' ? a.createdAt : (a.createdAt?.toMillis() ?? 0);
+          const bTime = typeof b.createdAt === 'number' ? b.createdAt : (b.createdAt?.toMillis() ?? 0);
+          return aTime - bTime;
+        });
         break;
       case 'recent':
       default:
-        maps.sort((a, b) => (b.updatedAt?.toMillis() ?? 0) - (a.updatedAt?.toMillis() ?? 0));
+        maps.sort((a, b) => {
+          const aTime = typeof a.updatedAt === 'number' ? a.updatedAt : (a.updatedAt?.toMillis() ?? 0);
+          const bTime = typeof b.updatedAt === 'number' ? b.updatedAt : (b.updatedAt?.toMillis() ?? 0);
+          return bTime - aTime;
+        });
         break;
     }
 
@@ -783,7 +850,11 @@ export default function DashboardPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300"
-                            onClick={() => setSelectedMapForPreview(sanitizeMapForState(map))}
+                            onClick={() => {
+                              const sanitizedMap = sanitizeMapForState(map);
+                              setSelectedMapForPreview(sanitizedMap);
+                              setPreviewMapPublishStatus((sanitizedMap as any).isPublic ?? false);
+                            }}
                           >
                             <Info className="h-4 w-4" />
                           </Button>
@@ -876,11 +947,6 @@ export default function DashboardPage() {
             <>
               <div className="flex-1 flex flex-col p-6 space-y-5 overflow-hidden">
                 <SheetHeader className="space-y-1">
-                  <div className="flex items-center justify-end">
-                    {(selectedMapForPreview as any).isPublic && (
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-none uppercase text-[10px] font-bold">Community</Badge>
-                    )}
-                  </div>
                   <SheetTitle className="text-xl font-bold tracking-tight text-white leading-tight">
                     {(selectedMapForPreview as any).shortTitle || selectedMapForPreview.topic}
                   </SheetTitle>
@@ -964,17 +1030,53 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
-                    <Clock className="h-3.5 w-3.5 text-orange-400 mb-2 opacity-60" />
-                    <p className="text-[8px] uppercase font-bold text-zinc-500 tracking-widest mb-1.5 leading-none">Updated</p>
-                    <p className="text-[11px] font-bold text-zinc-200 leading-none truncate w-full">
-                      {selectedMapForPreview.updatedAt instanceof Date
-                        ? formatShortDistanceToNow(selectedMapForPreview.updatedAt).replace(' ago', '')
-                        : (selectedMapForPreview.updatedAt as any)?.toDate
-                          ? formatShortDistanceToNow((selectedMapForPreview.updatedAt as any).toDate()).replace(' ago', '')
-                          : 'Recent'}
+
+                  {/* Publish/Unpublish Toggle Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (previewMapPublishStatus) {
+                        handleUnpublish(selectedMapForPreview);
+                      } else {
+                        handlePublish(selectedMapForPreview);
+                      }
+                    }}
+                    disabled={isPublishingMapId === selectedMapForPreview.id || isUnpublishingMapId === selectedMapForPreview.id}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition-all duration-300",
+                      (isPublishingMapId === selectedMapForPreview.id || isUnpublishingMapId === selectedMapForPreview.id)
+                        ? "opacity-60 cursor-not-allowed"
+                        : "hover:scale-105 active:scale-95 cursor-pointer",
+                      previewMapPublishStatus
+                        ? "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20"
+                        : "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20"
+                    )}
+                  >
+                    {(isPublishingMapId === selectedMapForPreview.id || isUnpublishingMapId === selectedMapForPreview.id) ? (
+                      <Loader2 className="h-3.5 w-3.5 mb-2 animate-spin text-zinc-400" />
+                    ) : (
+                      <Globe className={cn(
+                        "h-3.5 w-3.5 mb-2",
+                        previewMapPublishStatus ? "text-emerald-400" : "text-purple-400"
+                      )} />
+                    )}
+                    <p className={cn(
+                      "text-[8px] uppercase font-bold tracking-widest mb-1.5 leading-none",
+                      previewMapPublishStatus ? "text-emerald-500" : "text-purple-500"
+                    )}>
+                      {(isPublishingMapId === selectedMapForPreview.id || isUnpublishingMapId === selectedMapForPreview.id)
+                        ? "Processing..."
+                        : previewMapPublishStatus ? "Published" : "Private"}
                     </p>
-                  </div>
+                    <p className={cn(
+                      "text-[11px] font-bold leading-none",
+                      previewMapPublishStatus ? "text-emerald-400" : "text-purple-400"
+                    )}>
+                      {(isPublishingMapId === selectedMapForPreview.id || isUnpublishingMapId === selectedMapForPreview.id)
+                        ? "Please wait"
+                        : previewMapPublishStatus ? "Unpublish" : "Publish"}
+                    </p>
+                  </button>
                 </div>
 
                 {/* AI Recommendations */}

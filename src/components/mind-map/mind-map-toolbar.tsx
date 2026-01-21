@@ -27,7 +27,8 @@ import {
     Bot,
     UserRound,
     Palette,
-    Brain
+    Brain,
+    BrainCircuit
 } from 'lucide-react';
 import {
     Select,
@@ -83,8 +84,6 @@ export const MindMapToolbar = ({
     languageUI,
     onLanguageChange,
     isTranslating,
-    personaUI,
-    onPersonaChange,
     isAllExpanded,
     onToggleExpandAll,
     isCopied,
@@ -224,7 +223,7 @@ export const MindMapToolbar = ({
                                 onClick={onStartGlobalQuiz}
                                 className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 transition-all hover:scale-105 active:scale-95"
                             >
-                                <GraduationCap className="h-4 w-4" />
+                                <BrainCircuit className="h-4 w-4" />
                                 Challenge
                             </Button>
                         )}

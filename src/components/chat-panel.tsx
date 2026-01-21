@@ -163,9 +163,9 @@ export function ChatPanel({
   const { config: providerOptionsConfig } = useAIConfig();
   const providerOptions = useMemo(() => ({
     provider: providerOptionsConfig.provider,
-    apiKey: providerOptionsConfig.apiKey,
+    apiKey: providerOptionsConfig.provider === 'pollinations' ? providerOptionsConfig.pollinationsApiKey : providerOptionsConfig.apiKey,
     model: providerOptionsConfig.pollinationsModel,
-  }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsModel]);
+  }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsApiKey, providerOptionsConfig.pollinationsModel]);
 
   // 1. STATE MANAGEMENT
   const [input, setInput] = useState('');
@@ -193,6 +193,7 @@ export function ChatPanel({
   const [isQuizLoading, setIsQuizLoading] = useState(false);
   const [quizDifficulty, setQuizDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [quizShowingDifficultySelector, setQuizShowingDifficultySelector] = useState(false);
+  const [hiddenSelectorMessages, setHiddenSelectorMessages] = useState<Set<number>>(new Set());
 
   /**
    * Starts a new chat session.
@@ -283,8 +284,13 @@ export function ChatPanel({
   /**
    * Generates a quiz based on the current topic.
    */
-  const handleStartQuiz = useCallback(async (difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
+  const handleStartQuiz = useCallback(async (difficulty: 'easy' | 'medium' | 'hard' = 'medium', messageIndex?: number) => {
     if (!activeSessionId) return;
+
+    // Mark this selector message as hidden if index provided
+    if (messageIndex !== undefined) {
+      setHiddenSelectorMessages(prev => new Set(prev).add(messageIndex));
+    }
 
     setIsQuizLoading(true);
     setQuizShowingDifficultySelector(false);
@@ -376,43 +382,21 @@ export function ChatPanel({
   const handleRegenerateQuiz = useCallback(async (prevQuiz: Quiz, result: QuizResult) => {
     if (!activeSessionId) return;
 
-    setIsQuizLoading(true);
     const weakAreas = Object.keys(result.weakAreas);
-    const otherAreas = result.strongAreas;
-    const previousQuestions = prevQuiz.questions.map(q => q.question);
 
-    const { data, error } = await regenerateQuizAction({
-      topic: prevQuiz.topic,
-      difficulty: prevQuiz.difficulty,
-      weakAreas,
-      otherAreas,
-      previousQuestions
-    }, providerOptions);
-
-    setIsQuizLoading(false);
-
-    if (error || !data) {
-      toast({
-        title: "Regeneration Failed",
-        description: error || "Try again later",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const quizMessage: Message = {
+    // Instead of immediately regenerating, show a difficulty selector
+    const selectorMessage: Message = {
       role: 'assistant',
-      content: `I've prepared a follow-up quiz focusing on your weak areas: ${weakAreas.join(', ')}. Let's try again!`,
-      type: 'quiz',
-      quiz: data
+      content: `Based on your performance, I can prepare a follow-up quiz${weakAreas.length > 0 ? ` focusing on: ${weakAreas.join(', ')}` : ''}. Which difficulty level would you like?`,
+      type: 'quiz-selector'
     };
 
     setSessions(prev => prev.map(s =>
       s.id === activeSessionId
-        ? { ...s, messages: [...s.messages, quizMessage] }
+        ? { ...s, messages: [...s.messages, selectorMessage] }
         : s
     ));
-  }, [activeSessionId, providerOptions, setSessions, toast]);
+  }, [activeSessionId, setSessions]);
 
 
 
@@ -1042,7 +1026,7 @@ export function ChatPanel({
             {/* Messages and Suggestions List */}
             <div className="flex flex-col gap-6">
               <AnimatePresence initial={false} mode="popLayout">
-                {messages.map((message, index) => (
+                {messages.filter(m => m.type !== 'quiz-selector').map((message, index) => (
                   <motion.div
                     key={`${activeSessionId}-${index}`}
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -1093,7 +1077,7 @@ export function ChatPanel({
                               onRegenerate={() => handleRegenerateQuiz(message.quiz!, message.quizResult!)}
                               isRegenerating={isQuizLoading}
                             />
-                          ) : message.type === 'quiz-selector' ? (
+                          ) : message.type === 'quiz-selector' && !hiddenSelectorMessages.has(index) ? (
                             <div className="flex flex-col gap-4">
                               <p className="text-sm font-medium leading-relaxed">
                                 I'm ready to prepare a comprehensive quiz for you on **{topic}**. Which level of challenge should I architect for you?
@@ -1108,7 +1092,7 @@ export function ChatPanel({
                                     key={d.id}
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleStartQuiz(d.id as any)}
+                                    onClick={() => handleStartQuiz(d.id as any, index)}
                                     className={cn(
                                       "h-10 px-6 text-[10px] font-black font-orbitron uppercase tracking-[0.2em] rounded-2xl border hover:scale-105 active:scale-95 transition-all backdrop-blur-md",
                                       d.color

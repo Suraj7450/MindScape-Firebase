@@ -61,8 +61,15 @@ Output Rules:
     { "title": "Official Documentation", "url": "https://docs.example.com", "description": "The primary source for technical specifications and core features." },
     { "title": "Wikipedia: Topic Overview", "url": "https://en.wikipedia.org/wiki/Topic", "description": "Comprehensive historical and technical background information." }
   ],
-  "topicADeepDive": [],
-  "topicBDeepDive": []
+  "topicADeepDive": [
+    { "title": "Specific Deep Dive topic for A", "description": "High-fidelity informative sentence. NO PLACEHOLDERS.", "icon": "..." }
+  ],
+  "topicBDeepDive": [
+    { "title": "Specific Deep Dive topic for B", "description": "High-fidelity informative sentence. NO PLACEHOLDERS.", "icon": "..." }
+  ]
 }
+
+CRITICAL: The "topicADeepDive" and "topicBDeepDive" MUST NOT BE EMPTY. Generate at least 3-4 deep dive nodes for EACH topic.
+CRITICAL: The "topic" and "root.title" MUST be in the format "[Topic A Name] vs [Topic B Name]". Do not use "Topic A" or "Topic B" literally in the output.
 `;
 };

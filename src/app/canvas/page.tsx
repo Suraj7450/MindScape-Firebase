@@ -102,7 +102,7 @@ function MindMapPageContent() {
     generate: async (topic: string, parentTopic?: string) => {
       const aiOptions = {
         provider: config.provider,
-        apiKey: config.apiKey,
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
         model: config.pollinationsModel,
       };
       const result = await generateMindMapAction({
@@ -232,7 +232,7 @@ function MindMapPageContent() {
 
           const aiOptions = {
             provider: config.provider,
-            apiKey: config.apiKey,
+            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
             model: config.pollinationsModel,
             strict: true
           };
@@ -275,6 +275,44 @@ function MindMapPageContent() {
               if (result.data && !result.data.summary) {
                 handleSaveMap(result.data, params.mapId, true);
               }
+
+              // Load nested expansions (sub-maps) for this parent map
+              if (result.data && user) {
+                try {
+                  const subMapsQuery = query(
+                    collection(firestore, 'users', user.uid, 'mindmaps'),
+                    where('parentMapId', '==', params.mapId)
+                  );
+                  const subMapsSnap = await getDocs(subMapsQuery);
+
+                  if (!subMapsSnap.empty) {
+                    const nestedExpansions: NestedExpansionItem[] = subMapsSnap.docs.map(doc => {
+                      const subMapData = { ...doc.data(), id: doc.id } as MindMapWithId;
+                      return {
+                        id: doc.id,
+                        topic: subMapData.topic,
+                        parentName: result.data!.topic,
+                        icon: subMapData.icon || 'network',
+                        status: 'completed' as const,
+                        timestamp: subMapData.createdAt ? (typeof subMapData.createdAt === 'number' ? subMapData.createdAt : subMapData.createdAt.toMillis()) : Date.now(),
+                        fullData: subMapData,
+                        createdAt: subMapData.createdAt ? (typeof subMapData.createdAt === 'number' ? subMapData.createdAt : subMapData.createdAt.toMillis()) : Date.now(),
+                        depth: (subMapData as any).depth || 1,
+                        subCategories: []
+                      };
+                    });
+
+                    // Add nested expansions to the loaded map data
+                    result.data = {
+                      ...result.data,
+                      nestedExpansions: [...(result.data.nestedExpansions || []), ...nestedExpansions]
+                    };
+                  }
+                } catch (err) {
+                  console.error('Failed to load nested expansions:', err);
+                  // Don't fail the whole load if nested expansions fail
+                }
+              }
             } else {
               // Not found in user's collection, check public collection
               const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
@@ -303,7 +341,7 @@ function MindMapPageContent() {
           currentMode = 'compare';
           const aiOptions = {
             provider: config.provider,
-            apiKey: config.apiKey,
+            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
             model: config.pollinationsModel,
             strict: false
           };
@@ -318,7 +356,7 @@ function MindMapPageContent() {
           currentMode = 'standard';
           const aiOptions = {
             provider: config.provider,
-            apiKey: config.apiKey,
+            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
             model: config.pollinationsModel,
             strict: false
           };
@@ -348,7 +386,7 @@ function MindMapPageContent() {
               currentMode = sessionType === 'image' ? 'vision-image' : 'vision-pdf';
               const aiOptions = {
                 provider: config.provider,
-                apiKey: config.apiKey,
+                apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
                 model: config.pollinationsModel,
                 strict: false
               };
@@ -363,7 +401,7 @@ function MindMapPageContent() {
               currentMode = 'vision-text';
               const aiOptions = {
                 provider: config.provider,
-                apiKey: config.apiKey,
+                apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
                 model: config.pollinationsModel,
                 strict: false
               };

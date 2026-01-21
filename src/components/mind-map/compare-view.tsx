@@ -134,7 +134,7 @@ export const CompareView = ({
                             >
                                 <CardTitle className="text-xl font-bold text-red-100 uppercase tracking-tight flex items-center justify-between w-full">
                                     <div className="flex items-center gap-3">
-                                        <span>{compareData.root.title.split(' vs ')[0] || 'Topic A'}</span>
+                                        <span>{compareData.root?.title?.split(/\s+vs\s+/i)[0] || 'Topic A'}</span>
                                         <Badge variant="outline" className="border-red-500/30 text-red-400 bg-red-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
                                     </div>
                                     <ChevronDown className={cn("h-5 w-5 text-zinc-600 transition-transform duration-500", openNodes.includes('section-diff-a') ? "rotate-180 text-primary" : "")} />
@@ -160,7 +160,7 @@ export const CompareView = ({
                             >
                                 <CardTitle className="text-xl font-bold text-blue-100 uppercase tracking-tight flex items-center justify-between w-full">
                                     <div className="flex items-center gap-3">
-                                        <span>{compareData.root.title.split(' vs ')[1] || 'Topic B'}</span>
+                                        <span>{compareData.root?.title?.split(' vs ')[1] || 'Topic B'}</span>
                                         <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/5 uppercase font-bold text-[10px]">Unique Perspective</Badge>
                                     </div>
                                     <ChevronDown className={cn("h-5 w-5 text-zinc-600 transition-transform duration-500", openNodes.includes('section-diff-b') ? "rotate-180 text-primary" : "")} />
@@ -203,11 +203,11 @@ export const CompareView = ({
                                     <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
                                         <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                            {compareData.root.title.split(' vs ')[0] || 'Topic A'} Deep Dive
+                                            {compareData.root?.title?.split(' vs ')[0] || 'Topic A'} Deep Dive
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-8 space-y-4">
-                                        {compareData.topicADeepDive.filter(n => !!n).length > 0 ? (
+                                        {compareData.topicADeepDive && compareData.topicADeepDive.filter(n => !!n).length > 0 ? (
                                             compareData.topicADeepDive.filter(n => !!n).map((node, i) => (
                                                 <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
                                             ))
@@ -222,11 +222,11 @@ export const CompareView = ({
                                     <CardHeader className="border-b border-zinc-800/50 bg-white/[0.01] px-8 py-5">
                                         <CardTitle className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                            {compareData.root.title.split(' vs ')[1] || 'Topic B'} Deep Dive
+                                            {compareData.root?.title?.split(' vs ')[1] || 'Topic B'} Deep Dive
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-8 space-y-4">
-                                        {compareData.topicBDeepDive.filter(n => !!n).length > 0 ? (
+                                        {compareData.topicBDeepDive && compareData.topicBDeepDive.filter(n => !!n).length > 0 ? (
                                             compareData.topicBDeepDive.filter(n => !!n).map((node, i) => (
                                                 <CompareNodeItem key={i} node={node} collapsible {...commonProps} />
                                             ))
