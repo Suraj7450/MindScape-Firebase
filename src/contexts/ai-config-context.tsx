@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { AIProvider } from '@/ai/client-dispatcher';
 import { useUser, useFirestore } from '@/firebase';
@@ -108,16 +108,18 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
         };
     }, [user, firestore, setStoredConfig]);
 
-    const updateConfig = (updates: Partial<AIConfig>) => {
-        const newConfig = { ...config, ...updates };
-        setConfig(newConfig);
-        setStoredConfig(newConfig);
-    };
+    const updateConfig = useCallback((updates: Partial<AIConfig>) => {
+        setConfig(current => {
+            const newConfig = { ...current, ...updates };
+            setStoredConfig(newConfig);
+            return newConfig;
+        });
+    }, [setStoredConfig]);
 
-    const resetConfig = () => {
+    const resetConfig = useCallback(() => {
         setConfig(DEFAULT_CONFIG);
         setStoredConfig(DEFAULT_CONFIG);
-    };
+    }, [setStoredConfig]);
 
     return (
         <AIConfigContext.Provider value={{ config, updateConfig, resetConfig }}>
