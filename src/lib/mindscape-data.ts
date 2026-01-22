@@ -1,11 +1,13 @@
 
-import type { GenerateMindMapOutput } from '@/ai/flows/generate-mind-map';
+
+import type { SingleMindMapData } from '@/types/mind-map';
 
 /**
  * Static mind map data for MindScape itself, based on the PRD.
  * This is shown when users search for "MindScape" to showcase the product's features.
  */
-export const mindscapeMap: GenerateMindMapOutput = {
+export const mindscapeMap = {
+    mode: "single",
     topic: "MindScape",
     shortTitle: "MindScape Explorer",
     icon: "brain-circuit",
@@ -455,5 +457,5 @@ export const mindscapeMap: GenerateMindMapOutput = {
             ]
         }
     ]
-};
+} as SingleMindMapData;
 

@@ -74,6 +74,7 @@ import {
 import { GenerateComparisonMapInput } from '@/ai/compare/schema';
 import { MindMapData, SingleMindMapData, CompareMindMapData, SubTopic, Category, SubCategory } from '@/types/mind-map';
 import { addDoc, collection } from 'firebase/firestore';
+import { generateSearchContext } from './actions/generateSearchContext';
 
 /**
  * Ensures AI-generated data strictly adheres to the frontend MindMapData interface.
@@ -151,10 +152,11 @@ export interface GenerateMindMapFromImageInput {
 /**
  * Server action to generate a mind map based on a given topic.
  * @param {GenerateMindMapInput} input - The input for the mind map generation, containing the topic.
+ * @param {boolean} input.useSearch - Optional flag to enable Google Search for real-time context
  * @returns {Promise<{ data: GenerateMindMapOutput | null; error: string | null }>} An object with either the generated mind map data or an error message.
  */
 export async function generateMindMapAction(
-  input: GenerateMindMapInput,
+  input: GenerateMindMapInput & { useSearch?: boolean },
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
@@ -165,10 +167,43 @@ export async function generateMindMapAction(
   }
 
   try {
-    const result = await generateMindMap({ ...input, topic, ...options });
+    let searchContext = null;
+
+    // Generate search context if requested
+    if (input.useSearch) {
+      console.log(`🔍 Search enabled for topic: "${topic}"`);
+      const searchResult = await generateSearchContext({
+        query: topic,
+        depth: input.depth === 'deep' ? 'deep' : 'basic',
+        apiKey: options.apiKey,
+        provider: options.provider,
+      });
+
+      if (searchResult.data) {
+        searchContext = searchResult.data;
+        console.log(`✅ Search context retrieved: ${searchContext.sources.length} sources`);
+      } else {
+        console.warn(`⚠️ Search failed, continuing without search context: ${searchResult.error}`);
+      }
+    }
+
+    const result = await generateMindMap({
+      ...input,
+      topic,
+      searchContext,
+      ...options
+    });
+
     if (!result) return { data: null, error: 'AI failed to generate content.' };
 
     const sanitized = mapToMindMapData(result, input.depth || 'low');
+
+    // Attach search metadata if search was used
+    if (searchContext && searchContext.sources.length > 0) {
+      sanitized.searchSources = searchContext.sources;
+      sanitized.searchTimestamp = searchContext.timestamp;
+    }
+
     return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapAction:', error);
@@ -493,10 +528,11 @@ export async function getAIHealthReportAction() {
 /**
  * Server action to generate a comparison mind map between two topics.
  * @param {GenerateComparisonMapInput} input - The input containing two topics.
+ * @param {boolean} input.useSearch - Optional flag to enable Google Search for both topics
  * @returns {Promise<{ data: GenerateComparisonMapOutputV2 | null; error: string | null }>}
  */
 export async function generateComparisonMapAction(
-  input: GenerateComparisonMapInput,
+  input: GenerateComparisonMapInput & { useSearch?: boolean },
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: CompareMindMapData | null; error: string | null }> {
   // TODO: Validate Firebase ID token server-side before invoking AI
@@ -510,10 +546,69 @@ export async function generateComparisonMapAction(
   }
 
   try {
-    const result = await generateComparisonMapV2({ ...input, ...options });
+    let searchContextA = null;
+    let searchContextB = null;
+
+    // Generate search contexts for both topics if requested
+    if (input.useSearch) {
+      console.log(`🔍 Search enabled for comparison: "${input.topic1}" vs "${input.topic2}"`);
+
+      // Execute searches in parallel for better performance
+      const [searchResultA, searchResultB] = await Promise.all([
+        generateSearchContext({
+          query: input.topic1,
+          depth: input.depth === 'deep' ? 'deep' : 'basic',
+          apiKey: options.apiKey,
+          provider: options.provider,
+        }),
+        generateSearchContext({
+          query: input.topic2,
+          depth: input.depth === 'deep' ? 'deep' : 'basic',
+          apiKey: options.apiKey,
+          provider: options.provider,
+        }),
+      ]);
+
+      if (searchResultA.data) {
+        searchContextA = searchResultA.data;
+        console.log(`✅ Search context A retrieved: ${searchContextA.sources.length} sources`);
+      } else {
+        console.warn(`⚠️ Search A failed: ${searchResultA.error}`);
+      }
+
+      if (searchResultB.data) {
+        searchContextB = searchResultB.data;
+        console.log(`✅ Search context B retrieved: ${searchContextB.sources.length} sources`);
+      } else {
+        console.warn(`⚠️ Search B failed: ${searchResultB.error}`);
+      }
+    }
+
+    const result = await generateComparisonMapV2({
+      ...input,
+      searchContextA,
+      searchContextB,
+      ...options
+    });
+
     if (!result) return { data: null, error: 'AI failed to generate comparison.' };
 
     const sanitized = mapToMindMapData(result, input.depth || 'low');
+
+    // Attach search metadata if search was used
+    if (searchContextA || searchContextB) {
+      // Store search sources in the mind map data
+      // We'll use a combined array for now, could be separated in the future
+      const allSources = [
+        ...(searchContextA?.sources || []),
+        ...(searchContextB?.sources || []),
+      ];
+      if (allSources.length > 0) {
+        sanitized.searchSources = allSources;
+        sanitized.searchTimestamp = searchContextA?.timestamp || searchContextB?.timestamp || new Date().toISOString();
+      }
+    }
+
     return { data: sanitized as CompareMindMapData, error: null };
   } catch (error) {
     console.error('Error in generateComparisonMapAction:', error);

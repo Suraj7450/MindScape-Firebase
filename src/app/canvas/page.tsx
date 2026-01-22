@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'rea
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { MindMap } from '@/components/mind-map';
-import { MindMapData } from '@/types/mind-map';
+import { MindMapData, NestedExpansionItem } from '@/types/mind-map';
 import { GenerationLoading } from '@/components/generation-loading';
 import dynamic from 'next/dynamic';
 
@@ -13,6 +13,8 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   ssr: false,
   loading: () => null
 });
+
+import { SearchReferencesPanel } from '@/components/canvas/SearchReferencesPanel';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -111,6 +113,7 @@ function MindMapPageContent() {
         targetLang: params.lang,
         persona: aiPersona,
         depth: params.depth,
+        useSearch: params.useSearch === 'true',
       }, aiOptions);
       return result;
     }
@@ -242,6 +245,7 @@ function MindMapPageContent() {
             targetLang: params.lang,
             persona: aiPersona,
             depth: params.depth,
+            useSearch: params.useSearch === 'true',
           }, aiOptions);
 
           // Overwrite existing!
@@ -351,6 +355,7 @@ function MindMapPageContent() {
             targetLang: params.lang,
             persona: aiPersona,
             depth: params.depth,
+            useSearch: params.useSearch === 'true',
           }, aiOptions);
         } else if (params.topic) {
           currentMode = 'standard';
@@ -366,6 +371,7 @@ function MindMapPageContent() {
             targetLang: params.lang,
             persona: aiPersona,
             depth: params.depth,
+            useSearch: params.useSearch === 'true',
           }, aiOptions);
         } else if (params.sessionId) {
           const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
@@ -707,6 +713,14 @@ function MindMapPageContent() {
             status={hookStatus}
             aiHealth={aiHealth}
           />
+
+          {/* Search References Panel */}
+          {mindMap.searchSources && mindMap.searchSources.length > 0 && (
+            <SearchReferencesPanel
+              sources={mindMap.searchSources}
+              timestamp={mindMap.searchTimestamp}
+            />
+          )}
         </div>
       </div>
 

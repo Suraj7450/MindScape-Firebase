@@ -12,6 +12,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { AIGeneratedMindMapSchema } from '@/ai/mind-map-schema';
+import { SearchContext } from '@/ai/search/search-schema';
 
 const GenerateMindMapInputSchema = z.object({
   topic: z.string().describe('The main topic for the mind map.'),
@@ -48,9 +49,9 @@ export type GenerateMindMapOutput = z.infer<typeof GenerateMindMapOutputSchema>;
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMap(
-  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider }
+  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider; searchContext?: SearchContext | null }
 ): Promise<GenerateMindMapOutput> {
-  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey } = input;
+  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey, searchContext } = input;
 
   // Map depth to structural density with STRICT enforcement
   let densityInstruction = '';
@@ -117,15 +118,43 @@ export async function generateMindMap(
     personaInstruction = `ADOPT PERSONA: "Balanced Assistant" - Provide clear, factual, and well-structured information.`;
   }
 
+  // Search grounding instruction
+  let searchGroundingPrompt = '';
+  let searchContextSection = '';
+
+  if (searchContext && searchContext.sources.length > 0) {
+    searchGroundingPrompt = `
+REAL-TIME SEARCH CONTEXT:
+You have been provided with current Google search results for this topic.
+Use these results as factual grounding for your mind map.
+DO NOT fabricate information beyond these search results.
+Prefer recent and authoritative sources.
+Incorporate current facts, recent developments, and up-to-date information from the search results.
+`;
+
+    searchContextSection = `
+
+CURRENT WEB INFORMATION:
+${searchContext.summary}
+
+SOURCES:
+${searchContext.sources.slice(0, 5).map((s, i) => `${i + 1}. ${s.title} - ${s.url}${s.snippet ? '\n   ' + s.snippet : ''}`).join('\n')}
+
+Based on this current information from ${new Date(searchContext.timestamp).toLocaleDateString()}, create a mind map that reflects the latest facts and developments.
+`;
+  }
+
   // Construct Prompt
   const prompt = `You are an expert in creating mind maps for students.
 
   ${personaInstruction}
+  ${searchGroundingPrompt}
 
   Given a main topic, you will generate a comprehensive, multi - layered mind map.
   ${parentTopic ? `The mind map for "${topic}" should be created in the context of the parent topic: "${parentTopic}". This is for an in-depth exploration, so the content must be relevant and interconnected with the parent.` : ''}
 
   ${targetLang ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${targetLang}.` : 'The entire mind map MUST be in English.'}
+  ${searchContextSection}
 
   The mind map must have the FOLLOWING JSON structure (MANDATORY):
 {
@@ -164,6 +193,7 @@ export async function generateMindMap(
   - ${densityInstruction}
   - Ensure ALL JSON is properly closed.
   - DO NOT TRUNCATE. If you must stop, close all open [ and { structures.
+  ${searchContext ? '- Ground all information in the provided search results. Use current facts and recent developments.' : ''}
 
   Create an informative and well-structured mind map for the topic: "${topic}".
 

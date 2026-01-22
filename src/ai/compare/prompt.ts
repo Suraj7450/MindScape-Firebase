@@ -4,9 +4,18 @@ Your task is to compare TWO topics in a structured, neutral, and factual way.
 You MUST return RAW JSON that strictly matches the provided schema.
 CRITICAL: Do not provide any prose, preamble, or conclusion. Return only the JSON object.
 Ensure all JSON strings are properly escaped for parsing.
+
+When provided with real-time search context, use it as factual grounding for your comparison.
+Prefer recent and authoritative sources from the search results.
 `;
 
-export const userPromptTemplate = (topicA: string, topicB: string, depth: 'low' | 'medium' | 'deep' = 'low') => {
+export const userPromptTemplate = (
+  topicA: string,
+  topicB: string,
+  depth: 'low' | 'medium' | 'deep' = 'low',
+  searchContextA?: any,
+  searchContextB?: any
+) => {
   let countInstruction = '';
   let depthDetail = '';
 
@@ -21,11 +30,34 @@ export const userPromptTemplate = (topicA: string, topicB: string, depth: 'low' 
     depthDetail = '';
   }
 
+  // Search grounding section
+  let searchSection = '';
+  if (searchContextA || searchContextB) {
+    searchSection = `
+
+REAL-TIME WEB INFORMATION:
+
+Topic A (${topicA}):
+${searchContextA ? `Summary: ${searchContextA.summary}
+Sources: ${searchContextA.sources.slice(0, 3).map((s: any) => `${s.title} (${s.url})`).join(', ')}
+Search Date: ${new Date(searchContextA.timestamp).toLocaleDateString()}` : 'No search data available'}
+
+Topic B (${topicB}):
+${searchContextB ? `Summary: ${searchContextB.summary}
+Sources: ${searchContextB.sources.slice(0, 3).map((s: any) => `${s.title} (${s.url})`).join(', ')}
+Search Date: ${new Date(searchContextB.timestamp).toLocaleDateString()}` : 'No search data available'}
+
+Use this current information to ground your comparison in recent facts and developments.
+Incorporate up-to-date information from the search results into your analysis.
+`;
+  }
+
   return `
 Compare the following two topics in depth.
 
 Topic A: ${topicA}
 Topic B: ${topicB}
+${searchSection}
 
 Requirements:
 - Produce a structured comparison
@@ -38,6 +70,7 @@ Requirements:
 - Expand each topic independently in deep-dive sections. ${depthDetail}
 - For EVERY similarity and difference, you MUST provide a "description" field containing one or two clear, informative sentences explaining the comparison. DO NOT USE GENERIC PLACEHOLDERS like "Detailed analysis for this comparison point." - generate real data.
 - Keep each node concise and factual
+${searchSection ? '- Ground all comparisons in the provided search results. Use current facts and recent developments.' : ''}
 
 Output Rules:
 - Produce EXACTLY ${countInstruction}.

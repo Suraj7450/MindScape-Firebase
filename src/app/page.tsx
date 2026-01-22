@@ -42,12 +42,6 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   ssr: false,
   loading: () => null
 });
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 
 
@@ -81,6 +75,8 @@ function Hero({
   persona: string;
   setPersona: (persona: string) => void;
 }) {
+  // Web search is always enabled for real-time information
+  const useSearch = true;
   const [topic, setTopic] = useState('');
   const [topic2, setTopic2] = useState('');
   const [isCompareMode, setIsCompareMode] = useState(false);
@@ -488,6 +484,8 @@ export default function Home() {
   const [lang, setLang] = useState('en');
   const [depth, setDepth] = useState('low');
   const [persona, setPersona] = useState('teacher');
+  // Web search is now always enabled for real-time, grounded responses
+  const useSearch = true;
   const languageSelectRef = createRef<HTMLButtonElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -582,13 +580,13 @@ export default function Home() {
     }
 
     // Handle regular text-based generation
-    const query = new URLSearchParams({ topic, lang, depth, persona }).toString();
+    const query = new URLSearchParams({ topic, lang, depth, persona, useSearch: useSearch.toString() }).toString();
     router.push(`/canvas?${query}`);
   };
 
   const handleCompare = (topic1: string, topic2: string) => {
     setIsGenerating(true);
-    const query = new URLSearchParams({ topic1, topic2, lang, depth, persona }).toString();
+    const query = new URLSearchParams({ topic1, topic2, lang, depth, persona, useSearch: useSearch.toString() }).toString();
     router.push(`/canvas?${query}`);
   };
 

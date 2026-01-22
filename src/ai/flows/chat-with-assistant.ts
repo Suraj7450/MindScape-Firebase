@@ -11,6 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { generateSearchContext } from '@/app/actions/generateSearchContext';
 
 const ChatWithAssistantInputSchema = z.object({
   question: z.string().describe("The user's question."),
@@ -166,12 +167,56 @@ export async function chatWithAssistant(
 ): Promise<ChatWithAssistantOutput> {
   const { provider, apiKey, topic, persona, history, question } = input;
 
+  // Generate search context for real-time information
+  // ALWAYS inject current date, search sources are optional
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  let searchSection = `
+
+📅 **Current Date**: ${currentDate}
+`;
+
+  try {
+    console.log('🔍 Generating search context for chat question...');
+    const searchResult = await generateSearchContext({
+      query: question,
+      depth: 'basic',
+      apiKey,
+      provider,
+    });
+
+    if (searchResult.data && searchResult.data.sources.length > 0) {
+      const searchContext = searchResult.data;
+
+      searchSection += `
+
+🌐 **Real-Time Web Information**:
+${searchContext.summary}
+
+**Sources**:
+${searchContext.sources.slice(0, 3).map((s, i) => `${i + 1}. [${s.title}](${s.url})`).join('\n')}
+
+IMPORTANT: Use this current information to ground your response. Prefer facts from these search results over your training data.
+`;
+      console.log(`✅ Search context added to chat with ${searchContext.sources.length} sources`);
+    } else {
+      console.log(`ℹ️ No search sources found, but current date injected`);
+    }
+  } catch (error) {
+    console.warn('⚠️ Search failed for chat, continuing with current date only:', error);
+  }
+
   const historyText = history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
 
   const systemPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
 
 🧠 **Current Topic**: ${topic}
 🎭 **Current Persona**: ${persona}
+${searchSection}
 
 ${historyText ? `**Chat History**:\n${historyText}` : ''}
 

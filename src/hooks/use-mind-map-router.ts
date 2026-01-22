@@ -21,6 +21,7 @@ export function useMindMapRouter() {
         parent: searchParams.get('parent'),
         isSelfReference: searchParams.get('selfReference') === 'true',
         isRegenerating: !!searchParams.get('_r'),
+        useSearch: searchParams.get('useSearch') || 'false',
     }), [searchParams]);
 
     const navigateToMap = useCallback((id: string, topic?: string) => {

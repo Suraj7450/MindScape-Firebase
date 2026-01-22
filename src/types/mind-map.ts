@@ -108,6 +108,15 @@ export interface BaseMindMapData {
   authorName?: string;
   authorAvatar?: string;
   depth?: 'low' | 'medium' | 'deep';
+  searchSources?: SearchSource[];
+  searchTimestamp?: string;
+}
+
+export interface SearchSource {
+  title: string;
+  url: string;
+  published?: string;
+  snippet?: string;
 }
 
 export interface SingleMindMapData extends BaseMindMapData, MindMap {

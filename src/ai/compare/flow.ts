@@ -4,11 +4,13 @@ import { GenerateComparisonMapInputSchema, CompareMindMapSchema } from './schema
 import { systemPrompt, userPromptTemplate } from './prompt';
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 import { z } from 'zod';
+import { SearchContext } from '@/ai/search/search-schema';
 
 export type GenerateComparisonMapOutputV2 = z.infer<typeof CompareMindMapSchema>;
 
 /**
  * Generates a comparison mind map using the refined schema and prompt.
+ * Optionally uses search contexts for both topics to ground the comparison in current facts.
  */
 export async function generateComparisonMapV2(
     input: {
@@ -17,14 +19,16 @@ export async function generateComparisonMapV2(
         targetLang?: string;
         persona?: string;
         depth?: 'low' | 'medium' | 'deep';
+        searchContextA?: SearchContext | null;
+        searchContextB?: SearchContext | null;
         provider?: AIProvider;
         apiKey?: string;
     }
 ): Promise<GenerateComparisonMapOutputV2> {
-    const { topic1, topic2, depth = 'low', provider, apiKey } = input;
+    const { topic1, topic2, depth = 'low', searchContextA, searchContextB, provider, apiKey } = input;
 
     const system = systemPrompt;
-    const user = userPromptTemplate(topic1, topic2, depth);
+    const user = userPromptTemplate(topic1, topic2, depth, searchContextA, searchContextB);
 
     const maxAttempts = 2;
     let lastError = null;
