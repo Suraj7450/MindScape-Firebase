@@ -47,13 +47,21 @@ Focus on authoritative and recent sources.`
             max_tokens: 4096,
         };
 
+        // Robust API Key selection
+        const effectiveApiKey = (apiKey && apiKey.trim() !== "")
+            ? apiKey
+            : process.env.POLLINATIONS_API_KEY;
+
+        if (effectiveApiKey) {
+            console.log(`🔑 Using Pollinations Search Key: ${effectiveApiKey.substring(0, 7)}... (from ${apiKey ? 'Client' : 'Server Env'})`);
+        }
+
         // Make API request to Pollinations
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } :
-                    process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
+                ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
             },
             body: JSON.stringify(body),
         });
@@ -77,8 +85,31 @@ Focus on authoritative and recent sources.`
         const data = await response.json();
         console.log(`✅ Google Search Response Success`);
 
+        // Handle tool_calls if content is empty (common for gemini-search)
+        const message = data.choices?.[0]?.message;
+        if (message && !message.content && message.tool_calls && message.tool_calls.length > 0) {
+            console.log('🛠️ Extracting search result from tool_calls...');
+            const toolCall = message.tool_calls[0];
+            if (toolCall.function?.arguments) {
+                try {
+                    const args = typeof toolCall.function.arguments === 'string'
+                        ? JSON.parse(toolCall.function.arguments)
+                        : toolCall.function.arguments;
+                    // If the model returned arguments that look like the search result content
+                    if (args.content || args.summary) {
+                        message.content = args.content || args.summary;
+                    } else {
+                        // Default to stringified args if no clear content field
+                        message.content = JSON.stringify(args);
+                    }
+                } catch {
+                    message.content = String(toolCall.function.arguments);
+                }
+            }
+        }
+
         // Log response structure for debugging
-        console.log('📦 Search response structure:', JSON.stringify(data, null, 2).substring(0, 1000));
+        console.log('📦 Search response content:', (message?.content || 'EMPTY').substring(0, 500));
 
         return data;
     } catch (error: any) {

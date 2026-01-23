@@ -9,25 +9,27 @@ export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[],
-    options: { model?: string, response_format?: any } = {}
+    options: { model?: string, response_format?: any, apiKey?: string } = {}
 ): Promise<any> {
     // Expert Model Selection Logic
     const hasImages = images && images.length > 0;
-    let model = 'mistral'; // Default stable foundation
+
+    // Qwen-Coder is significantly more reliable for complex JSON than Mistral on Pollinations
+    let model = 'qwen-coder';
 
     if (hasImages) {
         model = 'openai'; // Vision support
     } else if (userPrompt.toLowerCase().includes('deep') || userPrompt.toLowerCase().includes('108 items')) {
-        model = 'openai'; // Heavy lifting for complex structures
+        model = 'qwen-coder';
     } else if (systemPrompt.toLowerCase().includes('json') || systemPrompt.toLowerCase().includes('schema')) {
-        model = 'mistral'; // Stable for standard JSON
+        model = 'qwen-coder';
     } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert') || systemPrompt.toLowerCase().includes('reasoning')) {
-        model = 'openai'; // Strong reasoning
+        model = 'qwen-coder';
     } else if (systemPrompt.toLowerCase().includes('search')) {
-        model = 'openai'; // Search/Execution
+        model = 'qwen-coder';
     }
 
-    console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}`);
+    console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}, DeepMode=${userPrompt.toLowerCase().includes('deep')}`);
 
     try {
         const messages: any[] = [
@@ -68,7 +70,6 @@ CRITICAL:
         };
 
         // Only add response_format if a schema/format is requested AND model likely supports it
-        // Some Pollinations models fail if they see response_format or max_tokens in a strict way
         if (options.response_format) {
             body.response_format = options.response_format;
         }
@@ -76,15 +77,24 @@ CRITICAL:
         // Increase max_tokens for models that support it to accommodate deep mind maps
         const modelsWithLargeContext = ['openai', 'gpt-4o', 'gemini', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
         if (modelsWithLargeContext.includes(model)) {
-            body.max_tokens = 8192; // Increased for deep mode mind maps
+            // High token limit is essential for deep mode mind maps (120+ items)
+            body.max_tokens = (model === 'qwen-coder' || model === 'mistral' || model === 'mistral-nemo') ? 16384 : 8192;
+        }
+
+        // Robust API Key selection
+        const effectiveApiKey = (options.apiKey && options.apiKey.trim() !== "")
+            ? options.apiKey
+            : process.env.POLLINATIONS_API_KEY;
+
+        if (effectiveApiKey) {
+            console.log(`🔑 Using Pollinations Key: ${effectiveApiKey.substring(0, 7)}... (from ${options.apiKey ? 'Client' : 'Server Env'})`);
         }
 
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(options.apiKey ? { 'Authorization': `Bearer ${options.apiKey}` } :
-                    process.env.POLLINATIONS_API_KEY ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_API_KEY}` } : {})
+                ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
             },
             body: JSON.stringify(body),
         });
@@ -107,7 +117,7 @@ CRITICAL:
 
         const data = await response.json();
         console.log(`✅ Pollinations Response Success [Model: ${model}]`);
-        console.log('📦 Response data:', JSON.stringify(data, null, 2).substring(0, 500));
+        console.log('📦 Response data length:', JSON.stringify(data).length);
 
         const text = data.choices?.[0]?.message?.content || "";
 

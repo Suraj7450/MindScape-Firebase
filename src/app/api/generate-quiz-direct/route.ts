@@ -40,7 +40,8 @@ Generate 5-10 questions. Return ONLY valid JSON.`;
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `Generate a ${difficulty} quiz about: ${topic}` }
                 ],
-                response_format: { type: 'json_object' }
+                response_format: { type: 'json_object' },
+                max_tokens: 16384 // Increased to prevent truncation
             })
         });
 

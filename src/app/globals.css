@@ -387,3 +387,30 @@
 .animate-depth-glow {
   animation: depth-glow 3s ease-in-out infinite;
 }
+
+/* Chat Panel Message Content Wrapping */
+.prose pre {
+  @apply max-w-full overflow-x-auto;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+.prose code {
+  @apply break-words;
+  word-wrap: break-word;
+}
+
+.prose table {
+  @apply max-w-full block overflow-x-auto;
+}
+
+.prose img {
+  @apply max-w-full h-auto;
+}
+
+/* Ensure long URLs wrap */
+.prose a {
+  @apply break-words;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}

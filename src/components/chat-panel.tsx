@@ -177,6 +177,10 @@ export function ChatPanel({
   const [displayedPrompts, setDisplayedPrompts] = useState<any[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  // RESIZE STATE
+  const [panelWidth, setPanelWidth] = useLocalStorage('mindscape-chat-panel-width', 500);
+  const [isResizing, setIsResizing] = useState(false);
+
 
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -184,10 +188,15 @@ export function ChatPanel({
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [isGeneratingRelated, setIsGeneratingRelated] = useState(false);
 
+  // Resize constants
+  const MIN_WIDTH = 600;
+  const MAX_WIDTH = 900;
+
   const [showRelatedQuestions, setShowRelatedQuestions] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialMessage = useRef(false);
+  const quizSelectorAddedRef = useRef(false);
 
   // QUIZ STATE
   const [isQuizLoading, setIsQuizLoading] = useState(false);
@@ -209,7 +218,48 @@ export function ChatPanel({
     setActiveSessionId(newSession.id);
     setRelatedQuestions([]);
     setView('chat');
+    quizSelectorAddedRef.current = false; // Reset the flag for new session
   }, [setSessions]);
+
+  // Handle initialMode to trigger quiz selector
+  useEffect(() => {
+    console.log('🔍 ChatPanel useEffect triggered:', { isOpen, initialMode, activeSessionId, topic, quizSelectorAdded: quizSelectorAddedRef.current });
+
+    if (isOpen && initialMode === 'quiz' && activeSessionId && !quizSelectorAddedRef.current) {
+      console.log('✅ Quiz mode detected! Starting quiz flow...');
+      quizSelectorAddedRef.current = true; // Set flag immediately to prevent re-runs
+
+      // Add a quiz-selector message using functional update
+      setSessions(prev => {
+        const currentSession = prev.find(s => s.id === activeSessionId);
+        console.log('🔎 Current session:', currentSession);
+        console.log('🔎 Session messages:', currentSession?.messages);
+        const hasQuizSelector = currentSession?.messages.some(m => m.type === 'quiz-selector');
+        console.log('🔎 Has quiz selector?', hasQuizSelector);
+
+        if (!hasQuizSelector) {
+          console.log('📝 Adding quiz-selector message to session');
+          const quizSelectorMessage: Message = {
+            role: 'assistant',
+            content: `I'm ready to prepare a comprehensive quiz for you on **${topic}**. Which level of challenge should I architect for you?`,
+            type: 'quiz-selector'
+          };
+
+          return prev.map(s =>
+            s.id === activeSessionId
+              ? { ...s, messages: [...s.messages, quizSelectorMessage], timestamp: Date.now() }
+              : s
+          );
+        }
+        console.log('⚠️ Quiz selector already exists, not adding');
+        return prev;
+      });
+    } else if (isOpen && initialMode === 'quiz' && !activeSessionId) {
+      // Start a new session if needed
+      console.log('📝 Creating new session for topic:', topic);
+      startNewChat(topic);
+    }
+  }, [isOpen, initialMode, activeSessionId, topic, startNewChat, setSessions]);
 
   const activeSession = useMemo(() => {
     return sessions.find(s => s.id === activeSessionId) || null;
@@ -270,7 +320,7 @@ export function ChatPanel({
       setIsGeneratingRelated(true);
       const { data: relatedData } = await generateRelatedQuestionsAction({
         topic,
-        mindMapData: mindMapData,
+        mindMapData: mindMapData ? toPlainObject(mindMapData) : undefined,
         history: [...updatedMessages, assistantMessage]
       }, providerOptions);
 
@@ -295,8 +345,8 @@ export function ChatPanel({
     setIsQuizLoading(true);
     setQuizShowingDifficultySelector(false);
 
-    // Context for mind map if available
-    const mindMapContext = mindMapData ? JSON.stringify(mindMapData) : undefined;
+    // Context for mind map if available - serialize Firestore Timestamps first
+    const mindMapContext = mindMapData ? JSON.stringify(toPlainObject(mindMapData)) : undefined;
 
     const { data, error } = await generateQuizAction({
       topic: topic === 'General Conversation' ? 'General Knowledge' : topic,
@@ -751,7 +801,7 @@ export function ChatPanel({
       setIsGeneratingRelated(true);
       const { data: relatedData } = await generateRelatedQuestionsAction({
         topic,
-        mindMapData: mindMapData,
+        mindMapData: mindMapData ? toPlainObject(mindMapData) : undefined,
         history: [...updatedMessages, newAssistantMessage]
       }, providerOptions);
 
@@ -797,6 +847,40 @@ export function ChatPanel({
       return remainingSessions;
     });
   }
+
+  /**
+   * Handles resize start from the drag handle
+   */
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔧 Resize started at X:', e.clientX);
+    setIsResizing(true);
+
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = startX - moveEvent.clientX;
+      const newWidth = startWidth + deltaX;
+      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
+      setPanelWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      console.log('✅ Resize ended, final width:', panelWidth);
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   /**
    * Handles voice input using Web Speech API.
@@ -856,7 +940,7 @@ export function ChatPanel({
         <ScrollArea className="flex-grow px-4">
           <div className="flex flex-col gap-4 py-4">
             {messages.length === 0 && (
-              <div className="text-center p-6 relative min-h-[400px] flex flex-col items-center justify-center">
+              <div className="text-center p-6 relative min-h-[600px] flex flex-col items-center justify-center">
                 {/* Dynamic Persona Indicator */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -1026,203 +1110,211 @@ export function ChatPanel({
             {/* Messages and Suggestions List */}
             <div className="flex flex-col gap-6">
               <AnimatePresence initial={false} mode="popLayout">
-                {messages.filter(m => m.type !== 'quiz-selector').map((message, index) => (
-                  <motion.div
-                    key={`${activeSessionId}-${index}`}
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    className="flex flex-col gap-3"
-                  >
-                    <div
-                      className={cn(
-                        'flex items-start gap-3',
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      )}
+                {messages.map((message, index) => {
+                  // Skip quiz-selector messages that have been hidden after selection
+                  if (message.type === 'quiz-selector' && hiddenSelectorMessages.has(index)) {
+                    return null;
+                  }
+                  return (
+                    <motion.div
+                      key={`${activeSessionId}-${index}`}
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="flex flex-col gap-3"
                     >
-                      {message.role === 'assistant' ? (
-                        <Avatar className="h-8 w-8 border">
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            <Bot className="h-5 w-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="order-2">
-                          <Avatar className="h-8 w-8 border shadow-sm">
-                            <AvatarFallback className="bg-secondary text-secondary-foreground">
-                              <User className="h-5 w-5 text-muted-foreground" />
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                      )}
                       <div
                         className={cn(
-                          'rounded-3xl max-w-[85%] overflow-hidden transition-all duration-300',
-                          message.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-br-none order-1'
-                            : 'bg-secondary/40 backdrop-blur-sm border border-white/5 rounded-bl-none'
+                          'flex items-start gap-3',
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
                         )}
                       >
-                        <div className="p-4">
-                          {message.type === 'quiz' && message.quiz ? (
-                            <QuizCard
-                              quiz={message.quiz}
-                              onSubmit={(answers) => handleQuizSubmit(index, answers)}
-                              isSubmitting={isQuizLoading}
-                            />
-                          ) : message.type === 'quiz-result' && message.quizResult ? (
-                            <QuizResultCard
-                              result={message.quizResult}
-                              quiz={message.quiz}
-                              onRegenerate={() => handleRegenerateQuiz(message.quiz!, message.quizResult!)}
-                              isRegenerating={isQuizLoading}
-                            />
-                          ) : message.type === 'quiz-selector' && !hiddenSelectorMessages.has(index) ? (
-                            <div className="flex flex-col gap-4">
-                              <p className="text-sm font-medium leading-relaxed">
-                                I'm ready to prepare a comprehensive quiz for you on **{topic}**. Which level of challenge should I architect for you?
-                              </p>
-                              <div className="flex flex-wrap gap-2 pt-2">
-                                {[
-                                  { id: 'easy', label: 'Easy', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
-                                  { id: 'medium', label: 'Medium', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-                                  { id: 'hard', label: 'Hard', color: 'bg-red-500/10 text-red-400 border-red-500/20' }
-                                ].map((d) => (
-                                  <Button
-                                    key={d.id}
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleStartQuiz(d.id as any, index)}
-                                    className={cn(
-                                      "h-10 px-6 text-[10px] font-black font-orbitron uppercase tracking-[0.2em] rounded-2xl border hover:scale-105 active:scale-95 transition-all backdrop-blur-md",
-                                      d.color
-                                    )}
-                                  >
-                                    {d.label}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              className="text-sm prose prose-sm max-w-none leading-relaxed prose-invert"
-                              dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                            />
-                          )}
-                        </div>
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center gap-1 px-3 pb-2 pt-0">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                    onClick={() => handleCopy(message.content, index)}
-                                  >
-                                    {copiedIndex === index ? (
-                                      <Check className="h-3 w-3 text-green-500" />
-                                    ) : (
-                                      <Copy className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Copy</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                    onClick={() => handleRegenerate(index)}
-                                  >
-                                    <RefreshCw className={cn("h-3 w-3", isLoading && index === messages.length - 1 && "animate-spin")} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Regenerate</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                        {message.role === 'assistant' ? (
+                          <Avatar className="h-8 w-8 border">
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              <Bot className="h-5 w-5" />
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="order-2">
+                            <Avatar className="h-8 w-8 border shadow-sm">
+                              <AvatarFallback className="bg-secondary text-secondary-foreground">
+                                <User className="h-5 w-5 text-muted-foreground" />
+                              </AvatarFallback>
+                            </Avatar>
                           </div>
                         )}
-                      </div>
-                    </div>
-
-                    {/* Related Questions Section */}
-                    {message.role === 'assistant' && index === messages.length - 1 && (
-                      <div className="ml-11 flex flex-col gap-3">
-                        {/* Toggle Header */}
-                        {(isGeneratingRelated || relatedQuestions.length > 0) && (
-                          <div className="flex items-center justify-between">
-                            <button
-                              onClick={() => setShowRelatedQuestions(!showRelatedQuestions)}
-                              className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
-                            >
-                              <Sparkles className={cn("h-3 w-3", isGeneratingRelated ? "animate-spin text-primary" : "text-primary/50 group-hover:text-primary")} />
-                              <span>Related Questions</span>
-                              <motion.div
-                                animate={{ rotate: showRelatedQuestions ? 0 : -90 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <ChevronRight className="h-3 w-3" />
-                              </motion.div>
-                            </button>
-
-                            {relatedQuestions.length > 0 && !isGeneratingRelated && (
-                              <div className="h-[1px] flex-grow bg-border/30 ml-3" />
+                        <div
+                          className={cn(
+                            'rounded-3xl max-w-[85%] overflow-hidden transition-all duration-300',
+                            'break-words overflow-wrap-anywhere', // Content wrapping
+                            message.role === 'user'
+                              ? 'bg-primary text-primary-foreground rounded-br-none order-1'
+                              : 'bg-secondary/40 backdrop-blur-sm border border-white/5 rounded-bl-none'
+                          )}
+                        >
+                          <div className="p-4">
+                            {message.type === 'quiz' && message.quiz ? (
+                              <QuizCard
+                                quiz={message.quiz}
+                                onSubmit={(answers) => handleQuizSubmit(index, answers)}
+                                isSubmitting={isQuizLoading}
+                              />
+                            ) : message.type === 'quiz-result' && message.quizResult ? (
+                              <QuizResultCard
+                                result={message.quizResult}
+                                quiz={message.quiz}
+                                onRegenerate={() => handleRegenerateQuiz(message.quiz!, message.quizResult!)}
+                                isRegenerating={isQuizLoading}
+                              />
+                            ) : message.type === 'quiz-selector' ? (
+                              <div className="flex flex-col gap-4">
+                                <p className="text-sm font-medium leading-relaxed">
+                                  I'm ready to prepare a comprehensive quiz for you on **{topic}**. Which level of challenge should I architect for you?
+                                </p>
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                  {[
+                                    { id: 'easy', label: 'Easy', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+                                    { id: 'medium', label: 'Medium', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+                                    { id: 'hard', label: 'Hard', color: 'bg-red-500/10 text-red-400 border-red-500/20' }
+                                  ].map((d) => (
+                                    <Button
+                                      key={d.id}
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleStartQuiz(d.id as any, index)}
+                                      className={cn(
+                                        "h-10 px-6 text-[10px] font-black font-orbitron uppercase tracking-[0.2em] rounded-2xl border hover:scale-105 active:scale-95 transition-all backdrop-blur-md",
+                                        d.color
+                                      )}
+                                    >
+                                      {d.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                className="text-sm prose prose-sm max-w-none leading-relaxed prose-invert break-words whitespace-pre-wrap"
+                                style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
+                                dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                              />
                             )}
                           </div>
-                        )}
+                          {message.role === 'assistant' && (
+                            <div className="flex items-center gap-1 px-3 pb-2 pt-0">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                      onClick={() => handleCopy(message.content, index)}
+                                    >
+                                      {copiedIndex === index ? (
+                                        <Check className="h-3 w-3 text-green-500" />
+                                      ) : (
+                                        <Copy className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Copy</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
 
-                        {/* Content Area */}
-                        <AnimatePresence mode="wait">
-                          {isGeneratingRelated ? (
-                            <motion.div
-                              key="loading"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse py-1"
-                            >
-                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                              <span>Finding relevant insights...</span>
-                            </motion.div>
-                          ) : showRelatedQuestions && relatedQuestions.length > 0 && (
-                            <motion.div
-                              key="questions"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.3, ease: 'easeInOut' }}
-                              className="overflow-hidden"
-                            >
-                              <div className="flex flex-col gap-2.5 pt-1">
-                                {relatedQuestions.map((q: string, qIndex: number) => (
-                                  <motion.button
-                                    key={qIndex}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: qIndex * 0.05 }}
-                                    onClick={() => handleSend(q)}
-                                    className="text-[11px] bg-secondary/40 hover:bg-secondary/60 text-muted-foreground hover:text-primary border border-border/50 py-2.5 px-4 rounded-2xl transition-all flex items-start gap-3 group text-left w-full sm:w-auto sm:max-w-md shadow-sm hover:shadow-md hover:border-primary/30"
-                                  >
-                                    <HelpCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 opacity-50 group-hover:opacity-100 text-primary/70" />
-                                    <span className="flex-grow leading-relaxed font-medium">{q}</span>
-                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all mt-0.5" />
-                                  </motion.button>
-                                ))}
-                              </div>
-                            </motion.div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                      onClick={() => handleRegenerate(index)}
+                                    >
+                                      <RefreshCw className={cn("h-3 w-3", isLoading && index === messages.length - 1 && "animate-spin")} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Regenerate</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                           )}
-                        </AnimatePresence>
+                        </div>
                       </div>
-                    )}
-                  </motion.div>
-                ))}
+
+                      {/* Related Questions Section */}
+                      {message.role === 'assistant' && index === messages.length - 1 && (
+                        <div className="ml-11 flex flex-col gap-3">
+                          {/* Toggle Header */}
+                          {(isGeneratingRelated || relatedQuestions.length > 0) && (
+                            <div className="flex items-center justify-between">
+                              <button
+                                onClick={() => setShowRelatedQuestions(!showRelatedQuestions)}
+                                className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
+                              >
+                                <Sparkles className={cn("h-3 w-3", isGeneratingRelated ? "animate-spin text-primary" : "text-primary/50 group-hover:text-primary")} />
+                                <span>Related Questions</span>
+                                <motion.div
+                                  animate={{ rotate: showRelatedQuestions ? 0 : -90 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronRight className="h-3 w-3" />
+                                </motion.div>
+                              </button>
+
+                              {relatedQuestions.length > 0 && !isGeneratingRelated && (
+                                <div className="h-[1px] flex-grow bg-border/30 ml-3" />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Content Area */}
+                          <AnimatePresence mode="wait">
+                            {isGeneratingRelated ? (
+                              <motion.div
+                                key="loading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse py-1"
+                              >
+                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                <span>Finding relevant insights...</span>
+                              </motion.div>
+                            ) : showRelatedQuestions && relatedQuestions.length > 0 && (
+                              <motion.div
+                                key="questions"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                              >
+                                <div className="flex flex-col gap-2.5 pt-1">
+                                  {relatedQuestions.map((q: string, qIndex: number) => (
+                                    <motion.button
+                                      key={qIndex}
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: qIndex * 0.05 }}
+                                      onClick={() => handleSend(q)}
+                                      className="text-[11px] bg-secondary/40 hover:bg-secondary/60 text-muted-foreground hover:text-primary border border-border/50 py-2.5 px-4 rounded-2xl transition-all flex items-start gap-3 group text-left w-full sm:w-auto sm:max-w-md shadow-sm hover:shadow-md hover:border-primary/30"
+                                    >
+                                      <HelpCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 opacity-50 group-hover:opacity-100 text-primary/70" />
+                                      <span className="flex-grow leading-relaxed font-medium">{q}</span>
+                                      <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all mt-0.5" />
+                                    </motion.button>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
 
               {/* Quiz Generation / Regeneration Loading State */}
@@ -1375,9 +1467,34 @@ export function ChatPanel({
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent
-        className="w-full sm:max-w-lg flex flex-col p-0 glassmorphism [&>button]:hidden"
+        className="flex flex-col p-0 glassmorphism [&>button]:hidden transition-none"
+        style={{ width: `${panelWidth}px`, maxWidth: 'none', minWidth: 'auto' }}
         aria-describedby={undefined}
       >
+        {/* Resize Handle - Modern Subtle Design */}
+        <div
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-4 cursor-ew-resize z-[250] group flex items-center justify-center",
+            "transition-all duration-200",
+            isResizing && "bg-primary/10"
+          )}
+          onMouseDown={handleResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize chat panel"
+        >
+          {/* Subtle grip dots */}
+          <div className={cn(
+            "flex flex-col gap-1 transition-opacity duration-200",
+            isResizing ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+          )}>
+            <div className="w-0.5 h-0.5 rounded-full bg-primary/40" />
+            <div className="w-0.5 h-0.5 rounded-full bg-primary/40" />
+            <div className="w-0.5 h-0.5 rounded-full bg-primary/40" />
+            <div className="w-0.5 h-0.5 rounded-full bg-primary/40" />
+            <div className="w-0.5 h-0.5 rounded-full bg-primary/40" />
+          </div>
+        </div>
         <div className="flex items-center gap-2 p-2 border-b">
           <div className="flex items-center gap-1 min-w-0 flex-1">
             {view === 'history' && activeSession && (
