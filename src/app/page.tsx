@@ -35,6 +35,9 @@ import { languages } from '@/lib/languages';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useUser } from '@/firebase';
+import { useAIConfig } from '@/contexts/ai-config-context';
+import { TRIGGER_ONBOARDING_EVENT } from '@/components/onboarding-wizard';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 
@@ -92,15 +95,28 @@ function Hero({
     setIsClient(true);
   }, []);
 
+  const { user } = useUser();
+  const { config } = useAIConfig();
+  const isSetupComplete = !!user && !!config.pollinationsApiKey;
+
   // Trigger generation when a file is uploaded
   useEffect(() => {
     if (uploadedFile) {
+      if (!isSetupComplete) {
+        window.dispatchEvent(new CustomEvent(TRIGGER_ONBOARDING_EVENT));
+        return;
+      }
       onGenerate(topic, uploadedFile);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadedFile]);
 
   const handleInternalSubmit = () => {
+    if (!isSetupComplete) {
+      window.dispatchEvent(new CustomEvent(TRIGGER_ONBOARDING_EVENT));
+      return;
+    }
+
     if (isCompareMode) {
       if (!topic.trim() || !topic2.trim()) {
         toast({
@@ -154,6 +170,22 @@ function Hero({
           <Sparkles className="w-3.5 h-3.5 mr-2" />
           Next-Gen AI Mind Mapping
         </Badge>
+
+        {!isSetupComplete && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-4"
+          >
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent(TRIGGER_ONBOARDING_EVENT))}
+              className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/20 transition-all"
+            >
+              <Zap className="w-3 h-3 animate-pulse" />
+              Complete Setup to Generate
+            </button>
+          </motion.div>
+        )}
 
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
           Everything starts with <br />

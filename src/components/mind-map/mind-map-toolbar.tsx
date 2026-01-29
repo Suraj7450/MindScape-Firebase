@@ -28,7 +28,8 @@ import {
     UserRound,
     Palette,
     Brain,
-    BrainCircuit
+    BrainCircuit,
+    Sparkles
 } from 'lucide-react';
 import {
     Select,
@@ -78,6 +79,8 @@ interface MindMapToolbarProps {
     isPublic: boolean;
     isCompare?: boolean;
     onStartGlobalQuiz?: () => void;
+    onOpenSummary?: () => void;
+    isSummarizing?: boolean;
 }
 
 export const MindMapToolbar = ({
@@ -109,7 +112,9 @@ export const MindMapToolbar = ({
     isPublishing,
     isPublic,
     isCompare = false,
-    onStartGlobalQuiz
+    onStartGlobalQuiz,
+    onOpenSummary,
+    isSummarizing
 }: MindMapToolbarProps) => {
     const isBusy = status !== 'idle';
     const isSyncing = status === 'syncing';
@@ -225,6 +230,19 @@ export const MindMapToolbar = ({
                             >
                                 <BrainCircuit className="h-4 w-4" />
                                 Challenge
+                            </Button>
+                        )}
+
+                        {onOpenSummary && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onOpenSummary}
+                                disabled={isSummarizing || isBusy}
+                                className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20 transition-all hover:scale-105 active:scale-95 ml-1.5"
+                            >
+                                {isSummarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                Summarize
                             </Button>
                         )}
 

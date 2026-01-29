@@ -132,6 +132,7 @@ import {
   translateMindMapAction,
   explainNodeAction,
   explainWithExampleAction,
+  summarizeTopicAction,
 } from '@/app/actions';
 
 import {
@@ -147,6 +148,7 @@ import { categorizeMindMapAction } from '@/app/actions/community';
 import { MindMapStatus } from '@/hooks/use-mind-map-stack';
 import { LeafNodeCard } from './mind-map/leaf-node-card';
 import { ExplanationDialog } from './mind-map/explanation-dialog';
+import { SummaryDialog } from './summary-dialog';
 import { MindMapToolbar } from './mind-map/mind-map-toolbar';
 import { TopicHeader } from './mind-map/topic-header';
 import { MindMapRadialView } from './mind-map/mind-map-radial-view';
@@ -323,6 +325,10 @@ export const MindMap = ({
   const [isExampleLoading, setIsExampleLoading] = useState(false);
   const [activeExplainableNode, setActiveExplainableNode] = useState<any>(null);
 
+  const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
+  const [summaryContent, setSummaryContent] = useState(data.summary || '');
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
   const [mounted, setMounted] = useState(false);
   const [languageUI, setLanguageUI] = useState(selectedLanguage);
   const [personaUI, setPersonaUI] = useState(aiPersona);
@@ -403,6 +409,141 @@ export const MindMap = ({
     }
   }, [data.savedImages, data.nestedExpansions, data.explanations]);
 
+  // AUTO-SUMMARIZE when canvas content is fully loaded/generated
+  useEffect(() => {
+    const isReady = status === 'idle' && data && (data.subTopics?.length || 0) > 0;
+    const isNewMap = !data.summary && !summaryContent && !isSummarizing;
+
+    if (isReady && isNewMap) {
+      console.log('✨ Auto-summarizing new topic canvas...');
+      const triggerAutoSummary = async () => {
+        setIsSummarizing(true);
+        try {
+          const { summary, error } = await summarizeTopicAction({
+            mindMapData: toPlainObject(data)
+          }, providerOptions);
+
+          if (summary && !error) {
+            setSummaryContent(summary);
+            // Persist the summary back to Firestore
+            if (onUpdate) onUpdate({ summary });
+          }
+        } catch (err) {
+          console.error('Silent auto-summarization failed:', err);
+        } finally {
+          setIsSummarizing(false);
+        }
+      };
+
+      triggerAutoSummary();
+    }
+  }, [status, data, summaryContent, isSummarizing, providerOptions, onUpdate]);
+
+  const handleSaveMap = async () => {
+    if (onSaveMap) onSaveMap();
+  };
+
+  const handleStartDebate = (topicA: string, topicB: string) => {
+    const debatePrompt = `Let's have an "Intelligence Clash". Act as both ${topicA} and ${topicB}. Start a deep, analytical debate about your core philosophies, fundamental trade-offs, and real-world advantages. Challenge each other to prove which one offers a more optimal solution or superior experience in your respective domains.`;
+    onExplainInChat(debatePrompt);
+    toast({
+      title: "Clash Arena Initiated",
+      description: "Opening the debate floor in the chat panel...",
+    });
+  };
+
+  const handleGenerateHybrid = () => {
+    if (data.mode !== 'compare') return;
+    const parts = data.topic.split(/\s+(?:vs\.?|versus)\s+/i);
+    if (parts.length < 2) return;
+
+    const hybridTopic = `A hybrid fusion of ${parts[0]} and ${parts[1]}`;
+    onGenerateNewMap(hybridTopic, 'hybrid-root', 'hybrid-context');
+    toast({
+      title: "Synthetic Hybrid Generation",
+      description: "Designing a new species of technology...",
+    });
+  };
+
+  const handleStartContrastQuiz = () => {
+    // Trigger the standard interactive quiz flow for the comparison topic
+    onStartQuiz(data.topic);
+    toast({
+      title: "Contrast Quiz Ready",
+      description: "Launching interactive 'Clash of Minds' quiz...",
+    });
+  };
+
+  const handleDimensionDrillDown = (dimensionName: string) => {
+    const detailTopic = `${dimensionName} in depth: ${data.topic.replace(/\s+(?:vs\.?|versus)\s+/i, ' and ')}`;
+    // Open a new map for this dimension
+    onGenerateNewMap(detailTopic, `drill-${dimensionName}`, `dimension-context`, 'background');
+    toast({
+      title: "Drilling Into Dimension",
+      description: `Generating a deep-dive map for "${dimensionName}" in the background.`,
+    });
+  };
+
+  const handleShowTimeline = () => {
+    const parts = data.topic.split(/\s+(?:vs\.?|versus)\s+/i);
+    const names = parts.length >= 2 ? `${parts[0]} vs ${parts[1]}` : data.topic;
+    const timelineTopic = `Historical Timeline and Evolution of ${names}`;
+    onGenerateNewMap(timelineTopic, 'timeline-root', 'history-context');
+    toast({
+      title: "Evolution Timeline Triggered",
+      description: "Tracing the path through time...",
+    });
+  };
+
+  const handleStartMentorRoleplay = (role: string) => {
+    const mentorPrompt = `I need guidance from a Project Mentor acting as a ${role}. Based on the comparison of ${data.topic}, help me understand which one I should choose for my project. Ask me 3 critical questions about my specific requirements to give me the best advice.`;
+    onExplainInChat(mentorPrompt);
+    toast({
+      title: `${role} Mentor Active`,
+      description: `The ${role} is ready to consult in the chat panel.`,
+    });
+  };
+
+  const handleWarpPerspective = () => {
+    // Switch to creative persona and regenerate
+    onAIPersonaChange('Creative');
+    onRegenerate();
+    toast({
+      title: "Dimensional Warp Initiated",
+      description: "Perspective shifted. Regenerating with a Creative Visionary lens.",
+    });
+  };
+
+  const handleReloadSummary = async () => {
+    if (isSummarizing) return;
+    setIsSummarizing(true);
+    setSummaryContent('');
+
+    try {
+      const { summary, error } = await summarizeTopicAction({
+        mindMapData: toPlainObject(data)
+      }, providerOptions);
+
+      if (error) throw new Error(error);
+      if (summary) {
+        setSummaryContent(summary);
+        if (onUpdate) onUpdate({ summary });
+        toast({
+          title: "Summary Updated",
+          description: "A fresh AI synthesis has been generated.",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Regeneration Failed",
+        description: err.message,
+      });
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   useEffect(() => {
     if (propNestedExpansions) {
       const nestedStr = JSON.stringify(propNestedExpansions);
@@ -417,11 +558,11 @@ export const MindMap = ({
   const lastNotifiedRef = useRef<string>('');
   useEffect(() => {
     if (onUpdate) {
-      const dataToNotify = {
+      const dataToNotify = toPlainObject({
         nestedExpansions: nestedExpansions,
         savedImages: generatedImages,
         explanations: explanations
-      };
+      });
 
       // Check if this data is actually different from what we received in props
       const hasMeaningfulChanges =
@@ -781,24 +922,7 @@ export const MindMap = ({
 
   const expandAll = () => {
     if (data.mode === 'compare') {
-      const allIds: string[] = [
-        'section-commonalities',
-        'section-diff-a',
-        'section-diff-b',
-        'section-deep-dive',
-        'section-resources'
-      ];
-      const collectIds = (nodes: any[]) => {
-        nodes.forEach(node => {
-          if (node.id || node.title) allIds.push(node.id || node.title);
-          if (node.children && node.children.length > 0) {
-            collectIds(node.children);
-          }
-        });
-      };
-      collectIds(data.compareData.topicADeepDive);
-      collectIds(data.compareData.topicBDeepDive);
-      setOpenCompareNodes(allIds);
+      setIsAllExpanded(true);
     } else {
       const singleData = data as any;
       const allTopicIds = (singleData.subTopics as any[] || []).map((_: any, i: number) => `topic-${i}`);
@@ -809,6 +933,12 @@ export const MindMap = ({
       setOpenCategories(allCategoryIds);
     }
     setIsAllExpanded(true);
+  };
+
+  const collapseAll = () => {
+    setOpenSubTopics([]);
+    setOpenCategories([]);
+    setIsAllExpanded(false);
   };
 
   const handlePublish = async () => {
@@ -891,11 +1021,31 @@ export const MindMap = ({
     }
   };
 
-  const collapseAll = () => {
-    setOpenSubTopics([]);
-    setOpenCategories([]);
-    setOpenCompareNodes([]);
-    setIsAllExpanded(false);
+  const handleOpenSummary = async () => {
+    setIsSummaryDialogOpen(true);
+    if (summaryContent) return; // Already generated for this session
+
+    setIsSummarizing(true);
+    try {
+      const { summary, error } = await summarizeTopicAction({
+        mindMapData: toPlainObject(data)
+      }, providerOptions);
+
+      if (error || !summary) {
+        throw new Error(error || 'Failed to generate summary');
+      }
+
+      setSummaryContent(summary);
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Summarization Failed",
+        description: err.message
+      });
+      setIsSummaryDialogOpen(false);
+    } finally {
+      setIsSummarizing(false);
+    }
   };
 
   return (
@@ -929,14 +1079,15 @@ export const MindMap = ({
         isPublishing={isPublishing}
         isPublic={!!data.isPublic}
         isCompare={data.mode === 'compare'}
-
+        onOpenSummary={handleOpenSummary}
+        isSummarizing={isSummarizing}
       />
 
-      <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-20">
+      <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-12">
         {data.mode === 'compare' ? (
           <CompareView
             data={data}
-            onExplainNode={(node) => onExplainInChat(`Explain "${node.title}" in the context of the comparison "${data.compareData.root.title}".`)}
+            onExplainNode={(node) => onExplainInChat(`Explain "${node.title}" in the context of the comparison of ${data.topic}.`)}
             onGenerateNewMap={onGenerateNewMap}
             onExplainInChat={onExplainInChat}
             onSubCategoryClick={(node) => handleSubCategoryClick({ name: node.title, description: node.description || '' })}
@@ -945,8 +1096,13 @@ export const MindMap = ({
             generatingNode={generatingNode}
             nestedExpansions={nestedExpansions}
             isGlobalBusy={status !== 'idle'}
-            openNodes={openCompareNodes}
-            onOpenNodesChange={setOpenCompareNodes}
+            onStartDebate={handleStartDebate}
+            onGenerateHybrid={handleGenerateHybrid}
+            onStartContrastQuiz={handleStartContrastQuiz}
+            onDrillDown={handleDimensionDrillDown}
+            onWarpPerspective={handleWarpPerspective}
+            onShowTimeline={handleShowTimeline}
+            onStartQuiz={onStartQuiz}
           />
         ) : viewMode === 'accordion' ? (
           <>
@@ -1029,6 +1185,15 @@ export const MindMap = ({
         onClose={() => setIsAiContentDialogOpen(false)}
         mindMap={data}
         isGlobalBusy={status !== 'idle'}
+      />
+
+      <SummaryDialog
+        isOpen={isSummaryDialogOpen}
+        onClose={() => setIsSummaryDialogOpen(false)}
+        title={data.topic}
+        summary={summaryContent}
+        isLoading={isSummarizing}
+        onReload={handleReloadSummary}
       />
 
       <ExampleDialog

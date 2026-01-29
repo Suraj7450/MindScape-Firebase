@@ -25,6 +25,7 @@ interface TopicHeaderProps {
     badgeText?: string;
     persona?: string;
     depth?: 'low' | 'medium' | 'deep';
+    isMinimal?: boolean;
 }
 
 /**
@@ -39,30 +40,27 @@ export const TopicHeader = ({
     showBadge,
     badgeText,
     persona,
-    depth
+    depth,
+    isMinimal = false
 }: TopicHeaderProps) => {
     return (
-        <div className="relative mb-12 animate-in fade-in slide-in-from-top-4 duration-1000">
-            {/* Premium Container - Full background image with overlay */}
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#09090b] shadow-2xl min-h-[220px] group transition-all duration-500 hover:border-primary/30">
+        <div className={cn(
+            "relative animate-in fade-in slide-in-from-top-4 duration-1000",
+            isMinimal ? "mb-0" : "mb-12"
+        )}>
+            {/* Premium Container */}
+            <div className={cn(
+                "relative overflow-hidden transition-all duration-500 group",
+                isMinimal
+                    ? "bg-transparent border-none shadow-none min-h-0"
+                    : "rounded-3xl border border-white/10 bg-[#09090b] shadow-2xl min-h-[220px] hover:border-primary/30"
+            )}>
 
-                {/* Full-width Background Image */}
-                {mindMap.thumbnailUrl && (
-                    <div className="absolute inset-0 z-0 pointer-events-none">
-                        {/* The Blend Mask: Stronger dark overlay on the left for text legibility, fading to transparent */}
-                        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#09090b] via-[#09090b]/80 via-40% to-transparent" />
-                        <Image
-                            src={mindMap.thumbnailUrl}
-                            alt={mindMap.topic}
-                            fill
-                            className="object-cover opacity-60 transition-all [transition-duration:3000ms] ease-out group-hover:scale-110"
-                            priority
-                        />
-                    </div>
-                )}
-
-                {/* Content Layer - Positioned over the full background */}
-                <div className="relative z-10 flex flex-col justify-center h-full p-8 md:px-14 md:py-12 max-w-full min-h-[220px]">
+                {/* Content Layer */}
+                <div className={cn(
+                    "relative z-10 flex flex-col justify-center max-w-full transition-all duration-500",
+                    isMinimal ? "p-4 items-center text-center" : "p-8 md:px-14 md:py-12 h-full min-h-[220px]"
+                )}>
 
                     {/* Badge Integration */}
                     {showBadge && (
@@ -116,24 +114,27 @@ export const TopicHeader = ({
                         </div>
                     )}
 
-                    <div className="space-y-4 max-w-3xl">
-                        <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-[0.9] transition-transform duration-500 group-hover:-translate-x-1">
-                            {mindMap.shortTitle || mindMap.topic}
-                        </h1>
-                        {description && (
-                            <p className="text-lg md:text-xl text-zinc-400 font-medium leading-relaxed max-w-2xl animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
-                                {description}
-                            </p>
-                        )}
-                    </div>
+                    <h1 className={cn(
+                        "font-black text-white tracking-tighter transition-transform duration-500",
+                        isMinimal
+                            ? "text-5xl md:text-8xl leading-[0.8] mb-2 uppercase font-orbitron bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/40"
+                            : "text-4xl md:text-6xl leading-[0.9] group-hover:-translate-x-1"
+                    )}>
+                        {mindMap.shortTitle || mindMap.topic}
+                    </h1>
+                    {description && (
+                        <p className="text-lg md:text-xl text-zinc-400 font-medium leading-relaxed max-w-2xl animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
+                            {description}
+                        </p>
+                    )}
                 </div>
-
-                {/* Animated Background Glow */}
-                <div className="absolute -top-32 -left-32 w-80 h-80 bg-primary/10 rounded-full blur-[120px] opacity-40 group-hover:opacity-60 transition-opacity duration-1000 animate-pulse" />
-
-                {/* Decorative Grid Pattern Overlay */}
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:32px_32px]" />
             </div>
+
+            {/* Animated Background Glow */}
+            <div className="absolute -top-32 -left-32 w-80 h-80 bg-primary/10 rounded-full blur-[120px] opacity-40 group-hover:opacity-60 transition-opacity duration-1000 animate-pulse" />
+
+            {/* Decorative Grid Pattern Overlay */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:32px_32px]" />
         </div>
     );
 };

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAIConfig } from '@/contexts/ai-config-context';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 /**
  * PollinationsAuthHandler component
@@ -36,7 +36,10 @@ export function PollinationsAuthHandler() {
                 try {
                     // Update the config context (saves to localStorage)
                     // This is now memoized in the context
-                    updateConfig({ pollinationsApiKey: apiKey });
+                    updateConfig({
+                        pollinationsApiKey: apiKey,
+                        provider: 'pollinations'
+                    });
 
                     // Clear the hash from the URL IMMEDIATELY without refresh
                     // This prevents handleHash from re-triggering if the effect re-runs
@@ -44,9 +47,12 @@ export function PollinationsAuthHandler() {
 
                     // Also persist to Firestore profile
                     const userRef = doc(firestore, 'users', user.uid);
-                    await updateDoc(userRef, {
-                        'apiSettings.pollinationsApiKey': apiKey
-                    });
+                    await setDoc(userRef, {
+                        apiSettings: {
+                            pollinationsApiKey: apiKey,
+                            provider: 'pollinations'
+                        }
+                    }, { merge: true });
 
                     console.log('✅ Pollinations API key saved to Firestore');
 

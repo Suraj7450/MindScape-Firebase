@@ -182,7 +182,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         try {
             const genAI = new GoogleGenerativeAI(effectiveApiKey);
             const geminiModel = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash'
+                model: 'gemini-2.0-flash'
             });
 
             const userParts: any[] = [{ text: userPrompt }];
@@ -192,7 +192,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
             const text = await retry(async () => {
                 console.log('🔵 Calling Gemini with:', {
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-2.0-flash',
                     systemPromptLength: effectiveSystemPrompt.length,
                     userPromptLength: userPrompt.length,
                     hasSchema: !!schema

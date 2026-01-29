@@ -49,6 +49,27 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
         configRef.current = config;
     }, [config]);
 
+    const updateConfig = useCallback((updates: Partial<AIConfig>) => {
+        setConfig(current => {
+            const newConfig = { ...current, ...updates };
+            setStoredConfig(newConfig);
+            return newConfig;
+        });
+    }, [setStoredConfig]);
+
+    const resetConfig = useCallback(() => {
+        setConfig(DEFAULT_CONFIG);
+        setStoredConfig(DEFAULT_CONFIG);
+    }, [setStoredConfig]);
+
+    // Reset config when user logs out
+    useEffect(() => {
+        if (user === null) {
+            console.log('🚪 User logged out, resetting AI config');
+            resetConfig();
+        }
+    }, [user, resetConfig]);
+
     // Sync state with local storage on mount and when storage changes
     useEffect(() => {
         // Only sync from localStorage if the change didn't come from Firestore
@@ -72,28 +93,34 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
         // Set up real-time listener for apiSettings
         const userRef = doc(firestore, 'users', user.uid);
         const unsubscribe = onSnapshot(userRef, (snap) => {
-            if (snap.exists() && snap.data().apiSettings) {
-                const settings = snap.data().apiSettings;
-                const remoteConfig: Partial<AIConfig> = {};
+            const data = snap.data();
+            const settings = data?.apiSettings;
+            const remoteConfig: Partial<AIConfig> = {};
 
+            if (settings) {
                 if (settings.provider) remoteConfig.provider = settings.provider;
                 if (settings.apiKey) remoteConfig.apiKey = settings.apiKey;
                 if (settings.pollinationsApiKey) remoteConfig.pollinationsApiKey = settings.pollinationsApiKey;
                 if (settings.pollinationsModel) remoteConfig.pollinationsModel = settings.pollinationsModel;
+            } else {
+                // If snap exists but no apiSettings, we should reset local keys 
+                // to prevent stale data from previous sessions
+                remoteConfig.apiKey = '';
+                remoteConfig.pollinationsApiKey = '';
+            }
 
-                if (Object.keys(remoteConfig).length > 0) {
-                    // Use configRef to get the latest config value
-                    const newC = { ...configRef.current, ...remoteConfig };
-                    const newConfigStr = JSON.stringify(newC);
+            if (Object.keys(remoteConfig).length > 0) {
+                // Use configRef to get the latest config value
+                const newC = { ...configRef.current, ...remoteConfig };
+                const newConfigStr = JSON.stringify(newC);
 
-                    // Only update if the config actually changed
-                    if (newConfigStr !== lastStoredConfigRef.current) {
-                        lastStoredConfigRef.current = newConfigStr;
-                        isSyncingFromFirestore.current = true;
-                        setConfig(newC);
-                        setStoredConfig(newC); // Update local storage too
-                        console.log('✅ AI Config synced from Firestore:', newC.provider);
-                    }
+                // Only update if the config actually changed
+                if (newConfigStr !== lastStoredConfigRef.current) {
+                    lastStoredConfigRef.current = newConfigStr;
+                    isSyncingFromFirestore.current = true;
+                    setConfig(newC);
+                    setStoredConfig(newC); // Update local storage too
+                    console.log('✅ AI Config synced from Firestore');
                 }
             }
             setHydrated(true);
@@ -107,19 +134,6 @@ export function AIConfigProvider({ children }: { children: React.ReactNode }) {
             unsubscribe();
         };
     }, [user, firestore, setStoredConfig]);
-
-    const updateConfig = useCallback((updates: Partial<AIConfig>) => {
-        setConfig(current => {
-            const newConfig = { ...current, ...updates };
-            setStoredConfig(newConfig);
-            return newConfig;
-        });
-    }, [setStoredConfig]);
-
-    const resetConfig = useCallback(() => {
-        setConfig(DEFAULT_CONFIG);
-        setStoredConfig(DEFAULT_CONFIG);
-    }, [setStoredConfig]);
 
     return (
         <AIConfigContext.Provider value={{ config, updateConfig, resetConfig }}>

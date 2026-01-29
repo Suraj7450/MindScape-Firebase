@@ -20,9 +20,15 @@ export async function generateQuizFlow(input: GenerateQuizInput): Promise<any> {
     // Determine question count based on difficulty
     const questionCount = difficulty === 'easy' ? 5 : difficulty === 'medium' ? 8 : 12;
 
+    const isCompareMode = mindMapContext && (mindMapContext.includes('"mode":"compare"') || mindMapContext.includes('compareData'));
+
     const systemPrompt = `You are an educational assessment generator for MindScape, an adaptive learning platform.
     Your goal is to generate a high-quality, multiple-choice quiz that helps users master a topic.
     
+    ${isCompareMode ? `CRITICAL: The user is in "Comparison Mode" between two topics. 
+    Your questions MUST focus on the SHARP differences, trade-offs, and contrasting dimensions between the two topics. 
+    Challenge the user to distinguish ${topic.replace(' vs ', ' from ')} based on technical, philosophical, or operational traits.` : ''}
+
     CRITICAL: You MUST return a JSON object with this EXACT structure:
     {
       "topic": "string (the quiz topic)",

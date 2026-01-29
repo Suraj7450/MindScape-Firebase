@@ -304,9 +304,24 @@ export function ChatPanel({
     }, providerOptions);
     setIsLoading(false);
 
+    const stripUrls = (text: string): string => {
+      // Regex to match markdown links: [text](url) - keep the text, remove the (url)
+      const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+      // Regex to match naked URLs (starting with http/https)
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      // Regex to match "Source: [link]" or "(Source: [link])" or "Sources: ..."
+      const sourcesRegex = /\(?(Sources?|References?):\s*.*?\)?/gi;
+
+      return text
+        .replace(markdownLinkRegex, '$1')
+        .replace(urlRegex, '')
+        .replace(sourcesRegex, '')
+        .trim();
+    };
+
     const assistantMessage: Message = {
       role: 'assistant',
-      content: error ? `Sorry, I ran into an error: ${error}` : response!.answer,
+      content: error ? `Sorry, I ran into an error: ${error}` : stripUrls(response!.answer),
     };
 
     setSessions(prev => prev.map(s =>

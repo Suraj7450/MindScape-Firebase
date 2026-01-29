@@ -22,12 +22,14 @@ import { motion } from 'framer-motion';
 import { Icons } from './icons';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from './notification-center';
+import { useAIConfig } from '@/contexts/ai-config-context';
 
 export function Navbar() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const router = useRouter();
   const pathname = usePathname();
+  const { resetConfig } = useAIConfig();
   const [profileName, setProfileName] = useState<string | null>(null);
 
   // Listen to Firestore for real-time displayName updates
@@ -61,6 +63,7 @@ export function Navbar() {
   const handleLogout = async () => {
     const auth = getAuth();
     await signOut(auth);
+    resetConfig();
     router.push('/');
   };
 

@@ -105,6 +105,14 @@ export const NestedExpansionItemSchema = z.object({
   fullData: z.any().optional(), // Self-reference limit
 });
 
+export const CompareNodeSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().describe('Short name of the core principle.'),
+  description: z.string().describe('Evocative one-sentence explanation.'),
+  icon: z.string().describe('Lucide icon name.'),
+  children: z.array(z.lazy(() => z.any())).optional(), // Simplified for now
+});
+
 export const CompareMindMapSchema = z.object({
   mode: z.literal('compare'),
   topic: z.string(),
@@ -116,14 +124,23 @@ export const CompareMindMapSchema = z.object({
       description: z.string().optional(),
       icon: z.string().optional(),
     }),
-    similarities: z.array(z.any()),
-    differences: z.object({
-      topicA: z.array(z.any()),
-      topicB: z.array(z.any()),
+    unityNexus: z.array(CompareNodeSchema).describe('Shared core concepts between the topics.'),
+    dimensions: z.array(z.object({
+      name: z.string().describe('The dimension of comparison (e.g., "Performance").'),
+      icon: z.string().describe('Icon name for the dimension.'),
+      topicAInsight: z.string().describe('Insight for the first topic.'),
+      topicBInsight: z.string().describe('Insight for the second topic.'),
+      neutralSynthesis: z.string().describe('A neutral bridge or synthesis for this dimension.'),
+    })).min(4).describe('Detailed comparison dimensions (Bento grid items).'),
+    synthesisHorizon: z.object({
+      expertVerdict: z.string().describe('High-level conclusion or professional judgment.'),
+      futureEvolution: z.string().describe('How these topics might converge or evolve in the future.'),
     }),
-    relevantLinks: z.array(z.any()),
-    topicADeepDive: z.array(z.any()),
-    topicBDeepDive: z.array(z.any()),
+    relevantLinks: z.array(z.object({
+      title: z.string(),
+      url: z.string(),
+      description: z.string().optional(),
+    })),
   }),
   id: z.string().optional(),
   nestedExpansions: z.array(NestedExpansionItemSchema).optional(),

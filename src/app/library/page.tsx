@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Filter, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe, BarChart3, Binary, Layers } from 'lucide-react';
+import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe, BarChart3, Binary, Layers } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,7 +95,6 @@ export default function DashboardPage() {
   const [sortOption, setSortOption] = useState<SortOption>('recent');
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
   const [deletingMapIds, setDeletingMapIds] = useState<Set<string>>(new Set());
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedMapForPreview, setSelectedMapForPreview] = useState<SavedMindMap | null>(null);
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [isSuggestingTopics, setIsSuggestingTopics] = useState(false);
@@ -633,13 +632,6 @@ export default function DashboardPage() {
 
   const { data: savedMaps, isLoading: isMindMapsLoading } = useCollection<SavedMindMap>(mindMapsQuery);
 
-  const categories = useMemo(() => {
-    const cats = new Set<string>(['All']);
-    savedMaps?.forEach(map => {
-      (map as any).publicCategories?.forEach((cat: string) => cats.add(cat));
-    });
-    return Array.from(cats);
-  }, [savedMaps]);
 
   const filteredAndSortedMaps = useMemo(() => {
     // Filter out sub-maps: either explicitly marked OR has a parentMapId
@@ -655,9 +647,6 @@ export default function DashboardPage() {
       maps = maps.filter((map) => map.topic.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
-    if (selectedCategory !== 'All') {
-      maps = maps.filter((map: any) => map.publicCategories?.includes(selectedCategory));
-    }
 
     switch (sortOption) {
       case 'alphabetical':
@@ -763,26 +752,6 @@ export default function DashboardPage() {
           </Select>
         </div>
 
-        {/* Categories Filter */}
-        {categories.length > 1 && (
-          <div className="flex items-center justify-center gap-2 mb-8 overflow-x-auto pb-4 scrollbar-hide">
-            <Filter className="h-4 w-4 text-gray-500 mr-2 shrink-0" />
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap",
-                  selectedCategory === cat
-                    ? "bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20"
-                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
 
         {isMindMapsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

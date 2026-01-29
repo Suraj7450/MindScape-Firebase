@@ -16,14 +16,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Enhance the user's prompt
+    // 1. Enhance the user's prompt - strictly avoid direct Gemini
     const { enhancedPrompt, error: enhanceError } =
       await enhanceImagePromptAction(
         { prompt, style },
-        // Pass provider from request if valid, otherwise undefined (defaults to Pollinations)
         {
-          provider: (provider === 'gemini' ? 'gemini' : 'pollinations'),
-          apiKey: provider === 'pollinations' ? apiKey : undefined
+          provider: 'pollinations',
+          model: provider === 'gemini' ? 'gemini' : undefined,
+          apiKey: apiKey
         }
       );
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
     const finalPrompt = enhancedPrompt.enhancedPrompt || prompt;
 
-    return await generateWithPollinations(finalPrompt, size);
+    return await generateWithPollinations(finalPrompt, size, apiKey);
 
   } catch (error: any) {
     console.error('💥 Error in /api/generate-image:', error);
@@ -48,51 +48,72 @@ export async function POST(req: Request) {
 
 async function generateWithPollinations(prompt: string, size?: string, apiKey?: string) {
   const [width, height] = (size || '1024x1024').split('x').map(Number);
-
-  // Refined model list with latest stable Pollinations options
-  // Refined model list with latest stable Pollinations options from dashboard
-  const reliableModels = ['flux', 'zimage', 'turbo', 'klein', 'gptimage'];
+  const reliableModels = ['flux', 'flux-pro', 'turbo', 'gptimage', 'zimage'];
   let lastError: any = null;
 
   for (const model of reliableModels) {
     try {
       const encodedPrompt = encodeURIComponent(prompt);
-      // use the standard image.pollinations.ai endpoint
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true`;
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
 
-      console.log(`🎨 Attempting image generation with model: ${model}`);
+      console.log(`🎨 Attempting image generation with model: ${model} (20s timeout)`);
 
       const effectiveApiKey = apiKey || process.env.POLLINATIONS_API_KEY;
-      const imageResponse = await fetch(imageUrl, {
-        headers: {
-          ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      try {
+        const imageResponse = await fetch(imageUrl, {
+          signal: controller.signal,
+          headers: {
+            ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!imageResponse.ok) {
+          const statusText = await imageResponse.text().catch(() => imageResponse.statusText);
+          console.warn(`⚠️ Pollinations model ${model} failed: ${imageResponse.status} ${statusText}`);
+          continue;
         }
-      });
 
-      if (!imageResponse.ok) {
-        const statusText = await imageResponse.text().catch(() => imageResponse.statusText);
-        console.warn(`⚠️ Pollinations model ${model} failed: ${imageResponse.status} ${statusText}`);
-        lastError = new Error(`Pollinations (${model}) failed: ${imageResponse.status}`);
-        continue;
+        const imageBuffer = await imageResponse.arrayBuffer();
+        if (imageBuffer.byteLength < 100) continue;
+
+        const base64Image = Buffer.from(imageBuffer).toString('base64');
+        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        return NextResponse.json({ images: [`data:${contentType};base64,${base64Image}`] });
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.warn(`🕒 Model ${model} timed out`);
+        } else {
+          throw err;
+        }
       }
-
-      const imageBuffer = await imageResponse.arrayBuffer();
-      if (imageBuffer.byteLength < 100) {
-        throw new Error("Received empty or invalid image buffer");
-      }
-
-      const base64Image = Buffer.from(imageBuffer).toString('base64');
-      const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-      const dataUri = `data:${contentType};base64,${base64Image}`;
-
-      return NextResponse.json({ images: [dataUri] });
-
     } catch (error) {
       lastError = error;
       console.warn(`❌ Pollinations model ${model} error:`, error);
     }
   }
 
-  throw lastError || new Error('All Pollinations image models failed');
+  console.log('🛡️ All AI models failed, providing SVG fallback');
+  const fallbackSvg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#1e1b4b;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#4c1d95;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)" />
+      <text x="50%" y="45%" font-family="Arial" font-size="40" fill="white" text-anchor="middle" font-weight="bold">AI is highly busy ✨</text>
+      <text x="50%" y="55%" font-family="Arial" font-size="24" fill="#a78bfa" text-anchor="middle">${prompt.substring(0, 30)}...</text>
+      <text x="50%" y="80%" font-family="Arial" font-size="16" fill="#6d28d9" text-anchor="middle">MindScape Intelligent Fallback</text>
+    </svg>
+  `;
+  const base64Svg = Buffer.from(fallbackSvg).toString('base64');
+  return NextResponse.json({ images: [`data:image/svg+xml;base64,${base64Svg}`] });
 }
 

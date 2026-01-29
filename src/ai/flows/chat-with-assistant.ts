@@ -241,7 +241,7 @@ Adjust your response style based on the persona (BE CAREFUL with casing):
 - Start with a brief intro.
 - Use bullet points and bold text for readability.
 - Use tables for comparisons.
-- **DO NOT** include any URLs, links, or source citations in your response.
+- **CRITICAL**: DO NOT include any URLs, links, or web addresses (e.g., [link](url)) in your response.
 - Be encouraging and positive.
 
 The output MUST be a valid JSON object with the following structure:

@@ -45,24 +45,31 @@ export interface CompareNode {
   tags?: string[];
 }
 
+export interface ComparisonDimension {
+  name: string;
+  icon: string;
+  topicAInsight: string;
+  topicBInsight: string;
+  neutralSynthesis: string;
+}
+
 export interface CompareData {
   root: {
     title: string;
     description?: string;
     icon?: string;
   };
-  similarities: CompareNode[];
-  differences: {
-    topicA: CompareNode[];
-    topicB: CompareNode[];
+  unityNexus: CompareNode[]; // Shared core concepts
+  dimensions: ComparisonDimension[]; // The Bento Grid items
+  synthesisHorizon: {
+    expertVerdict: string;
+    futureEvolution: string;
   };
   relevantLinks: Array<{
     title: string;
     url: string;
     description?: string;
   }>;
-  topicADeepDive: CompareNode[];
-  topicBDeepDive: CompareNode[];
 }
 
 export interface GeneratedImage {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Recursive schema for comparison nodes.
+ * Recursive schema for comparison nodes (used in Unity Nexus).
  */
 export const CompareNodeSchema: z.ZodType<any> = z.lazy(() =>
     z.object({
@@ -10,40 +10,46 @@ export const CompareNodeSchema: z.ZodType<any> = z.lazy(() =>
         description: z.string().describe('A detailed informative sentence explaining the comparison/point. DO NOT USE PLACEHOLDERS.'),
         icon: z.string().optional().describe('Lucide-react icon name in kebab-case'),
         children: z.array(z.lazy(() => CompareNodeSchema)).optional().describe('Nested comparison details'),
-        tags: z.array(z.string()).optional().describe('2-3 relevant keywords'),
     })
 );
 
+export const ComparisonDimensionSchema = z.object({
+    name: z.string().describe('The dimension of comparison (e.g., "Performance").'),
+    icon: z.string().describe('Icon name for the dimension (kebab-case).'),
+    topicAInsight: z.string().describe('Sharp, informative sentence about Topic A in this dimension.'),
+    topicBInsight: z.string().describe('Sharp, informative sentence about Topic B in this dimension.'),
+    neutralSynthesis: z.string().describe('A neutral bridge or technical synthesis for this dimension.'),
+});
+
 /**
- * STRICT schema for Compare Mind Map.
+ * NEW Dimensional Architect Schema.
  */
 export const CompareMindMapSchema = z.object({
     mode: z.literal('compare').default('compare'),
-    topic: z.string().optional().describe('The main title of the comparison (e.g., "A vs B")'),
+    topic: z.string().describe('Main comparison title.'),
+    shortTitle: z.string().optional(),
+    icon: z.string().optional().default('scale'),
 
-    root: z.object({
-        title: z.string().describe('Topic A vs Topic B'),
-        description: z.string().optional().describe('High-level overview of the comparison'),
-        icon: z.string().default('scale').describe('Main icon for the comparison'),
-    }),
-
-    similarities: z.array(CompareNodeSchema).describe('List of shared features/concepts'),
-
-    differences: z.object({
-        topicA: z.array(CompareNodeSchema).describe('Points unique to Topic A'),
-        topicB: z.array(CompareNodeSchema).describe('Points unique to Topic B'),
-    }),
-
-    relevantLinks: z.array(
-        z.object({
-            title: z.string().describe('Readable title of the resource'),
-            url: z.string().url().describe('Direct URL to the resource'),
-            description: z.string().describe('A brief (1-sentence) explanation of what this resource provides.'),
-        })
-    ).describe('External resources for further reading'),
-
-    topicADeepDive: z.array(CompareNodeSchema).describe('Independent in-depth expansion of Topic A'),
-    topicBDeepDive: z.array(CompareNodeSchema).describe('Independent in-depth expansion of Topic B'),
+    compareData: z.object({
+        root: z.object({
+            title: z.string(),
+            description: z.string().optional(),
+            icon: z.string().optional().default('scale'),
+        }),
+        unityNexus: z.array(CompareNodeSchema).min(4).describe('Shared core principles.'),
+        dimensions: z.array(ComparisonDimensionSchema).min(5).describe('Bento grid dimensions.'),
+        synthesisHorizon: z.object({
+            expertVerdict: z.string().describe('Expert stand or professional judgment.'),
+            futureEvolution: z.string().describe('Potential convergence or evolution.'),
+        }),
+        relevantLinks: z.array(
+            z.object({
+                title: z.string(),
+                url: z.string().url(),
+                description: z.string(),
+            })
+        ).min(3),
+    })
 });
 
 export type CompareMindMap = z.infer<typeof CompareMindMapSchema>;

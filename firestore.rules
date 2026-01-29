@@ -23,7 +23,7 @@ service cloud.firestore {
       match /mindmaps/{mindmapId} {
         allow create: if isOwner(userId)
           && request.resource.data.userId == userId;
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || resource.data.isPublic == true;
         allow update: if isOwner(userId)
           && (!('userId' in resource.data) || resource.data.userId == userId);
         allow delete: if isOwner(userId);

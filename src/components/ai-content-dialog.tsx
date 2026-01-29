@@ -16,7 +16,7 @@ import { MindMapData } from '@/types/mind-map';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
-import { FileText, Copy as CopyIcon, CheckCircle2, Download, Loader2, X, FileMinus } from 'lucide-react';
+import { FileText, Copy as CopyIcon, CheckCircle2, Download, Loader2, X, FileMinus, GitBranch, Sparkles } from 'lucide-react';
 
 
 /**
@@ -79,7 +79,7 @@ export function AiContentDialog({
       y += 8;
       doc.setFontSize(11);
       doc.setTextColor(60);
-      const summaryText = mindMap.mode === 'compare' ? (mindMap.compareData.root.description || "Comparison analysis of topics.") : "Comprehensive knowledge structure and detailed exploration.";
+      const summaryText = mindMap.summary || (mindMap.mode === 'compare' ? (mindMap.compareData.root.description || "Comparison analysis of topics.") : "Comprehensive knowledge structure and detailed exploration.");
       const summaryLines = doc.splitTextToSize(summaryText, 170);
       doc.text(summaryLines, 20, y);
       y += (summaryLines.length * 6) + 15;
@@ -93,12 +93,12 @@ export function AiContentDialog({
       if (mindMap.mode === 'compare') {
         const cd = mindMap.compareData;
 
-        // Similarities
+        // Unity Nexus
         doc.setFontSize(14);
         doc.setTextColor(16, 185, 129); // Emerald
-        doc.text("Shared Commonalities", 20, y);
+        doc.text("Unity Nexus: Shared Core Principles", 20, y);
         y += 8;
-        cd.similarities.forEach((node: any) => {
+        (cd.unityNexus || []).forEach((node: any) => {
           if (y > 270) { doc.addPage(); y = 20; }
           doc.setFontSize(11);
           doc.setTextColor(0);
@@ -112,43 +112,81 @@ export function AiContentDialog({
           y += (desc.length * 5) + 8;
         });
 
-        // Differences
+        // Dimensions
         if (y > 250) { doc.addPage(); y = 20; }
         y += 10;
         doc.setFontSize(14);
         doc.setTextColor(124, 58, 237);
-        doc.text(`Unique Insights: ${mindMap.topic}`, 20, y);
+        doc.text("Comparison Dimensions", 20, y);
         y += 8;
 
-        const topics = [
-          { name: cd.root?.title?.split(' vs ')[0] || 'Topic A', data: cd.differences.topicA },
-          { name: cd.root?.title?.split(' vs ')[1] || 'Topic B', data: cd.differences.topicB }
-        ];
-
-        topics.forEach(topic => {
-          if (y > 260) { doc.addPage(); y = 20; }
+        (cd.dimensions || []).forEach((dim: any) => {
+          if (y > 250) { doc.addPage(); y = 20; }
           doc.setFontSize(12);
           doc.setTextColor(50);
           doc.setFont("helvetica", "bold");
-          doc.text(topic.name, 20, y);
+          doc.text(dim.name, 20, y);
           y += 7;
 
-          topic.data.forEach((node: any) => {
-            if (y > 270) { doc.addPage(); y = 20; }
-            doc.setFontSize(11);
-            doc.setTextColor(0);
-            doc.setFont("helvetica", "bold");
-            doc.text(`- ${node.title}`, 25, y);
-            y += 5;
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(80);
-            const desc = doc.splitTextToSize(node.description || "", 155);
-            doc.text(desc, 30, y);
-            y += (desc.length * 5) + 6;
-          });
+          // Topic A Insight
+          doc.setFontSize(10);
+          doc.setTextColor(220, 38, 38); // Red
+          doc.text("Topic A Insight:", 25, y);
           y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+          const insightA = doc.splitTextToSize(dim.topicAInsight || "", 150);
+          doc.text(insightA, 30, y);
+          y += (insightA.length * 5) + 3;
+
+          // Topic B Insight
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(37, 99, 235); // Blue
+          doc.text("Topic B Insight:", 25, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80);
+          const insightB = doc.splitTextToSize(dim.topicBInsight || "", 150);
+          doc.text(insightB, 30, y);
+          y += (insightB.length * 5) + 3;
+
+          // Synthesis
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(124, 58, 237);
+          const synthesis = doc.splitTextToSize(`Synthesis: ${dim.neutralSynthesis || ""}`, 150);
+          doc.text(synthesis, 30, y);
+          y += (synthesis.length * 5) + 8;
         });
-      } else {
+
+        // Synthesis Horizon
+        if (y > 240) { doc.addPage(); y = 20; }
+        y += 5;
+        doc.setFontSize(14);
+        doc.setTextColor(245, 158, 11); // Amber
+        doc.setFont("helvetica", "bold");
+        doc.text("Synthesis Horizon", 20, y);
+        y += 10;
+
+        doc.setFontSize(11);
+        doc.setTextColor(0);
+        doc.text("Expert Verdict:", 20, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80);
+        const verdict = doc.splitTextToSize(cd.synthesisHorizon?.expertVerdict || "", 170);
+        doc.text(verdict, 20, y);
+        y += (verdict.length * 5) + 8;
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0);
+        doc.text("Future Evolution:", 20, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80);
+        const evolution = doc.splitTextToSize(cd.synthesisHorizon?.futureEvolution || "", 170);
+        doc.text(evolution, 20, y);
+        y += (evolution.length * 5) + 15;
+      } else if (mindMap.subTopics) {
         mindMap.subTopics.forEach((st: any, i: number) => {
           if (y > 250) { doc.addPage(); y = 20; }
           doc.setFontSize(16);
@@ -157,7 +195,7 @@ export function AiContentDialog({
           doc.text(`${i + 1}. ${st.name}`, 20, y);
           y += 10;
 
-          st.categories.forEach((cat: any) => {
+          (st.categories || []).forEach((cat: any) => {
             if (y > 270) { doc.addPage(); y = 20; }
             doc.setFontSize(13);
             doc.setTextColor(50);
@@ -165,7 +203,7 @@ export function AiContentDialog({
             doc.text(cat.name, 25, y);
             y += 7;
 
-            cat.subCategories.forEach((sc: any) => {
+            (cat.subCategories || []).forEach((sc: any) => {
               if (y > 270) { doc.addPage(); y = 20; }
               doc.setFontSize(11);
               doc.setTextColor(0);
@@ -217,42 +255,29 @@ export function AiContentDialog({
       const { compareData } = mindMap;
       md += `> ${compareData.root.description || 'Comparison Analysis'}\n\n`;
 
-      md += `## Core Commonalities\n\n`;
-      compareData.similarities.forEach(node => {
+      md += `## Unity Nexus: Shared Core Principles\n\n`;
+      (compareData.unityNexus || []).forEach(node => {
         md += `### ${node.title}\n${node.description || ''}\n\n`;
       });
 
-      md += `## Topic Differences\n\n`;
-      md += `### Unique to ${compareData.root?.title?.split(' vs ')[0] || 'Topic A'}\n`;
-      compareData.differences.topicA.forEach(node => {
-        md += `- **${node.title}**: ${node.description || ''}\n`;
+      md += `## Comparison Dimensions\n\n`;
+      (compareData.dimensions || []).forEach(dim => {
+        md += `### ${dim.name}\n`;
+        md += `- **Topic A Insight**: ${dim.topicAInsight}\n`;
+        md += `- **Topic B Insight**: ${dim.topicBInsight}\n`;
+        md += `- **Synthesis**: ${dim.neutralSynthesis}\n\n`;
       });
 
-      md += `\n### Unique to ${compareData.root?.title?.split(' vs ')[1] || 'Topic B'}\n`;
-      compareData.differences.topicB.forEach(node => {
-        md += `- **${node.title}**: ${node.description || ''}\n`;
-      });
+      md += `## Synthesis Horizon\n\n`;
+      md += `### Expert Verdict\n${compareData.synthesisHorizon?.expertVerdict || ''}\n\n`;
+      md += `### Future Evolution\n${compareData.synthesisHorizon?.futureEvolution || ''}\n\n`;
 
-      md += `\n## Structured Deep Dives\n\n`;
-      if (compareData.topicADeepDive && compareData.topicADeepDive.length > 0) {
-        md += `### Exploration of ${compareData.root?.title?.split(' vs ')[0] || 'Topic A'}\n`;
-        compareData.topicADeepDive.forEach(node => {
-          md += `#### ${node.title}\n${node.description || ''}\n`;
-        });
-      }
-
-      if (compareData.topicBDeepDive && compareData.topicBDeepDive.length > 0) {
-        md += `\n### Exploration of ${compareData.root?.title?.split(' vs ')[1] || 'Topic B'}\n`;
-        compareData.topicBDeepDive.forEach(node => {
-          md += `#### ${node.title}\n${node.description || ''}\n`;
-        });
-      }
-    } else {
+    } else if (mindMap.subTopics) {
       mindMap.subTopics.forEach(st => {
         md += `## ${st.name}\n\n`;
-        st.categories.forEach(cat => {
+        (st.categories || []).forEach(cat => {
           md += `### ${cat.name}\n\n`;
-          cat.subCategories.forEach(sc => {
+          (cat.subCategories || []).forEach(sc => {
             md += `- **${sc.name}**: ${sc.description}\n`;
           });
           md += `\n`;
@@ -313,19 +338,19 @@ export function AiContentDialog({
             </div>
 
             {mindMap.mode === 'compare' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Similarities */}
-                <div className="md:col-span-2">
-                  <h2 className="text-2xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6" /> Core Commonalities
+              <div className="space-y-12">
+                {/* Unity Nexus */}
+                <div>
+                  <h2 className="text-2xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
+                    <CheckCircle2 className="h-6 w-6" /> Unity Nexus: Shared Core Principles
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {mindMap.compareData.similarities.map((node, i) => (
-                      <Card key={i} className="bg-zinc-900/50 border-white/5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {(mindMap.compareData.unityNexus || []).map((node, i) => (
+                      <Card key={i} className="bg-zinc-900/50 border-white/5 h-full">
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-lg">{node.title}</CardTitle>
+                          <CardTitle className="text-base text-white">{node.title}</CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm text-zinc-400">
+                        <CardContent className="text-xs text-zinc-400 leading-relaxed">
                           {node.description}
                         </CardContent>
                       </Card>
@@ -333,53 +358,77 @@ export function AiContentDialog({
                   </div>
                 </div>
 
-                {/* Differences */}
-                <Card className="bg-zinc-900/50 border-white/5">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-primary font-bold uppercase tracking-tight">
-                      {mindMap.compareData.root?.title?.split(' vs ')[0] || 'Topic A'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {mindMap.compareData.differences.topicA.map((node, i) => (
-                      <div key={i} className="border-l-2 border-primary/20 pl-4 py-1">
-                        <h4 className="font-bold text-zinc-100">{node.title}</h4>
-                        <p className="text-sm text-zinc-500">{node.description}</p>
-                      </div>
+                {/* Dimensions */}
+                <div>
+                  <h2 className="text-2xl font-bold text-primary mb-6 flex items-center gap-2">
+                    <GitBranch className="h-6 w-6" /> Comparison Dimensions
+                  </h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {(mindMap.compareData.dimensions || []).map((dim, i) => (
+                      <Card key={i} className="bg-zinc-900/50 border-white/5 overflow-hidden">
+                        <CardHeader className="bg-white/5 border-b border-white/5 py-4">
+                          <CardTitle className="text-lg text-white uppercase tracking-tighter">{dim.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <span className="text-[10px] font-black text-red-500/80 uppercase tracking-widest block">Topic A Insight</span>
+                              <p className="text-sm text-zinc-300 leading-relaxed">{dim.topicAInsight}</p>
+                            </div>
+                            <div className="space-y-2">
+                              <span className="text-[10px] font-black text-blue-500/80 uppercase tracking-widest block">Topic B Insight</span>
+                              <p className="text-sm text-zinc-300 leading-relaxed">{dim.topicBInsight}</p>
+                            </div>
+                          </div>
+                          <div className="pt-4 border-t border-white/5">
+                            <div className="bg-primary/5 border border-primary/10 rounded-xl p-4">
+                              <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">Architect's Synthesis</span>
+                              <p className="text-[11px] italic text-zinc-400">{dim.neutralSynthesis}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
 
-                <Card className="bg-zinc-900/50 border-white/5">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-primary font-bold uppercase tracking-tight">
-                      {mindMap.compareData.root?.title?.split(' vs ')[1] || 'Topic B'}
+                {/* Synthesis Horizon */}
+                <Card className="bg-zinc-900/50 border-white/10 overflow-hidden rounded-[2rem]">
+                  <CardHeader className="bg-amber-500/5 border-b border-amber-500/10">
+                    <CardTitle className="text-xl text-amber-500 font-bold flex items-center gap-2">
+                      <Sparkles className="h-5 w-5" /> Synthesis Horizon
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {mindMap.compareData.differences.topicB.map((node, i) => (
-                      <div key={i} className="border-l-2 border-primary/20 pl-4 py-1">
-                        <h4 className="font-bold text-zinc-100">{node.title}</h4>
-                        <p className="text-sm text-zinc-500">{node.description}</p>
-                      </div>
-                    ))}
+                  <CardContent className="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black text-zinc-500 uppercase tracking-widest">Expert Verdict</h4>
+                      <p className="text-zinc-200 text-lg font-medium italic leading-relaxed">
+                        "{mindMap.compareData.synthesisHorizon?.expertVerdict}"
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black text-zinc-500 uppercase tracking-widest">Future Evolution</h4>
+                      <p className="text-zinc-400 text-base leading-relaxed">
+                        {mindMap.compareData.synthesisHorizon?.futureEvolution}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
-            ) : (
+            ) : mindMap.subTopics ? (
               mindMap.subTopics.map((subTopic, subIndex) => (
                 <Card key={`sub-${subIndex}`} className="bg-zinc-900/50 border-white/5 shadow-2xl overflow-hidden rounded-[2rem] break-inside-avoid">
                   <CardHeader>
                     <CardTitle className="text-xl">{subTopic.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 pl-10">
-                    {subTopic.categories.map((category, catIndex) => (
+                    {subTopic.categories?.map((category, catIndex) => (
                       <div key={`cat-${catIndex}`} className="break-inside-avoid">
                         <h4 className="font-semibold text-lg text-primary">
                           {category.name}
                         </h4>
                         <ul className="list-disc pl-6 mt-2 space-y-2 text-muted-foreground">
-                          {category.subCategories.map(
+                          {category.subCategories?.map(
                             (subCategory, subCatIndex) => (
                               <li key={`subcat-${subCatIndex}`}>
                                 <strong className="text-foreground">
@@ -395,7 +444,7 @@ export function AiContentDialog({
                   </CardContent>
                 </Card>
               ))
-            )}
+            ) : null}
           </div>
         </ScrollArea>
       </DialogContent>

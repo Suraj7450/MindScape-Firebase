@@ -9,8 +9,9 @@ export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[],
-    options: { model?: string, response_format?: any, apiKey?: string } = {}
+    options: { model?: string, response_format?: any, apiKey?: string, skipApiKey?: boolean } = {}
 ): Promise<any> {
+    // ... (rest of the code)
     // Expert Model Selection Logic
     const hasImages = images && images.length > 0;
 
@@ -82,9 +83,11 @@ CRITICAL:
         }
 
         // Robust API Key selection
-        const effectiveApiKey = (options.apiKey && options.apiKey.trim() !== "")
-            ? options.apiKey
-            : process.env.POLLINATIONS_API_KEY;
+        const effectiveApiKey = options.skipApiKey
+            ? null
+            : (options.apiKey && options.apiKey.trim() !== "")
+                ? options.apiKey
+                : process.env.POLLINATIONS_API_KEY;
 
         if (effectiveApiKey) {
             console.log(`🔑 Using Pollinations Key: ${effectiveApiKey.substring(0, 7)}... (from ${options.apiKey ? 'Client' : 'Server Env'})`);
@@ -102,6 +105,17 @@ CRITICAL:
         if (!response.ok) {
             let errorMessage = response.statusText;
             const status = response.status;
+
+            // Handle invalid API key by retrying without one (Pollinations fallback)
+            if (status === 401 && effectiveApiKey) {
+                console.warn("⚠️ Pollinations API Key is invalid (401). Retrying without key...");
+                return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                    ...options,
+                    apiKey: undefined,
+                    skipApiKey: true // Force skip environment key to avoid loop
+                });
+            }
+
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.message || errorData.error?.message || JSON.stringify(errorData);

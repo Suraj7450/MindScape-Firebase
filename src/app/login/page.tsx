@@ -67,7 +67,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Main Content */}
-      <div className="relative min-h-screen flex items-center justify-center px-2 py-2 -mt-16">
+      <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12 lg:py-20">
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 
           {/* LEFT SIDE – Feature Showcase */}

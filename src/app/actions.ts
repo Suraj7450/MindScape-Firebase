@@ -31,6 +31,7 @@ import {
   TranslateMindMapInput,
   TranslateMindMapOutput,
 } from '@/ai/flows/translate-mind-map';
+import { summarizeTopic } from '@/ai/flows/summarize-topic';
 
 import {
   explainWithExample,
@@ -81,27 +82,39 @@ import { generateSearchContext } from './actions/generateSearchContext';
  * Fills in default values for required fields like tags and isExpanded.
  */
 function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): MindMapData {
-  if (raw.mode === 'compare' || raw.compareData || raw.similarities || raw.root) {
-    // Handle both formats: nested (raw.compareData) and flat (raw.similarities/root directly)
-    const compareData = raw.compareData || {
-      root: raw.root,
-      similarities: raw.similarities,
-      differences: raw.differences
-    };
+  if (raw.mode === 'compare' || raw.compareData) {
+    // If the data is already in the new nested compareData format, pass it through
+    if (raw.compareData) {
+      return {
+        ...raw,
+        mode: 'compare',
+        depth,
+        createdAt: raw.createdAt || Date.now(),
+        updatedAt: raw.updatedAt || Date.now(),
+        compareData: {
+          ...raw.compareData,
+          unityNexus: (raw.compareData.unityNexus || []).map((n: any) => ({
+            ...n,
+            id: n.id || `nexus-${Math.random().toString(36).substr(2, 9)}`
+          })),
+          dimensions: (raw.compareData.dimensions || []).map((d: any) => ({
+            ...d
+          }))
+        }
+      } as CompareMindMapData;
+    }
 
+    // Legacy Fallback: If it's old flat format, we wrap it (though new generations won't go here)
     return {
       ...raw,
       mode: 'compare',
       depth,
-      createdAt: raw.createdAt || Date.now(),
-      updatedAt: raw.updatedAt || Date.now(),
       compareData: {
-        ...raw.compareData,
-        similarities: (compareData.similarities || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
-        differences: {
-          topicA: (compareData.differences?.topicA || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
-          topicB: (compareData.differences?.topicB || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
-        }
+        root: raw.root || { title: raw.topic || 'Comparison' },
+        unityNexus: (raw.similarities || []).map((n: any) => ({ ...n, id: n.id || Math.random().toString(36).substr(2, 9) })),
+        dimensions: [], // Old format can't satisfy dimensions easily
+        synthesisHorizon: { expertVerdict: '', futureEvolution: '' },
+        relevantLinks: raw.relevantLinks || []
       }
     } as CompareMindMapData;
   }
@@ -418,6 +431,25 @@ export async function summarizeChatAction(
     return {
       summary: null,
       error: `Failed to summarize chat. ${errorMessage}`,
+    };
+  }
+}
+
+/**
+ * Server action to generate a concise summary for the entire mind map.
+ */
+export async function summarizeTopicAction(
+  input: { mindMapData: MindMapData },
+  options: { apiKey?: string; provider?: AIProvider } = {}
+): Promise<{ summary: string | null; error: string | null }> {
+  try {
+    const result = await summarizeTopic({ ...input, ...options });
+    return { summary: result.summary, error: null };
+  } catch (error) {
+    console.error('Error in summarizeTopicAction:', error);
+    return {
+      summary: null,
+      error: error instanceof Error ? error.message : 'Failed to generate summary.',
     };
   }
 }

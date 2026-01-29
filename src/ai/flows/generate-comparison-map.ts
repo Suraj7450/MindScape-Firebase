@@ -77,33 +77,37 @@ export async function generateComparisonMap(
       - Keep descriptions highly focused and exactly one sentence.`;
     }
 
-    const systemPrompt = `You are an expert in creating detailed and comprehensive comparative mind maps.
+    const systemPrompt = `You are an elite intelligence architect specialized in deep comparative analysis. Your goal is to reveal non-obvious connections and sharp, meaningful contrasts between two topics using a modular, dimension-first approach.
     
     ${personaInstruction}
     
     ${targetLangInstruction}
     
     The mind map must have the following structure (use exact field names):
+      - mode: Must be exactly "compare".
       - topic: A main topic like "${input.topic1} vs. ${input.topic2}".
       - shortTitle: A condensed version like "${input.topic1} vs ${input.topic2}" (max 4 words).
       - icon: A relevant lucide-react icon for comparison, such as "scale" or "git-compare-arrows".
-      - subTopics: The map must include at least three sub-topics:
-        1.  **"Similarities"**:
-            - categories should represent 4-5 shared concepts, features, or principles.
-            - subCategories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one sentence.
-        2.  **"Differences"**:
-            - This sub-topic should contain exactly two categories: one for "${input.topic1}" and one for "${input.topic2}".
-            - The subCategories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "${input.topic1}" and a corresponding sub-category under "${input.topic2}". 
-            - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
-            - Create 4-5 of these parallel comparison points.
-            - Each description MUST be concise and clearly explain the distinction in exactly one sentence.
-        3.  **"Contextual Links / Overlap"**:
-            - categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-            - subCategories should provide specific examples or explanations of these connections. The description for each MUST be concise and informative.
-    
-      Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
-      Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.
-      The output must be a valid JSON object that strictly adheres to the provided output schema. Do not include any extra text or explanations outside the JSON structure.`;
+      - compareData:
+        1. **"unityNexus"**: 
+           - Identify 4-5 shared fundamental principles, structural core values, or historical commonalities.
+           - Provide these as a list of nodes (id, title, description, icon).
+           - Description must be one evocative sentence.
+        2. **"dimensions"**:
+           - This is the "Dimensional Battleground" - the core Bento grid.
+           - Identify 5-7 major categories of comparison (e.g., Performance, Philosophy, Scalability, Ecosystem).
+           - For EACH dimension, provide:
+             - name: The dimension title.
+             - icon: A relevant icon (lucide-react kebab-case).
+             - topicAInsight: How "${input.topic1}" handles this dimension (Exactly one sharp sentence).
+             - topicBInsight: How "${input.topic2}" handles this dimension (Exactly one sharp sentence).
+             - neutralSynthesis: A bridge that explains how they interact or the "middle ground".
+        3. **"synthesisHorizon"**:
+           - Provide a high-level experts' verdict and future convergence path.
+           - expertVerdict: A professional judgment on when to use which or their current standing.
+           - futureEvolution: How these two topics might integrate, compete, or evolve together in the next 5-10 years.
+        4. **"relevantLinks"**: 3-4 authoritative resources related to the comparison.
+    `;
 
     const userPrompt = `Generate a structured mind map comparing and contrasting "${input.topic1}" and "${input.topic2}".`;
 
@@ -124,7 +128,7 @@ export async function generateComparisonMap(
         return result;
       } catch (e: any) {
         lastError = e;
-        console.error(`❌ Comparison map generation attempt ${attempt} failed:`, e.message);
+        console.error(`❌ Comparison map generation attempt ${attempt} failed: `, e.message);
         if (attempt === maxAttempts) throw e;
         await new Promise(res => setTimeout(res, 1000));
       }
@@ -139,7 +143,7 @@ const prompt = ai.definePrompt({
   name: 'generateComparisonMapPrompt',
   input: { schema: GenerateComparisonMapInputSchema },
   output: { schema: GenerateComparisonMapOutputSchema },
-  prompt: `You are an expert in creating detailed and comprehensive comparative mind maps.
+  prompt: `You are an elite intelligence architect specialized in deep comparative analysis. Your goal is to reveal non-obvious connections and sharp, meaningful contrasts between two topics using a modular, dimension-first approach.
 
   Your task is to generate a structured mind map comparing and contrasting "{{{topic1}}}" and "{{{topic2}}}".
 
@@ -150,26 +154,26 @@ const prompt = ai.definePrompt({
   {{/if}}
 
   The mind map must have the following structure:
-  - Topic: A main topic like "{{{topic1}}} vs. {{{topic2}}}".
-  - Icon: A relevant lucide-react icon for comparison, such as "git-compare-arrows" or "scale".
-  - Sub-Topics: The map must include at least three sub-topics:
-    1.  **"Similarities"**:
-        - Categories should represent 4-5 shared concepts, features, or principles.
-        - Sub-categories under each should provide specific examples or details of these similarities. Each sub-category's description MUST be concise and consist of exactly one statement.
-    2.  **"Differences"**:
-        - This sub-topic should contain exactly two categories: one for "{{{topic1}}}" and one for "{{{topic2}}}".
-        - The sub-categories under each of these two should be PARALLEL. For each point of comparison, you must create one sub-category under "{{{topic1}}}" and a corresponding sub-category under "{{{topic2}}}". 
-        - For example, if comparing "Dogs" and "Cats", a point of comparison could be "Social Behavior". The sub-category under "Dogs" would be named "Social Behavior" and describe dogs, and the sub-category under "Cats" would also be named "Social Behavior" and describe cats.
-        - Create 4-5 of these parallel comparison points.
-        - Each description MUST be concise and clearly explain the distinction in exactly one statement.
-    3.  **"Contextual Links / Overlap"**:
-        - Categories should represent 3-4 areas where the topics intersect, relate, or influence each other (e.g., "Historical Context", "Practical Applications", "Shared Technology").
-        - Sub-categories should provide specific examples or explanations of these connections. The description for each MUST be concise and limited to one statement.
-
-
-  Ensure every sub-topic, category, and sub-category has a relevant lucide-react icon name in kebab-case.
-  Every sub-category MUST have a 'tags' array containing 2-3 relevant keywords.
-  The output must be a valid JSON object that strictly adheres to the provided output schema. Do not include any extra text or explanations outside the JSON structure.
+    - mode: Must be exactly "compare".
+    - topic: A main topic like "{{{topic1}}} vs. {{{topic2}}}".
+    - shortTitle: A condensed version like "{{{topic1}}} vs {{{topic2}}}" (max 4 words).
+    - icon: A relevant lucide-react icon for comparison, such as "scale" or "git-compare-arrows".
+    - compareData:
+      1. **"unityNexus"**: 
+         - Identify 4-5 shared fundamental principles, structural core values, or historical commonalities.
+         - Provide these as a list of nodes (id, title, description, icon).
+      2. **"dimensions"**:
+         - Identify 5-7 major categories of comparison.
+         - For EACH dimension, provide:
+           - name: The dimension title.
+           - icon: A relevant icon name.
+           - topicAInsight: How "{{{topic1}}}" handles this dimension.
+           - topicBInsight: How "{{{topic2}}}" handles this dimension.
+           - neutralSynthesis: A bridge explaining their interaction.
+      3. **"synthesisHorizon"**:
+         - expertVerdict: A professional judgment.
+         - futureEvolution: Future convergence or competition path.
+      4. **"relevantLinks"**: authoritative resources.
   `,
 });
 

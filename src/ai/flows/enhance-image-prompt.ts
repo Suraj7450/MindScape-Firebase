@@ -32,9 +32,9 @@ export type EnhanceImagePromptOutput = z.infer<
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function enhanceImagePrompt(
-  input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider; strict?: boolean }
+  input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider; strict?: boolean; model?: string }
 ): Promise<EnhanceImagePromptOutput> {
-  const { provider = 'gemini', apiKey, strict } = input;
+  const { provider = 'pollinations', apiKey, strict, model } = input;
   if (provider === 'pollinations' || apiKey || provider === 'gemini') {
     const styleInstruction = input.style
       ? `**Requested Style:**
@@ -80,7 +80,8 @@ export async function enhanceImagePrompt(
           systemPrompt,
           userPrompt,
           schema: EnhanceImagePromptOutputSchema,
-          strict
+          strict,
+          model
         });
 
         return result;

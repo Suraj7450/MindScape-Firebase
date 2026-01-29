@@ -250,7 +250,17 @@ export function AuthForm() {
                 Google
               </Button>
 
-              {!isSignUp && (
+              {isSignUp ? (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSignUp(false)}
+                    className="text-sm text-muted-foreground hover:text-purple-400 transition-colors"
+                  >
+                    Already have an account? <span className="font-semibold text-purple-400">Sign in</span>
+                  </button>
+                </div>
+              ) : (
                 <div className="text-center pt-2">
                   <button
                     type="button"
