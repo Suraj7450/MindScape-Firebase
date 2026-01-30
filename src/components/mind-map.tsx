@@ -288,7 +288,7 @@ export const MindMap = ({
   }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);
 
   const imageProviderOptions = useMemo(() => ({
-    provider: config.provider === 'gemini' ? 'pollinations' : config.provider as 'pollinations' | 'bytez',
+    provider: config.provider as 'pollinations' | 'bytez',
     apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
     model: config.pollinationsModel
   }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);

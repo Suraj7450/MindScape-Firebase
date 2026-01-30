@@ -13,69 +13,138 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
-    Loader2, ArrowLeft, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
-    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Sparkles
+    Loader2, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
+    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Sparkles, Copy, Key, HelpCircle
 } from 'lucide-react';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { languages } from '@/lib/languages';
 import { format } from 'date-fns';
+import { syncHistoricalStatistics } from '@/lib/activity-tracker';
 
 // Types
+// Types
 interface UserProfile {
+    uid?: string;
     displayName: string;
     email: string;
     photoURL?: string;
+    activeBadgeId?: string;
     preferences: {
         preferredLanguage: string;
         defaultAIPersona: string;
+        defaultExplanationMode?: string;
+        autoGenerateImages?: boolean;
+        defaultMapView?: string;
+        autoSaveFrequency?: number;
     };
     statistics: {
+        totalMapsCreated: number;
+        totalNestedExpansions: number;
+        totalImagesGenerated: number;
+        totalStudyTimeMinutes: number;
         currentStreak: number;
+        longestStreak: number;
+        lastActiveDate: string;
+        totalNodes?: number;
+    };
+    goals?: {
+        weeklyMapGoal: number;
+        monthlyMapGoal: number;
     };
     apiSettings?: {
-        provider?: 'gemini' | 'pollinations' | 'bytez';
+        provider?: 'pollinations' | 'bytez';
         imageProvider?: 'pollinations' | 'bytez';
         pollinationsModel?: string;
         pollinationsApiKey?: string;
     };
 }
 
-// Achievement definitions
+interface Tier {
+    level: 1 | 2 | 3;
+    requirement: number;
+    label: string;
+    description: string;
+    color: string;
+    shadow: string;
+}
+
 interface Achievement {
     id: string;
     name: string;
     description: string;
     icon: React.ElementType;
-    gradient: string;
-    check: (stats: { maps: number; streak: number }) => boolean;
+    category: 'maps' | 'streak' | 'nodes' | 'depth' | 'images';
+    tiers: Tier[];
 }
 
-const ACHIEVEMENTS: Achievement[] = [
+const ACHIEVEMENT_TIERS: Achievement[] = [
     {
-        id: 'first_map',
-        name: 'First Steps',
-        description: 'Create your first mind map',
+        id: 'map_master',
+        name: 'Map Architect',
+        description: 'Awards for creating and organizing new mind maps',
         icon: Map,
-        gradient: 'from-blue-500 to-cyan-400',
-        check: (stats) => stats.maps >= 1,
+        category: 'maps',
+        tiers: [
+            { level: 1, requirement: 1, label: 'Early Draft', description: 'Create your first mind map', color: 'text-blue-400', shadow: 'shadow-blue-500/20' },
+            { level: 2, requirement: 10, label: 'Cartographer', description: 'Create 10 functional mind maps', color: 'text-indigo-400', shadow: 'shadow-indigo-500/20' },
+            { level: 3, requirement: 50, label: 'Grand Architect', description: 'Create 50 complex mind maps', color: 'text-sky-400', shadow: 'shadow-sky-500/20' },
+        ]
     },
     {
-        id: 'explorer',
-        name: 'Explorer',
-        description: 'Create 5 mind maps',
-        icon: Target,
-        gradient: 'from-violet-500 to-purple-400',
-        check: (stats) => stats.maps >= 5,
-    },
-    {
-        id: 'week_warrior',
-        name: 'Week Warrior',
-        description: '7-day streak',
+        id: 'streak_warrior',
+        name: 'Consistency King',
+        description: 'Rewards for daily login consistency',
         icon: Flame,
-        gradient: 'from-orange-500 to-amber-400',
-        check: (stats) => stats.streak >= 7,
+        category: 'streak',
+        tiers: [
+            { level: 1, requirement: 1, label: 'Initiated', description: '1-day login streak', color: 'text-orange-400', shadow: 'shadow-orange-500/20' },
+            { level: 2, requirement: 7, label: 'Dedicated', description: '7-day login streak', color: 'text-red-400', shadow: 'shadow-red-500/20' },
+            { level: 3, requirement: 30, label: 'Unstoppable', description: '30-day login streak', color: 'text-amber-400', shadow: 'shadow-amber-500/20' },
+        ]
     },
+    {
+        id: 'topic_explorer',
+        name: 'Knowledge Seeker',
+        description: 'Based on total nodes generated across all maps',
+        icon: Brain,
+        category: 'nodes',
+        tiers: [
+            { level: 1, requirement: 10, label: 'Curious', description: 'Generate 10 information nodes', color: 'text-violet-400', shadow: 'shadow-violet-500/20' },
+            { level: 2, requirement: 100, label: 'Scholar', description: 'Generate 100 information nodes', color: 'text-fuchsia-400', shadow: 'shadow-fuchsia-500/20' },
+            { level: 3, requirement: 500, label: 'Sage', description: 'Generate 500 information nodes', color: 'text-purple-400', shadow: 'shadow-purple-500/20' },
+        ]
+    },
+    {
+        id: 'deep_diver',
+        name: 'AI Deep-Dive',
+        description: 'Based on total nested node expansions',
+        icon: Target,
+        category: 'depth',
+        tiers: [
+            { level: 1, requirement: 5, label: 'Explorer', description: 'Expand 5 nested nodes', color: 'text-emerald-400', shadow: 'shadow-emerald-500/20' },
+            { level: 2, requirement: 25, label: 'Diver', description: 'Expand 25 nested nodes', color: 'text-teal-400', shadow: 'shadow-teal-500/20' },
+            { level: 3, requirement: 100, label: 'Master Diver', description: 'Expand 100 nested nodes', color: 'text-cyan-400', shadow: 'shadow-cyan-500/20' },
+        ]
+    },
+    {
+        id: 'visual_learner',
+        name: 'Visual Learner',
+        description: 'Based on total AI images generated',
+        icon: Wand2,
+        category: 'images',
+        tiers: [
+            { level: 1, requirement: 1, label: 'Artist', description: 'Generate your first AI image', color: 'text-pink-400', shadow: 'shadow-pink-500/20' },
+            { level: 2, requirement: 20, label: 'Creator', description: 'Generate 20 AI images', color: 'text-rose-400', shadow: 'shadow-rose-500/20' },
+            { level: 3, requirement: 100, label: 'Visionary', description: 'Generate 100 AI images', color: 'text-red-400', shadow: 'shadow-red-500/20' },
+        ]
+    }
 ];
 
 export default function ProfilePage() {
@@ -91,6 +160,8 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isPollinationsKeyConfigured, setIsPollinationsKeyConfigured] = useState(false);
     const [manualPollinationsKey, setManualPollinationsKey] = useState('');
+    const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'activity'>('overview');
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Initial key check
     useEffect(() => {
@@ -109,6 +180,7 @@ export default function ProfilePage() {
         }
 
         let unsubscribeProfile: (() => void) | null = null;
+        let unsubscribeMaps: (() => void) | null = null;
 
         const setupListeners = async () => {
             try {
@@ -117,40 +189,70 @@ export default function ProfilePage() {
                 unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        const profileData = {
+                        const profileData: UserProfile = {
                             displayName: data.displayName || user.displayName || 'User',
                             email: data.email || user.email || '',
                             photoURL: data.photoURL || user.photoURL,
+                            activeBadgeId: data.activeBadgeId,
                             preferences: {
                                 preferredLanguage: data.preferences?.preferredLanguage || 'en',
                                 defaultAIPersona: data.preferences?.defaultAIPersona || 'Standard',
+                                defaultExplanationMode: data.preferences?.defaultExplanationMode,
+                                autoGenerateImages: data.preferences?.autoGenerateImages,
+                                defaultMapView: data.preferences?.defaultMapView,
+                                autoSaveFrequency: data.preferences?.autoSaveFrequency,
                             },
                             statistics: {
+                                totalMapsCreated: data.statistics?.totalMapsCreated || 0,
+                                totalNestedExpansions: data.statistics?.totalNestedExpansions || 0,
+                                totalImagesGenerated: data.statistics?.totalImagesGenerated || 0,
+                                totalStudyTimeMinutes: data.statistics?.totalStudyTimeMinutes || 0,
                                 currentStreak: data.statistics?.currentStreak || 0,
+                                longestStreak: data.statistics?.longestStreak || 0,
+                                lastActiveDate: data.statistics?.lastActiveDate || '',
+                                totalNodes: data.statistics?.totalNodes || 0,
                             },
                             apiSettings: {
-                                provider: data.apiSettings?.provider || 'gemini',
+                                provider: data.apiSettings?.provider || 'pollinations',
                                 imageProvider: data.apiSettings?.imageProvider || 'pollinations',
                                 pollinationsModel: data.apiSettings?.pollinationsModel || '',
                                 pollinationsApiKey: data.apiSettings?.pollinationsApiKey || '',
-                            }
+                            },
+                            goals: data.goals
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
                         setManualPollinationsKey(profileData.apiSettings?.pollinationsApiKey || '');
+
+                        // Sync active maps count in real-time indirectly? 
+                        // Actually, it's better to just fetch it here or use a separate listener.
+                        // For now, let's keep the one-time fetch but make it more robust.
                     } else {
                         const defaultData: UserProfile = {
                             displayName: user.displayName || 'User',
                             email: user.email || '',
                             photoURL: user.photoURL || undefined,
-                            preferences: { preferredLanguage: 'en', defaultAIPersona: 'Standard' },
+                            preferences: {
+                                preferredLanguage: 'en',
+                                defaultAIPersona: 'Standard',
+                                autoGenerateImages: false,
+                            },
                             apiSettings: {
-                                provider: 'gemini',
+                                provider: 'pollinations',
                                 imageProvider: 'pollinations',
                                 pollinationsModel: '',
                                 pollinationsApiKey: '',
                             },
-                            statistics: { currentStreak: 0 },
+                            statistics: {
+                                totalMapsCreated: 0,
+                                totalNestedExpansions: 0,
+                                totalImagesGenerated: 0,
+                                totalStudyTimeMinutes: 0,
+                                currentStreak: 0,
+                                longestStreak: 0,
+                                lastActiveDate: '',
+                                totalNodes: 0,
+                            },
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
@@ -164,10 +266,11 @@ export default function ProfilePage() {
                     }
                 });
 
-                // Get active maps count (one-time fetch)
+                // Get active maps count (real-time listener)
                 const mapsQuery = query(collection(firestore, 'users', user.uid, 'mindmaps'));
-                const mapsSnapshot = await getDocs(mapsQuery);
-                setActiveMapsCount(mapsSnapshot.size);
+                unsubscribeMaps = onSnapshot(mapsQuery, (snapshot) => {
+                    setActiveMapsCount(snapshot.size);
+                });
 
             } catch (error) {
                 console.error('Error loading profile:', error);
@@ -179,9 +282,8 @@ export default function ProfilePage() {
         setupListeners();
 
         return () => {
-            if (unsubscribeProfile) {
-                unsubscribeProfile();
-            }
+            if (unsubscribeProfile) unsubscribeProfile();
+            if (unsubscribeMaps) unsubscribeMaps();
         };
     }, [user, firestore, toast]);
 
@@ -199,14 +301,10 @@ export default function ProfilePage() {
     };
     const activeImageMode = getActiveImageMode();
 
-    const setAIConfig = async (mode: 'default' | 'pollinations') => {
+    const setAIConfig = async (mode: 'pollinations') => {
         if (!user || !firestore) return;
         try {
-            if (mode === 'default') {
-                await setDoc(doc(firestore, 'users', user.uid), {
-                    apiSettings: { provider: 'gemini' }
-                }, { merge: true });
-            } else if (mode === 'pollinations') {
+            if (mode === 'pollinations') {
                 await setDoc(doc(firestore, 'users', user.uid), {
                     apiSettings: { provider: 'pollinations' }
                 }, { merge: true });
@@ -218,24 +316,7 @@ export default function ProfilePage() {
 
             toast({
                 title: 'Updated',
-                description: `AI Provider set to ${mode === 'default' ? 'MindScape Default' : mode === 'pollinations' ? 'Pollinations' : 'Bytez'}`
-            });
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update settings' });
-        }
-    };
-
-    const setImageConfig = async (mode: 'pollinations' | 'bytez') => {
-        if (!user || !firestore) return;
-        try {
-            await setDoc(doc(firestore, 'users', user.uid), {
-                apiSettings: { imageProvider: mode }
-            }, { merge: true });
-
-            toast({
-                title: 'Updated',
-                description: `AI Image Engine set to ${mode === 'pollinations' ? 'Pollinations' : 'Bytez'}`
+                description: `AI Provider set to ${mode === 'pollinations' ? 'Pollinations' : 'Bytez'}`
             });
         } catch (error) {
             console.error(error);
@@ -273,16 +354,38 @@ export default function ProfilePage() {
     };
 
     const savePollinationsKey = async () => {
-        if (!user || !firestore) return;
+        if (!manualPollinationsKey.trim()) return;
+
         setIsSaving(true);
+        const cleanKey = manualPollinationsKey.trim().replace(/\s/g, '');
+
         try {
-            await setDoc(doc(firestore, 'users', user.uid), {
-                apiSettings: { pollinationsApiKey: manualPollinationsKey.trim() }
-            }, { merge: true });
-            toast({ title: 'Saved', description: 'Pollinations API Key updated.' });
+            updateConfig({
+                pollinationsApiKey: cleanKey,
+                provider: 'pollinations'
+            });
+
+            if (user && firestore) {
+                const userRef = doc(firestore, 'users', user.uid);
+                await setDoc(userRef, {
+                    apiSettings: {
+                        pollinationsApiKey: cleanKey,
+                        provider: 'pollinations'
+                    }
+                }, { merge: true });
+            }
+
+            toast({
+                title: "Settings Saved",
+                description: "Your Pollinations API key has been updated.",
+            });
+            setManualPollinationsKey('');
         } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save API key' });
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to save API key.",
+            });
         } finally {
             setIsSaving(false);
         }
@@ -290,11 +393,20 @@ export default function ProfilePage() {
 
     const connectPollinations = () => {
         const redirectUrl = encodeURIComponent(window.location.origin + '/profile');
-        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance&models=flux,openai,mistral,qwen&expiry=30`;
+        // Standardized BYOP URL with profile, balance, usage and our core rotating models
+        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance,usage&models=flux,openai,mistral,qwen,nova&expiry=30`;
         window.location.href = authUrl;
     };
 
-
+    const equipBadge = async (badgeId: string) => {
+        if (!user || !firestore) return;
+        try {
+            await setDoc(doc(firestore, 'users', user.uid), { activeBadgeId: badgeId }, { merge: true });
+            toast({ title: 'Badge Equipped', description: 'Your profile badge has been updated.' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to equip badge' });
+        }
+    };
 
     const handleLogout = async () => {
         try {
@@ -305,6 +417,27 @@ export default function ProfilePage() {
         } catch (error) {
             console.error("Logout error:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to sign out' });
+        }
+    };
+
+    const handleSyncStatus = async () => {
+        if (!user || !firestore) return;
+        setIsSyncing(true);
+        try {
+            await syncHistoricalStatistics(firestore, user.uid);
+            toast({
+                title: 'Statistics Synced!',
+                description: 'Your historical activity data has been aggregated into your profile.',
+            });
+        } catch (error) {
+            console.error('Sync error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Sync Failed',
+                description: 'Could not process historical data sync.',
+            });
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -336,364 +469,530 @@ export default function ProfilePage() {
         : 'New';
 
     const stats = {
-        maps: activeMapsCount,
+        maps: profile.statistics.totalMapsCreated || activeMapsCount,
         streak: profile.statistics.currentStreak,
+        nodes: profile.statistics.totalNodes || 0,
+        depth: profile.statistics.totalNestedExpansions || 0,
+        images: profile.statistics.totalImagesGenerated || 0,
     };
-    const unlockedCount = ACHIEVEMENTS.filter(a => a.check(stats)).length;
+
+    // Calculate total unlocked tiers
+    const totalUnlockedTiers = ACHIEVEMENT_TIERS.reduce((acc, ach) => {
+        const value = stats[ach.category];
+        return acc + ach.tiers.filter(t => value >= t.requirement).length;
+    }, 0);
+
+    const getActiveBadgeLabel = () => {
+        if (!profile.activeBadgeId) return "Early Adopter";
+        const [achId, level] = profile.activeBadgeId.split(':');
+        const ach = ACHIEVEMENT_TIERS.find(a => a.id === achId);
+        const tier = ach?.tiers.find(t => t.level === parseInt(level));
+        return tier ? tier.label : "Early Adopter";
+    };
+
+    // Helper for duration formatting
+    const formatDuration = (minutes: number | undefined | null) => {
+        if (!minutes || isNaN(minutes)) return '0m';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours === 0) return `${mins}m`;
+        return `${hours}h ${mins}m`;
+    };
+
+    // Helper for navigation items
+    const navItems = [
+        { id: 'overview', label: 'Overview', icon: Brain },
+        { id: 'settings', label: 'Settings', icon: Settings },
+    ] as const;
 
     return (
-        <div className="min-h-screen bg-zinc-950">
-            {/* Background gradient */}
-            <div className="fixed inset-0 bg-gradient-to-b from-violet-950/30 via-zinc-950 to-zinc-950 pointer-events-none" />
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-violet-500/30">
+            {/* Premium background mesh */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-violet-600/10 blur-[120px] rounded-full animate-pulse" />
+                <div className="absolute top-[20%] -right-[5%] w-[35%] h-[35%] bg-fuchsia-600/10 blur-[100px] rounded-full animate-pulse [animation-delay:2s]" />
+                <div className="absolute -bottom-[10%] left-[20%] w-[30%] h-[30%] bg-blue-600/10 blur-[90px] rounded-full animate-pulse [animation-delay:4s]" />
+            </div>
 
-            <div className="relative max-w-md mx-auto px-4 py-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-zinc-400 hover:text-white -ml-2">
-                        <ArrowLeft className="h-4 w-4 mr-1" /> Back
-                    </Button>
-                    <span className="text-xs text-zinc-500">Profile</span>
-                </div>
-
-                {/* Profile Hero */}
-                <div className="relative mb-6">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 rounded-2xl blur-2xl" />
-                    <Card className="relative bg-zinc-900/90 border-zinc-800 rounded-2xl overflow-hidden">
-                        <CardContent className="p-5">
-                            {/* Avatar & Info Row */}
-                            <div className="flex items-start gap-4 mb-5">
-                                <div className="relative shrink-0">
-                                    <div className="absolute -inset-0.5 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full blur-sm" />
-                                    <Avatar className="relative h-16 w-16 ring-2 ring-zinc-900">
-                                        <AvatarImage src={profile.photoURL} />
-                                        <AvatarFallback className="bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white text-xl font-bold">
-                                            {profile.displayName?.charAt(0)?.toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                </div>
-                                <div className="flex-1 min-w-0 pt-1">
-                                    {isEditing ? (
-                                        <div className="flex gap-1.5">
-                                            <Input
-                                                value={editName}
-                                                onChange={(e) => setEditName(e.target.value)}
-                                                className="h-8 text-sm bg-zinc-800 border-zinc-700"
-                                                autoFocus
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') saveDisplayName();
-                                                    if (e.key === 'Escape') { setIsEditing(false); setEditName(profile.displayName); }
-                                                }}
-                                            />
-                                            <Button size="icon" variant="ghost" onClick={saveDisplayName} disabled={isSaving} className="h-8 w-8 text-emerald-400">
-                                                <Check className="h-4 w-4" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" onClick={() => { setIsEditing(false); setEditName(profile.displayName); }} className="h-8 w-8 text-zinc-400">
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 group">
-                                            <h1 className="text-lg font-bold text-white truncate">{profile.displayName}</h1>
-                                            <button onClick={() => setIsEditing(true)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-white/5 transition-opacity">
-                                                <Pencil className="h-3 w-3 text-zinc-500" />
-                                            </button>
-                                        </div>
-                                    )}
-                                    <p className="text-xs text-zinc-500 truncate">{profile.email}</p>
-                                    <p className="text-[10px] text-zinc-600 mt-1">Joined {memberSince}</p>
-                                </div>
-                            </div>
-
-                            {/* Stats Row */}
-                            <div className="grid grid-cols-3 gap-2">
-                                <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                                    <Map className="h-4 w-4 text-blue-400 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-white">{activeMapsCount}</p>
-                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Maps</p>
-                                </div>
-                                <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                                    <Flame className="h-4 w-4 text-orange-400 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-white">{stats.streak}</p>
-                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Streak</p>
-                                </div>
-                                <div className="bg-zinc-800/50 rounded-xl p-3 text-center">
-                                    <Trophy className="h-4 w-4 text-amber-400 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-white">{unlockedCount}</p>
-                                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Awards</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Achievements */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <div className="flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-amber-400" />
-                            <span className="text-sm font-medium text-white">Achievements</span>
+            <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+                {/* Header Section */}
+                <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div className="flex items-center gap-6">
+                        <div className="relative group">
+                            <div className="absolute -inset-1 bg-gradient-to-tr from-violet-600 to-fuchsia-600 rounded-2xl blur opacity-40 group-hover:opacity-60 transition duration-500" />
+                            <Avatar className="relative h-24 w-24 rounded-2xl ring-4 ring-zinc-950">
+                                <AvatarImage src={profile.photoURL} />
+                                <AvatarFallback className="bg-zinc-900 text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-tr from-violet-400 to-fuchsia-400">
+                                    {profile.displayName?.charAt(0)?.toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
                         </div>
-                        <span className="text-xs text-zinc-500">{unlockedCount}/{ACHIEVEMENTS.length}</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                        {ACHIEVEMENTS.map((ach) => {
-                            const unlocked = ach.check(stats);
-                            const Icon = ach.icon;
-                            return (
-                                <div
-                                    key={ach.id}
-                                    className={`
-                                        relative p-3 rounded-xl text-center transition-all
-                                        ${unlocked
-                                            ? 'bg-zinc-800/80 ring-1 ring-white/10'
-                                            : 'bg-zinc-900/50 opacity-40'
-                                        }
-                                    `}
-                                    title={ach.description}
-                                >
-                                    <div className={`
-                                        w-10 h-10 mx-auto rounded-lg flex items-center justify-center mb-1.5
-                                        ${unlocked ? `bg-gradient-to-br ${ach.gradient}` : 'bg-zinc-800'}
-                                    `}>
-                                        {unlocked ? (
-                                            <Icon className="h-5 w-5 text-white" />
-                                        ) : (
-                                            <Lock className="h-4 w-4 text-zinc-600" />
-                                        )}
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                                {isEditing ? (
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            value={editName}
+                                            onChange={(e) => setEditName(e.target.value)}
+                                            className="h-10 text-xl font-bold bg-zinc-900/50 border-zinc-800 w-48"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') saveDisplayName();
+                                                if (e.key === 'Escape') { setIsEditing(false); setEditName(profile.displayName); }
+                                            }}
+                                        />
+                                        <Button size="icon" variant="ghost" onClick={saveDisplayName} disabled={isSaving} className="text-emerald-400">
+                                            <Check className="h-5 w-5" />
+                                        </Button>
                                     </div>
-                                    <p className={`text-[10px] font-medium truncate ${unlocked ? 'text-white' : 'text-zinc-600'}`}>
-                                        {ach.name}
-                                    </p>
-                                </div>
+                                ) : (
+                                    <>
+                                        <h1 className="text-3xl font-bold tracking-tight">{profile.displayName}</h1>
+                                        <button onClick={() => setIsEditing(true)} className="p-1.5 rounded-lg hover:bg-zinc-800/50 text-zinc-500 transition-colors">
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
+                                    </>
+                                )}
+                                <Badge variant="secondary" className="bg-violet-500/10 text-violet-400 border-violet-500/20 px-3 py-0.5 animate-pulse">
+                                    {getActiveBadgeLabel()}
+                                </Badge>
+                            </div>
+                            <div className="space-y-0.5">
+                                <p className="text-zinc-500 font-medium">{profile.email}</p>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(user.uid);
+                                        toast({ title: 'Copied', description: 'UID copied to clipboard' });
+                                    }}
+                                    className="text-[10px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors flex items-center gap-1.5"
+                                >
+                                    UID: {user.uid}
+                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Copy className="h-3 w-3" />
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {user?.providerData.some(p => p.providerId === 'password') && (
+                            <Button
+                                variant="outline"
+                                className="h-10 border-zinc-800 text-zinc-400 hover:text-white hover:bg-white/5 gap-2"
+                                onClick={async () => {
+                                    if (!user?.email) return;
+                                    try {
+                                        await sendPasswordResetEmail(auth!, user.email);
+                                        toast({ title: 'Reset email sent', description: 'Check your inbox for instructions.' });
+                                    } catch (e: any) {
+                                        toast({ variant: 'destructive', title: 'Error', description: e.message });
+                                    }
+                                }}
+                            >
+                                <Key className="h-4 w-4" /> Reset Password
+                            </Button>
+                        )}
+                        <Button
+                            variant="outline"
+                            className="h-10 border-orange-500/20 text-orange-400 hover:bg-orange-500/5 gap-2"
+                            onClick={handleSyncStatus}
+                            disabled={isSyncing}
+                        >
+                            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            {isSyncing ? 'Sync Data' : 'Sync Data'}
+                        </Button>
+                        <Button onClick={handleLogout} variant="outline" className="h-10 border-red-500/20 text-red-400 hover:bg-red-500/5 gap-2">
+                            <LogOut className="h-4 w-4" /> Log Out
+                        </Button>
+                    </div>
+                </header>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-12">
+                    {/* Sidebar Nav */}
+                    <nav className="space-y-2">
+                        {navItems.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = activeTab === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={`
+                                        w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
+                                        ${isActive
+                                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+                                            : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}
+                                    `}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    {item.label}
+                                    {isActive && <ChevronRight className="ml-auto h-4 w-4 animate-in fade-in slide-in-from-left-2" />}
+                                </button>
                             );
                         })}
-                    </div>
-                </div>
 
-                {/* Settings */}
-                <Card className="bg-zinc-900/90 border-zinc-800 rounded-2xl mb-6">
-                    <CardHeader className="pb-2 pt-4 px-4">
-                        <div className="flex items-center gap-2">
-                            <Settings className="h-4 w-4 text-zinc-500" />
-                            <CardTitle className="text-sm font-medium text-white">Settings</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4 space-y-1">
-                        {/* Language */}
-                        <div className="flex items-center justify-between py-2.5 group">
-                            <div className="flex items-center gap-3">
-                                <div className="p-1.5 rounded-md bg-blue-500/10">
-                                    <Globe className="h-3.5 w-3.5 text-blue-400" />
-                                </div>
-                                <span className="text-sm text-zinc-300">Language</span>
-                            </div>
-                            <Select value={profile.preferences.preferredLanguage} onValueChange={(v) => savePreference('preferredLanguage', v)}>
-                                <SelectTrigger className="w-28 h-8 text-xs bg-zinc-800 border-zinc-700">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {languages.map(l => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    </nav>
 
-                        <Separator className="bg-zinc-800" />
-
-                        {/* AI Persona */}
-                        <div className="flex items-center justify-between py-2.5">
-                            <div className="flex items-center gap-3">
-                                <div className="p-1.5 rounded-md bg-purple-500/10">
-                                    <Wand2 className="h-3.5 w-3.5 text-purple-400" />
-                                </div>
-                                <span className="text-sm text-zinc-300">AI Style</span>
-                            </div>
-                            <Select value={profile.preferences.defaultAIPersona} onValueChange={(v) => savePreference('defaultAIPersona', v)}>
-                                <SelectTrigger className="w-28 h-8 text-xs bg-zinc-800 border-zinc-700">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Standard">Standard</SelectItem>
-                                    <SelectItem value="Teacher">Teacher</SelectItem>
-                                    <SelectItem value="Concise">Concise</SelectItem>
-                                    <SelectItem value="Creative">Creative</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <Separator className="bg-zinc-800" />
-
-                        {/* API Configuration */}
-                        <div className="pt-2">
-                            <div className="flex flex-col gap-3 py-2.5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-1.5 rounded-md bg-emerald-500/10">
-                                        <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm text-zinc-300">AI Provider</span>
-                                        <span className="text-[10px] text-zinc-500">
-                                            Choose your generation engine
-                                        </span>
-                                    </div>
+                    {/* Main Content Area */}
+                    <main className="min-h-[500px]">
+                        {activeTab === 'overview' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                {/* Overview Grid - Row 1: Core Stats */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <Card className="bg-zinc-900/40 border-zinc-800/50 backdrop-blur-xl group hover:border-violet-500/30 transition-colors">
+                                        <CardContent className="p-6">
+                                            <div className="p-3 bg-blue-500/10 rounded-xl w-fit mb-4">
+                                                <Map className="h-6 w-6 text-blue-400" />
+                                            </div>
+                                            <p className="text-2xl font-bold text-white mb-1">{stats.maps}</p>
+                                            <p className="text-sm text-zinc-500">Mind Maps Generated</p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-zinc-900/40 border-zinc-800/50 backdrop-blur-xl group hover:border-orange-500/30 transition-colors">
+                                        <CardContent className="p-6">
+                                            <div className="p-3 bg-orange-500/10 rounded-xl w-fit mb-4">
+                                                <Flame className="h-6 w-6 text-orange-400" />
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <p className="text-2xl font-bold text-white mb-1">
+                                                    {stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}
+                                                </p>
+                                                <p className="text-[10px] text-zinc-500 font-medium">Record: {profile.statistics.longestStreak || 0}</p>
+                                            </div>
+                                            <p className="text-sm text-zinc-500">Active Streak</p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-zinc-900/40 border-zinc-800/50 backdrop-blur-xl group hover:border-amber-500/30 transition-colors">
+                                        <CardContent className="p-6">
+                                            <div className="p-3 bg-amber-500/10 rounded-xl w-fit mb-4">
+                                                <Trophy className="h-6 w-6 text-amber-400" />
+                                            </div>
+                                            <p className="text-2xl font-bold text-white mb-1">{totalUnlockedTiers}</p>
+                                            <p className="text-sm text-zinc-500">Tier Levels Unlocked</p>
+                                        </CardContent>
+                                    </Card>
                                 </div>
 
-                                <Select value={activeMode === 'bytez' ? 'default' : activeMode} onValueChange={(v: any) => setAIConfig(v)}>
-                                    <SelectTrigger className="w-full text-xs bg-zinc-800 border-zinc-700">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="default">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">MindScape Default</span>
-                                                <span className="text-[10px] text-zinc-400">Gemini 2.5 Flash • Standard Quality</span>
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="pollinations">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">Pollinations.ai</span>
-                                                <span className="text-[10px] text-zinc-400">
-                                                    {isPollinationsKeyConfigured ? 'API Key Integrated' : 'Free Open Source Models'}
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-
-                                {activeMode === 'pollinations' && (
-                                    <div className="flex flex-col gap-3 pt-2 pl-1 animation-in slide-in-from-top-1 duration-300">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Pollinations Connection</span>
-                                                {profile.apiSettings?.pollinationsApiKey ? (
-                                                    <Badge variant="outline" className="h-4 text-[8px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-1.5 flex items-center gap-1">
-                                                        <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                                                        Connected
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="h-4 text-[8px] bg-zinc-800 text-zinc-500 border-zinc-700 px-1.5">
-                                                        Not Linked
-                                                    </Badge>
-                                                )}
-                                            </div>
-
-                                            <Button
-                                                onClick={connectPollinations}
-                                                className="w-full h-8 text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-medium shadow-lg shadow-violet-500/20"
-                                            >
-                                                <Sparkles className="h-3 w-3 mr-2" />
-                                                Connect with Pollinations
-                                            </Button>
-
-                                            <div className="relative py-1">
-                                                <div className="absolute inset-0 flex items-center">
-                                                    <span className="w-full border-t border-zinc-800" />
+                                {/* Overview Grid - Row 2: Extended Metrics */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: 'Study Time', value: formatDuration(profile.statistics.totalStudyTimeMinutes), icon: Loader2, color: 'text-sky-400', bg: 'bg-sky-500/10' },
+                                        { label: 'Depth Level', value: stats.depth, icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                                        { label: 'Visual Assets', value: stats.images, icon: Wand2, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+                                        { label: 'Total Nodes', value: stats.nodes, icon: Brain, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+                                    ].map((metric, i) => (
+                                        <Card key={i} className="bg-zinc-900/20 border-zinc-800/40 hover:border-zinc-700/60 transition-colors">
+                                            <CardContent className="p-4 flex items-center gap-4">
+                                                <div className={`p-2 rounded-lg ${metric.bg}`}>
+                                                    <metric.icon className={`h-4 w-4 ${metric.color}`} />
                                                 </div>
-                                                <div className="relative flex justify-center text-[8px] uppercase tracking-widest">
-                                                    <span className="bg-zinc-900 px-2 text-zinc-600">or manual key</span>
+                                                <div>
+                                                    <p className="text-lg font-bold text-white leading-none mb-1">{metric.value}</p>
+                                                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">{metric.label}</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+
+                                {/* Achievements Detailed */}
+                                <section>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Growth Path</h2>
+                                        <Badge variant="outline" className="text-zinc-500 border-zinc-800">
+                                            Progress Tracker
+                                        </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {ACHIEVEMENT_TIERS.map((ach) => {
+                                            const value = stats[ach.category];
+                                            const highestUnlockedTier = [...ach.tiers].reverse().find(t => value >= t.requirement);
+                                            const nextTier = ach.tiers.find(t => value < t.requirement);
+                                            const progress = nextTier
+                                                ? Math.min(100, (value / nextTier.requirement) * 100)
+                                                : 100;
+
+                                            const Icon = ach.icon;
+
+                                            return (
+                                                <Card key={ach.id} className="bg-zinc-900/20 border-zinc-800/50 overflow-hidden group hover:border-zinc-700/50 transition-all">
+                                                    <CardContent className="p-6">
+                                                        <div className="flex items-start justify-between mb-6">
+                                                            <div className="flex gap-4">
+                                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-zinc-900 border border-zinc-800 group-hover:border-violet-500/30 transition-colors`}>
+                                                                    <Icon className={`h-6 w-6 ${highestUnlockedTier ? highestUnlockedTier.color : 'text-zinc-600'}`} />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="text-lg font-bold text-white">{ach.name}</p>
+                                                                        <TooltipProvider>
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <HelpCircle className="h-3.5 w-3.5 text-zinc-600 hover:text-zinc-400 cursor-help transition-opacity opacity-0 group-hover:opacity-100" />
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 text-[10px] py-1.5 px-3">
+                                                                                    {ach.description}
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        </TooltipProvider>
+                                                                    </div>
+                                                                    <p className="text-xs text-zinc-500">{nextTier ? `Next: ${nextTier.label} (${value}/${nextTier.requirement})` : 'Max Level Reached'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Tier Dots/Status */}
+                                                        <div className="flex gap-4 mb-6">
+                                                            {ach.tiers.map((tier) => {
+                                                                const isUnlocked = value >= tier.requirement;
+                                                                const isEquipped = profile.activeBadgeId === `${ach.id}:${tier.level}`;
+                                                                return (
+                                                                    <button
+                                                                        key={tier.level}
+                                                                        disabled={!isUnlocked}
+                                                                        onClick={() => equipBadge(`${ach.id}:${tier.level}`)}
+                                                                        className={`
+                                                                        flex-1 p-3 rounded-xl border flex flex-col items-center gap-1 transition-all
+                                                                        ${isUnlocked
+                                                                                ? isEquipped
+                                                                                    ? `bg-violet-600/20 border-violet-500/50 ${tier.shadow}`
+                                                                                    : `bg-zinc-900/50 border-zinc-800 hover:border-zinc-600`
+                                                                                : 'bg-zinc-950/50 border-zinc-900 opacity-40 cursor-not-allowed'}
+                                                                    `}
+                                                                    >
+                                                                        <div className={`text-[10px] font-bold uppercase tracking-tighter ${isUnlocked ? tier.color : 'text-zinc-600'}`}>
+                                                                            {tier.label}
+                                                                        </div>
+                                                                        {isEquipped ? (
+                                                                            <Check className="h-3 w-3 text-violet-400" />
+                                                                        ) : isUnlocked ? (
+                                                                            <Sparkles className="h-3 w-3 text-zinc-500" />
+                                                                        ) : (
+                                                                            <Lock className="h-3 w-3 text-zinc-700" />
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Progress Bar */}
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase">
+                                                                <span>Progression</span>
+                                                                <span>{Math.round(progress)}%</span>
+                                                            </div>
+                                                            <div className="h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-900">
+                                                                <div
+                                                                    className="h-full bg-gradient-to-r from-violet-600 to-fuchsia-600 transition-all duration-1000 ease-out"
+                                                                    style={{ width: `${progress}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* Growth Analytics */}
+                                <div className="pt-10 mt-10 border-t border-zinc-900/50">
+                                    <div className="flex items-center gap-2 mb-6">
+                                        <div className="p-2 rounded-lg bg-violet-500/10">
+                                            <Flame className="h-4 w-4 text-violet-400" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-widest">Growth Analytics</h2>
+                                            <p className="text-[10px] text-zinc-500 font-medium">Visualizing your learning velocity</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-500">Session Velocity</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="h-20 flex items-end gap-1.5 pt-2">
+                                                    {[40, 70, 45, 90, 65, 30, 85].map((h, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="flex-1 bg-gradient-to-t from-violet-600/20 to-violet-500/60 rounded-t-sm hover:to-violet-400 transition-all cursor-crosshair"
+                                                            style={{ height: `${h}%` }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-500">Topic Diversity</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4 pt-2">
+                                                {[
+                                                    { label: 'Technology', val: 85, color: 'bg-blue-400' },
+                                                    { label: 'Creative', val: 65, color: 'bg-violet-400' },
+                                                ].map((cluster, i) => (
+                                                    <div key={i} className="space-y-1.5">
+                                                        <div className="flex justify-between text-[10px] items-center">
+                                                            <span className="font-bold text-zinc-500 uppercase tracking-tighter">{cluster.label}</span>
+                                                            <span className="font-mono text-zinc-400">{cluster.val}%</span>
+                                                        </div>
+                                                        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                                            <div className={`h-full ${cluster.color} opacity-60 transition-all duration-1000`} style={{ width: `${cluster.val}%` }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <div className="max-w-2xl space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                {/* Profile Details */}
+                                <Card className="bg-zinc-900/40 border-zinc-800 pb-2">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="text-lg">Account Preferences</CardTitle>
+                                        <CardDescription>Personalize your MindScape experience</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2 bg-blue-500/10 rounded-lg">
+                                                    <Globe className="h-4 w-4 text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium">Interface Language</p>
+                                                    <p className="text-xs text-zinc-500">Set your preferred UI language</p>
                                                 </div>
                                             </div>
+                                            <Select value={profile.preferences.preferredLanguage} onValueChange={(v) => savePreference('preferredLanguage', v)}>
+                                                <SelectTrigger className="w-36 h-9 bg-zinc-900/50 border-zinc-800">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {languages.map(l => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                                            <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                    <Input
-                                                        type="password"
-                                                        placeholder="sk-..."
-                                                        value={manualPollinationsKey}
-                                                        onChange={(e) => setManualPollinationsKey(e.target.value)}
-                                                        className="h-8 text-[10px] bg-zinc-950/50 border-zinc-800 focus:border-violet-500/50 transition-colors pr-8"
-                                                    />
-                                                    {manualPollinationsKey && (
-                                                        <button
-                                                            onClick={() => setManualPollinationsKey('')}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2 bg-purple-500/10 rounded-lg">
+                                                    <Wand2 className="h-4 w-4 text-purple-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium">AI Persona</p>
+                                                    <p className="text-xs text-zinc-500">Choice of AI interaction style</p>
+                                                </div>
+                                            </div>
+                                            <Select value={profile.preferences.defaultAIPersona} onValueChange={(v) => savePreference('defaultAIPersona', v)}>
+                                                <SelectTrigger className="w-36 h-9 bg-zinc-900/50 border-zinc-800">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Standard">Standard</SelectItem>
+                                                    <SelectItem value="Teacher">Teacher</SelectItem>
+                                                    <SelectItem value="Concise">Concise</SelectItem>
+                                                    <SelectItem value="Creative">Creative</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Developer Settings */}
+                                <Card className="bg-zinc-900/40 border-zinc-800">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="text-lg">AI & Engine Configuration</CardTitle>
+                                        <CardDescription>Manage your AI providers and integration keys</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4 mb-2">
+                                                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                                    <Sparkles className="h-4 w-4 text-emerald-400" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium">AI Engine</p>
+                                                    <p className="text-xs text-zinc-500">MindScape is powered by Pollinations AI</p>
+                                                </div>
+                                                <Badge variant="outline" className="border-emerald-500/20 text-emerald-400 bg-emerald-500/5">Active</Badge>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 animate-in slide-in-from-top-2">
+                                            <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.6)]" />
+                                                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pollen Connection</span>
+                                                    </div>
+                                                    {profile.apiSettings?.pollinationsApiKey && (
+                                                        <Badge className="bg-emerald-500/10 text-emerald-400 border-none px-2 py-0">Active</Badge>
                                                     )}
                                                 </div>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={savePollinationsKey}
-                                                    disabled={isSaving || manualPollinationsKey === (profile.apiSettings?.pollinationsApiKey || '')}
-                                                    className="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs"
-                                                >
-                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Apply'}
+                                                <Button onClick={connectPollinations} className="w-full bg-violet-600 hover:bg-violet-700 h-10 shadow-lg shadow-violet-600/20">
+                                                    <Sparkles className="h-4 w-4 mr-2" /> Connect with Pollinations
                                                 </Button>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        type="password"
+                                                        placeholder="Manual sk-..."
+                                                        value={manualPollinationsKey}
+                                                        onChange={(e) => setManualPollinationsKey(e.target.value)}
+                                                        className="bg-zinc-900 border-zinc-800"
+                                                    />
+                                                    <Button onClick={savePollinationsKey} disabled={isSaving} className="bg-zinc-800 hover:bg-zinc-700">Apply</Button>
+                                                </div>
                                             </div>
 
-                                            <p className="text-[10px] text-zinc-500 leading-relaxed italic">
-                                                Use your own Pollen for generation. <a href="https://enter.pollinations.ai" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">Visit Pollinations</a> to manage your credits.
-                                            </p>
+                                            {/* BYOP Educational Card */}
+                                            <Card className="bg-violet-500/5 border-violet-500/10 overflow-hidden">
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                                        <HelpCircle className="h-4 w-4 text-violet-400" />
+                                                        Why Connect Personal Pollen?
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="text-xs text-zinc-400 space-y-2">
+                                                    <p>Connect your personal Pollinations account to unlock **Unlimited High-Quality Mode**.</p>
+                                                    <ul className="space-y-1 ml-4 list-disc">
+                                                        <li><span className="text-zinc-200">Zero Cost</span>: Use your own pollen balance ($0 for researchers).</li>
+                                                        <li><span className="text-zinc-200">Higher Limits</span>: Avoid platform-wide rate limits and 429 errors.</li>
+                                                        <li><span className="text-zinc-200">Privacy First</span>: Your key never touches our server logs.</li>
+                                                    </ul>
+                                                </CardContent>
+                                            </Card>
                                         </div>
+                                    </CardContent>
+                                </Card>
 
-                                        <div className="h-px bg-zinc-800 my-1" />
 
-                                        <p className="text-[10px] text-zinc-500 leading-relaxed">
-                                            Intelligent Model Switching enabled. MindScape automatically selects the optimal engine (Qwen, Mistral, or Gemini) based on your task for maximum precision.
-                                        </p>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-
-                        {/* Password Management (Only for Email/Password users) */}
-                        {user?.providerData.some(p => p.providerId === 'password') && (
-                            <>
-                                <Separator className="bg-zinc-800" />
-                                <div className="flex items-center justify-between py-2.5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-1.5 rounded-md bg-red-500/10">
-                                            <Lock className="h-3.5 w-3.5 text-red-400" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm text-zinc-300">Security</span>
-                                            <span className="text-[10px] text-zinc-500">Update your password</span>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={async () => {
-                                            if (!user?.email) return;
-                                            try {
-                                                await sendPasswordResetEmail(auth!, user.email);
-                                                toast({
-                                                    title: 'Reset Email Sent',
-                                                    description: `Check ${user.email} to change password.`
-                                                });
-                                            } catch (error: any) {
-                                                toast({
-                                                    variant: 'destructive',
-                                                    title: 'Error',
-                                                    description: error.message
-                                                });
-                                            }
-                                        }}
-                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
-                                    >
-                                        Change Password
-                                    </Button>
-                                </div>
-                            </>
                         )}
 
 
-                    </CardContent>
-                </Card>
-
-                {/* Sign Out */}
-                <button
-                    onClick={handleLogout}
-                    className="w-full py-3 rounded-xl text-sm font-medium text-red-400 bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2"
-                >
-                    <LogOut className="h-4 w-4" />
-                    Log Out
-                </button>
-
-                <p className="text-center text-[10px] text-zinc-700 mt-6">MindScape</p>
+                    </main>
+                </div>
             </div>
 
-
+            {/* Minimalist footer */}
+            <footer className="relative max-w-6xl mx-auto px-4 py-12 border-t border-zinc-900 mt-20">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 opacity-30">
+                    <p className="text-xs font-bold tracking-[0.2em] uppercase">MindScape</p>
+                    <div className="flex gap-8 text-[10px] font-medium uppercase tracking-widest">
+                        <span>Private</span>
+                        <span>Secure</span>
+                        <span>Open Source</span>
+                    </div>
+                </div>
+            </footer>
         </div>
     );
 }

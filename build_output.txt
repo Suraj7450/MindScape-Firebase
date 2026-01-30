@@ -1,0 +1,47 @@
+
+> mindscape@0.1.0 build
+> next build
+
+   Γû▓ Next.js 15.3.6
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully in 15.0s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/11) ...
+Automatic initialization failed. Falling back to firebase config object. Error [FirebaseError]: Firebase: Need to provide options, when not being deployed to hosting via source. (app/no-options).
+    at Q (C:\Users\Suraj\OneDrive\Desktop\MindScape\.next\server\chunks\57.js:3:31425)
+    at T (C:\Users\Suraj\OneDrive\Desktop\MindScape\.next\server\chunks\122.js:2:1308)
+    at <unknown> (C:\Users\Suraj\OneDrive\Desktop\MindScape\.next\server\chunks\122.js:1:2834)
+    at b (C:\Users\Suraj\OneDrive\Desktop\MindScape\.next\server\chunks\122.js:1:2829) {
+  code: 'app/no-options',
+  customData: {}
+}
+   Generating static pages (2/11) 
+   Generating static pages (5/11) 
+   Generating static pages (8/11) 
+ Γ£ô Generating static pages (11/11)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+Γöî Γùï /                                    8.84 kB         342 kB
+Γö£ Γùï /_not-found                            990 B         103 kB
+Γö£ ╞Æ /api/generate-image                    185 B         251 kB
+Γö£ ╞Æ /api/generate-quiz-direct              145 B         102 kB
+Γö£ Γùï /canvas                               211 kB         693 kB
+Γö£ Γùï /community                           6.77 kB         307 kB
+Γö£ Γùï /library                             13.1 kB         453 kB
+Γö£ Γùï /login                               5.84 kB         272 kB
+Γöö Γùï /profile                             10.9 kB         304 kB
++ First Load JS shared by all             102 kB
+  Γö£ chunks/1684-782f7cd40ce0086f.js        46 kB
+  Γö£ chunks/4bd1b696-567fda03da4f2a59.js  53.2 kB
+  Γöö other shared chunks (total)          2.39 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

@@ -9,28 +9,32 @@ export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[],
-    options: { model?: string, response_format?: any, apiKey?: string, skipApiKey?: boolean } = {}
+    options: {
+        model?: string,
+        response_format?: any,
+        apiKey?: string,
+        skipApiKey?: boolean,
+        attempt?: number
+    } = {}
 ): Promise<any> {
-    // ... (rest of the code)
-    // Expert Model Selection Logic
     const hasImages = images && images.length > 0;
+    const attempt = options.attempt || 0;
 
-    // Qwen-Coder is significantly more reliable for complex JSON than Mistral on Pollinations
-    let model = 'qwen-coder';
+    // Model rotation for stability (Qwen -> Mistral -> Nova -> OpenAI)
+    // Only rotate for text-based JSON tasks
+    const modelRotation = ['qwen-coder', 'mistral', 'nova-fast', 'openai-fast'];
 
+    let model = options.model || (hasImages ? 'openai' : modelRotation[attempt % modelRotation.length]);
+
+    // Override if specific capabilities are needed
     if (hasImages) {
         model = 'openai'; // Vision support
-    } else if (userPrompt.toLowerCase().includes('deep') || userPrompt.toLowerCase().includes('108 items')) {
-        model = 'qwen-coder';
-    } else if (systemPrompt.toLowerCase().includes('json') || systemPrompt.toLowerCase().includes('schema')) {
-        model = 'qwen-coder';
-    } else if (systemPrompt.toLowerCase().includes('advanced') || systemPrompt.toLowerCase().includes('expert') || systemPrompt.toLowerCase().includes('reasoning')) {
-        model = 'qwen-coder';
     } else if (systemPrompt.toLowerCase().includes('search')) {
-        model = 'qwen-coder';
+        // Keep search model if explicitly requested or implied
+        model = options.model || 'perplexity-fast';
     }
 
-    console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}, DeepMode=${userPrompt.toLowerCase().includes('deep')}`);
+    console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}, Attempt=${attempt}`);
 
     try {
         const messages: any[] = [
@@ -76,21 +80,28 @@ CRITICAL:
         }
 
         // Increase max_tokens for models that support it to accommodate deep mind maps
-        const modelsWithLargeContext = ['openai', 'gpt-4o', 'gemini', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
+        const modelsWithLargeContext = ['openai', 'gpt-4o', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
         if (modelsWithLargeContext.includes(model)) {
             // High token limit is essential for deep mode mind maps (120+ items)
             body.max_tokens = (model === 'qwen-coder' || model === 'mistral' || model === 'mistral-nemo') ? 16384 : 8192;
         }
 
         // Robust API Key selection
+        // 1. First preference: Client Key
+        // 2. Second preference: Server Key (if failover)
+        const clientKey = (options.apiKey && options.apiKey.trim() !== "") ? options.apiKey : null;
+        const serverKey = process.env.POLLINATIONS_API_KEY;
+        const isFailover = (options as any)._isFailover;
+
         const effectiveApiKey = options.skipApiKey
             ? null
-            : (options.apiKey && options.apiKey.trim() !== "")
-                ? options.apiKey
-                : process.env.POLLINATIONS_API_KEY;
+            : (clientKey && !isFailover)
+                ? clientKey
+                : serverKey;
 
         if (effectiveApiKey) {
-            console.log(`🔑 Using Pollinations Key: ${effectiveApiKey.substring(0, 7)}... (from ${options.apiKey ? 'Client' : 'Server Env'})`);
+            const keySource = (effectiveApiKey === clientKey) ? 'Client' : 'Server Env';
+            console.log(`🔑 Using Pollinations Key: ${effectiveApiKey.substring(0, 7)}... (from ${keySource})`);
         }
 
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -106,25 +117,47 @@ CRITICAL:
             let errorMessage = response.statusText;
             const status = response.status;
 
-            // Handle invalid API key by retrying without one (Pollinations fallback)
-            if (status === 401 && effectiveApiKey) {
-                console.warn("⚠️ Pollinations API Key is invalid (401). Retrying without key...");
+            // Handle invalid API key or exhausted balance
+            if (status === 401 || status === 403) {
+                // If the client key failed and we haven't tried the server key yet, fallback to server key
+                if (effectiveApiKey === clientKey && serverKey && serverKey !== clientKey) {
+                    console.warn(`⚠️ Client API Key failed (${status}). Falling back to Server API Key...`);
+                    return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                        ...options,
+                        _isFailover: true as any // Custom internal flag
+                    } as any);
+                }
+
+                // If effectiveApiKey exists (could be client or server), verify balance
+                if (effectiveApiKey) {
+                    console.warn(`⚠️ API Key failed (${status}). Verifying balance...`);
+                    const balanceInfo = await checkPollinationsBalance(effectiveApiKey);
+
+                    if (balanceInfo !== null && balanceInfo <= 0) {
+                        errorMessage = "Out of Pollen balance. Your Pollinations account has 0 pollen left. Please top up at enter.pollinations.ai.";
+                        console.error(`❌ Pollinations Balance Exhausted: ${errorMessage}`);
+                    } else {
+                        console.warn("⚠️ Retrying without key as fallback (switching to free-tier mode)...");
+                        return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                            ...options,
+                            model: 'mistral', // Force switch to a commonly free model
+                            apiKey: undefined,
+                            skipApiKey: true
+                        });
+                    }
+                }
+            }
+
+            // Handle service errors (Bad Gateway, Service Unavailable, etc.) with model rotation
+            const isServiceError = status >= 500 && status <= 599;
+            if (isServiceError && attempt < modelRotation.length - 1) {
+                console.warn(`⚠️ Pollinations Service Error (${status}): ${errorMessage}. Rotating to next model...`);
                 return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                     ...options,
-                    apiKey: undefined,
-                    skipApiKey: true // Force skip environment key to avoid loop
+                    attempt: attempt + 1
                 });
             }
 
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.message || errorData.error?.message || JSON.stringify(errorData);
-            } catch (e) {
-                try {
-                    const text = await response.text();
-                    if (text) errorMessage = text.substring(0, 500);
-                } catch { /* ignore */ }
-            }
             console.error(`❌ Pollinations API Error [Model: ${model}, Status: ${status}]:`, errorMessage);
             throw new Error(`Pollinations API error: ${status} ${errorMessage}`);
         }
@@ -303,3 +336,26 @@ CRITICAL:
     }
 }
 
+
+/**
+ * Checks the current pollen balance for a given API key.
+ * @returns The balance as a number, or null if the check fails.
+ */
+export async function checkPollinationsBalance(apiKey: string): Promise<number | null> {
+    try {
+        const response = await fetch('https://gen.pollinations.ai/account/balance', {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return typeof data.balance === 'number' ? data.balance : null;
+        }
+        return null;
+    } catch (e) {
+        console.error('⚠️ Failed to check Pollinations balance:', e);
+        return null;
+    }
+}

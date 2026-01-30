@@ -9,7 +9,6 @@
  * - ExplainWithExampleOutput - The return type for the explainWithExample function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 const ExplainWithExampleInputSchema = z.object({
@@ -82,41 +81,5 @@ export async function explainWithExample(
     }
   }
 
-  throw lastError || new Error('Example generation failed');
+  return result;
 }
-
-const prompt = ai.definePrompt({
-  name: 'explainWithExamplePrompt',
-  input: { schema: ExplainWithExampleInputSchema },
-  output: { schema: ExplainWithExampleOutputSchema },
-  prompt: `You are an expert at explaining complex topics with simple, relatable, real-life examples.
-
-The main topic is "{{mainTopic}}". The user wants an example for the concept: "{{topicName}}".
-
-The user has requested the example at the "{{explanationMode}}" level.
-- For "Beginner", use a very simple, everyday analogy.
-- For "Intermediate", use a more detailed but still accessible example.
-- For "Expert", use a specific, technical, or industry-related example.
-
-Your goal is to provide a single, concise, and easy-to-understand analogy or example tailored to the requested mode.
-
-**Example Format:**
-- For "API" (Beginner): "It's like a restaurant menu. You can order without knowing how the kitchen works."
-- For "API" (Intermediate): "It's like a contract between two software applications, defining how they'll communicate and exchange data to perform a specific function."
-- For "API" (Expert): "It's like a GraphQL endpoint that allows a client to request specific data fields from a server, reducing over-fetching compared to a traditional RESTful approach."
-
-Provide a similar real-life example for "{{topicName}}".
-`,
-});
-
-const explainWithExampleFlow = ai.defineFlow(
-  {
-    name: 'explainWithExampleFlow',
-    inputSchema: ExplainWithExampleInputSchema,
-    outputSchema: ExplainWithExampleOutputSchema,
-  },
-  async (input) => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);

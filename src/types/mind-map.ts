@@ -4,9 +4,9 @@ import { Timestamp } from 'firebase/firestore';
 export interface SubCategory {
   name: string;
   description: string;
-  icon: string;
-  tags: string[];
-  isExpanded: boolean;
+  icon?: string;
+  tags?: string[];
+  isExpanded?: boolean;
   nestedExpansion?: {
     id: string;
     topic: string;
@@ -116,6 +116,7 @@ export interface BaseMindMapData {
   authorAvatar?: string;
   depth?: 'low' | 'medium' | 'deep';
   searchSources?: SearchSource[];
+  searchImages?: SearchImage[];
   searchTimestamp?: string;
 }
 
@@ -123,7 +124,13 @@ export interface SearchSource {
   title: string;
   url: string;
   published?: string;
-  snippet?: string;
+  image?: string;
+}
+
+export interface SearchImage {
+  url: string;
+  title?: string;
+  sourceUrl?: string;
 }
 
 export interface SingleMindMapData extends BaseMindMapData, MindMap {

@@ -9,7 +9,6 @@
  * - ExplainMindMapNodeOutput - The return type for the explainMindMapNode function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 const ExplainMindMapNodeInputSchema = z.object({

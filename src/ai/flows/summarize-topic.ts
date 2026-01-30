@@ -1,7 +1,5 @@
 
 'use server';
-
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 import { MindMapData } from '@/types/mind-map';

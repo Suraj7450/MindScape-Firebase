@@ -1,6 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { generateContentWithPollinations } from './pollinations-client';
-export type AIProvider = 'gemini' | 'pollinations';
+export type AIProvider = 'pollinations';
 
 interface GenerateContentOptions {
     provider?: AIProvider;
@@ -10,6 +9,7 @@ interface GenerateContentOptions {
     images?: { inlineData: { mimeType: string, data: string } }[];
     schema?: any; // Zod schema for validation
     model?: string; // Optional model name
+    strict?: boolean; // Optional strict response validation
 }
 
 export class StructuredOutputError extends Error {
@@ -22,11 +22,11 @@ export class StructuredOutputError extends Error {
 /**
  * Helper to retry a function with exponential backoff
  */
-async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
+async function retry<T>(fn: (attempt: number) => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
     let lastError: any;
     for (let i = 0; i < retries; i++) {
         try {
-            return await fn();
+            return await fn(i);
         } catch (err: any) {
             lastError = err;
 
@@ -80,7 +80,6 @@ function disablePollinations(minutes = 10) {
  */
 class ProviderMonitor {
     private health: Record<AIProvider, { success: number; failure: number; status: 'healthy' | 'degraded' | 'down' }> = {
-        gemini: { success: 0, failure: 0, status: 'healthy' },
         pollinations: { success: 0, failure: 0, status: 'healthy' }
     };
 
@@ -99,6 +98,10 @@ class ProviderMonitor {
 
     getStatus(provider: AIProvider) {
         return this.health[provider]?.status || 'healthy';
+    }
+
+    getFailureCount(provider: AIProvider): number {
+        return this.health[provider]?.failure || 0;
     }
 
     private updateStatus(provider: AIProvider) {
@@ -127,12 +130,10 @@ function isReasoningOnly(raw: any): boolean {
 
 /**
  * Unified AI Client Dispatcher
- * Routes requests to the appropriate provider (Gemini or Pollinations)
- * based on the user's configuration.
+ * Routes requests to the appropriate provider (Pollinations only now!)
  */
 export async function generateContent(options: GenerateContentOptions): Promise<any> {
-    const originalProvider = options.provider || 'pollinations';
-    let { provider = originalProvider } = options;
+    const provider: AIProvider = 'pollinations'; // Force pollinations
     const { apiKey, systemPrompt, userPrompt, images, schema } = options;
     const strict = false; // Rigidly disabled
 
@@ -141,101 +142,36 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         ? `${systemPrompt}\n\nPlease respond with a valid JSON object matching the requested schema.`
         : systemPrompt;
 
-    console.log('🔌 AI Provider attempt:', provider, 'with auto-fallback enabled');
+    console.log('🔌 AI Provider: pollinations (Single engine active)');
 
-    // 1. Try Pollinations (Priority)
-    if (provider === 'pollinations') {
-        try {
-            const result = await retry(async () => {
-                const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
-                    model: options.model,
-                    apiKey: provider === 'pollinations' ? options.apiKey : undefined,
-                    response_format: schema ? { type: 'json_object' } : undefined
-                });
+    try {
+        const result = await retry(async (retryIndex) => {
+            // Tracking total attempt for model rotation (monitor failures + current retry index)
+            const baseFailureCount = providerMonitor.getFailureCount('pollinations');
+            const currentAttempt = baseFailureCount + retryIndex;
 
-                if (isReasoningOnly(raw)) {
-                    throw new Error('Pollinations returned reasoning-only output (retryable)');
-                }
-
-                console.log(`✅ Pollinations Response Success. Raw length: ${JSON.stringify(raw).length} chars`);
-                return validateAndParse(raw, schema, strict);
-            }, 5); // Increased to 5 retries for Pollinations stability
-
-            providerMonitor.recordSuccess('pollinations');
-            return result;
-        } catch (error: any) {
-            providerMonitor.recordFailure('pollinations');
-
-            console.warn(`🔄 Falling back from Pollinations to Gemini as secondary engine: ${error.message}`);
-            provider = 'gemini';
-        }
-    }
-
-    // 3. Gemini (Selected OR Fallback)
-    if (provider === 'gemini') {
-        const effectiveApiKey = (provider === originalProvider ? options.apiKey : undefined) || process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
-
-        if (!effectiveApiKey) {
-            throw new Error("Gemini provider requires an API Key. Please configure GOOGLE_GENAI_API_KEY or GEMINI_API_KEY or provide a custom key.");
-        }
-
-        try {
-            const genAI = new GoogleGenerativeAI(effectiveApiKey);
-            const geminiModel = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash'
+            const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
+                model: options.model,
+                apiKey: options.apiKey,
+                response_format: schema ? { type: 'json_object' } : undefined,
+                attempt: currentAttempt
             });
 
-            const userParts: any[] = [{ text: userPrompt }];
-            if (images && images.length > 0) {
-                userParts.push(...images);
+            if (isReasoningOnly(raw)) {
+                throw new Error('Pollinations returned reasoning-only output (retryable)');
             }
 
-            const text = await retry(async () => {
-                console.log('🔵 Calling Gemini with:', {
-                    model: 'gemini-2.0-flash',
-                    systemPromptLength: effectiveSystemPrompt.length,
-                    userPromptLength: userPrompt.length,
-                    hasSchema: !!schema
-                });
+            console.log(`✅ Pollinations Response Success. Raw length: ${JSON.stringify(raw).length} chars`);
+            return validateAndParse(raw, schema, strict);
+        }, 5); // 5 retries with automatic model rotation inside
 
-                const geminiResult = await geminiModel.generateContent({
-                    contents: [{ role: 'user', parts: userParts }],
-                    systemInstruction: effectiveSystemPrompt,
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        temperature: 0.7,
-                        maxOutputTokens: 8192
-                    }
-                });
-
-                const response = geminiResult.response;
-                console.log('🔵 Gemini response candidates:', response.candidates?.length || 0);
-
-                if (!response.text || response.text().trim() === '') {
-                    console.error('❌ Gemini returned empty response. Candidates:', JSON.stringify(response.candidates, null, 2));
-                    throw new Error('Gemini returned empty response - possibly blocked by safety filters');
-                }
-
-                return response.text();
-            }, 3);
-
-            console.log(`📝 Raw AI text response Success. Length: ${text.length} chars. Snippet: ${text.substring(0, 500)}${text.length > 500 ? '...' : ''}`);
-
-            const finalResult = validateAndParse(text, schema, strict);
-            providerMonitor.recordSuccess('gemini');
-            return finalResult;
-        } catch (error: any) {
-            providerMonitor.recordFailure('gemini');
-            console.error("Gemini AI Error:", error);
-            // If Gemini fails with 429 after retries, suggest switching to developer mode or checking quota
-            if (error.status === 429 || error.message?.includes('429')) {
-                throw new Error("Gemini API Rate Limit Exceeded. The free tier quota has been reached. Please wait a few minutes or try a different topic.");
-            }
-            throw error;
-        }
+        providerMonitor.recordSuccess('pollinations');
+        return result;
+    } catch (error: any) {
+        providerMonitor.recordFailure('pollinations');
+        console.error("Pollinations AI Error:", error);
+        throw error;
     }
-
-    throw new Error(`Unsupported AI Provider: ${provider}`);
 }
 
 /**

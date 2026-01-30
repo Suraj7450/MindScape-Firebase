@@ -12,9 +12,8 @@ export const RegenerateQuizInputSchema = z.object({
 
 export type RegenerateQuizInput = z.infer<typeof RegenerateQuizInputSchema>;
 
-// Plain async function bypassing Genkit
+// Plain async function
 export async function regenerateQuizFlow(input: RegenerateQuizInput): Promise<any> {
-    console.log('🔄 regenerateQuizFlow called with:', input);
     const { topic, difficulty, weakAreas, otherAreas, previousQuestions } = input;
 
     const systemPrompt = `You are generating an ADAPTIVE follow-up quiz for MindScape.

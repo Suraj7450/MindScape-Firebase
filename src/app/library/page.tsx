@@ -32,6 +32,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { useNotifications } from '@/contexts/notification-context';
 import { useAIConfig } from '@/contexts/ai-config-context';
 import { categorizeMindMapAction, suggestRelatedTopicsAction } from '@/app/actions/community';
+import { enhanceImagePromptAction } from '@/app/actions';
+import { RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -67,6 +69,7 @@ type SavedMindMap = GenerateMindMapOutput & {
   thumbnailPrompt?: string;
   isSubMap?: boolean;
 };
+
 type SortOption = 'recent' | 'alphabetical' | 'oldest';
 
 function NotLoggedIn() {
@@ -106,6 +109,8 @@ export default function DashboardPage() {
   const [isDownloadingFullData, setIsDownloadingFullData] = useState(false);
   const [selectedMapFullData, setSelectedMapFullData] = useState<MindMapData | null>(null);
   const [isFullDataLoading, setIsFullDataLoading] = useState(false);
+  const [regeneratingMapIds, setRegeneratingMapIds] = useState<Set<string>>(new Set());
+  const [imageErrorMapIds, setImageErrorMapIds] = useState<Set<string>>(new Set());
 
   // Recommendation Action State
   const [showChoiceDialog, setShowChoiceDialog] = useState(false);
@@ -708,6 +713,76 @@ export default function DashboardPage() {
     }
   };
 
+  const handleRegenerateImage = async (map: SavedMindMap) => {
+    if (!user || regeneratingMapIds.has(map.id)) return;
+
+    setRegeneratingMapIds(prev => new Set(prev).add(map.id));
+    setImageErrorMapIds(prev => {
+      const next = new Set(prev);
+      next.delete(map.id);
+      return next;
+    });
+
+    try {
+      // 1. Enhance the prompt for higher quality
+      const { enhancedPrompt, error: enhanceError } = await enhanceImagePromptAction({
+        prompt: map.topic,
+        style: 'Cinematic'
+      });
+
+      if (enhanceError) throw new Error(enhanceError);
+      const finalPrompt = enhancedPrompt?.enhancedPrompt || map.topic;
+
+      // 2. Generate the new image
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          style: 'Cinematic',
+          size: '512x288'
+        })
+      });
+
+      if (!response.ok) throw new Error('Image generation failed');
+      const imgData = await response.json();
+      const newUrl = imgData.images?.[0];
+
+      if (!newUrl) throw new Error('No image URL returned');
+
+      // 3. Update Firestore
+      const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
+      await updateDoc(mapRef, {
+        thumbnailUrl: newUrl,
+        thumbnailPrompt: finalPrompt,
+        updatedAt: Date.now()
+      });
+
+      // 4. Update preview state if active
+      if (selectedMapForPreview?.id === map.id) {
+        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: newUrl }) : null);
+      }
+
+      toast({
+        title: "Thumbnail Regenerated",
+        description: `Visual for "${map.topic}" has been updated with AI-enhanced prompt.`,
+      });
+    } catch (err: any) {
+      console.error("Regeneration failed:", err);
+      toast({
+        variant: "destructive",
+        title: "Regeneration Failed",
+        description: err.message || "Failed to update thumbnail."
+      });
+    } finally {
+      setRegeneratingMapIds(prev => {
+        const next = new Set(prev);
+        next.delete(map.id);
+        return next;
+      });
+    }
+  };
+
 
 
   if (isUserLoading) {
@@ -776,9 +851,42 @@ export default function DashboardPage() {
                     <img
                       src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`High-end commercial photography of ${map.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`)}?width=400&height=225&nologo=true&model=flux`}
                       alt={map.topic}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      className={cn(
+                        "w-full h-full object-cover transition-all duration-700 group-hover:scale-110",
+                        (regeneratingMapIds.has(map.id) || imageErrorMapIds.has(map.id)) && "opacity-40 grayscale blur-[2px]"
+                      )}
                       loading="lazy"
+                      onError={() => setImageErrorMapIds(prev => new Set(prev).add(map.id))}
                     />
+
+                    {/* Regeneration loading state */}
+                    {regeneratingMapIds.has(map.id) && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-30">
+                        <Loader2 className="h-8 w-8 text-purple-500 animate-spin mb-2" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-purple-300">Regenerating...</p>
+                      </div>
+                    )}
+
+                    {/* Error State Overlay */}
+                    {!regeneratingMapIds.has(map.id) && imageErrorMapIds.has(map.id) && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 z-30 p-4 text-center">
+                        <AlertCircle className="h-6 w-6 text-zinc-500 mb-2" />
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight mb-3">Generation Failed</p>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRegenerateImage(map);
+                          }}
+                          className="h-8 rounded-full bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/40 text-purple-100 text-[10px] font-bold uppercase tracking-widest px-4"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-2" />
+                          Retry AI Render
+                        </Button>
+                      </div>
+                    )}
+
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0E] via-transparent to-transparent opacity-60" />
                     <div className="absolute top-2 left-2 z-10 flex gap-2">
                       <DepthBadge depth={(map as any).depth} className="backdrop-blur-md bg-black/40 border-white/10" />
@@ -791,13 +899,21 @@ export default function DashboardPage() {
                         </Badge>
                       </div>
                     )}
-                    {/* Glassmorphism overlay with button on hover */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 group-hover/image:bg-black/40 transition-all duration-300 z-20">
-                      <div className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Open Full Map
+                    {/* Glassmorphism overlay with buttons on hover */}
+                    {!regeneratingMapIds.has(map.id) && !imageErrorMapIds.has(map.id) && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 group-hover/image:opacity-100 transition-all duration-300 flex items-center justify-center pointer-events-none">
+                        <div className="flex items-center gap-3 pointer-events-auto">
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleMindMapClick(map.id)}
+                            className="bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-white font-black font-orbitron uppercase tracking-[0.2em] px-6 h-10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all duration-300 flex items-center gap-2 group/btn"
+                          >
+                            <ExternalLink className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" />
+                            <span className="text-xs">Open</span>
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <h3 className="font-bold text-lg text-white mb-1.5 truncate transition-colors group-hover:text-purple-400" onClick={() => handleMindMapClick(map.id)}>
@@ -850,10 +966,34 @@ export default function DashboardPage() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            <p>Publish to Community</p>
+                            <p>Share to Community</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-8 w-8 rounded-full text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300",
+                              regeneratingMapIds.has(map.id) && "animate-pulse text-purple-400"
+                            )}
+                            onClick={() => handleRegenerateImage(map)}
+                            disabled={regeneratingMapIds.has(map.id)}
+                          >
+                            {regeneratingMapIds.has(map.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Retry AI Render</p>
+                        </TooltipContent>
+                      </Tooltip>
 
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -962,17 +1102,39 @@ export default function DashboardPage() {
                   <img
                     src={selectedMapForPreview.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${selectedMapForPreview.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
                     alt={selectedMapForPreview.topic}
-                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
+                    className={cn(
+                      "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-300",
+                      regeneratingMapIds.has(selectedMapForPreview.id) && "blur-sm opacity-40 grayscale"
+                    )}
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-all duration-300">
-                    <Button
-                      className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 animate-in fade-in zoom-in duration-500"
-                      onClick={() => handleMindMapClick(selectedMapForPreview.id)}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                      Open Full Map
-                    </Button>
-                  </div>
+
+                  {regeneratingMapIds.has(selectedMapForPreview.id) ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                      <Loader2 className="h-8 w-8 text-purple-500 animate-spin mb-2" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-purple-300">Regenerating UI...</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/20 group-hover:bg-black/40 transition-all duration-300">
+                      <Button
+                        className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 animate-in fade-in zoom-in duration-500"
+                        onClick={() => handleMindMapClick(selectedMapForPreview.id)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                        Open Map
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRegenerateImage(selectedMapForPreview);
+                        }}
+                        className="rounded-full h-9 w-9 bg-purple-600/50 backdrop-blur-xl border border-purple-500/60 hover:bg-purple-600 text-white transition-all duration-300 hover:scale-110 active:scale-90"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quick Stats Grid */}
@@ -1150,6 +1312,6 @@ export default function DashboardPage() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
-    </TooltipProvider>
+    </TooltipProvider >
   );
 }

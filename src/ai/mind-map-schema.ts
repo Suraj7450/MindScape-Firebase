@@ -207,7 +207,7 @@ export const AIGeneratedMindMapSchema = z.object({
       subCategories: z.array(z.object({
         name: z.string(),
         description: z.string(),
-        icon: z.string()
+        icon: z.string().optional()
       })).min(1)
     })).min(1)
   })).min(1)

@@ -9,7 +9,6 @@
  * - GenerateMindMapOutput - The return type for the generateMindMap function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { AIGeneratedMindMapSchema } from '@/ai/mind-map-schema';
 import { SearchContext } from '@/ai/search/search-schema';
@@ -44,7 +43,6 @@ export type GenerateMindMapOutput = z.infer<typeof GenerateMindMapOutputSchema>;
 
 
 // Note: We use manual dispatcher for multi-provider support and retries.
-// The Genkit definitions below are removed to avoid confusion with the actual runtime logic.
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
@@ -138,7 +136,7 @@ CURRENT WEB INFORMATION:
 ${searchContext.summary}
 
 SOURCES:
-${searchContext.sources.slice(0, 5).map((s, i) => `${i + 1}. ${s.title} - ${s.url}${s.snippet ? '\n   ' + s.snippet : ''}`).join('\n')}
+${searchContext.sources.slice(0, 5).map((s, i) => `${i + 1}. ${s.title} - ${s.url}`).join('\n')}
 
 Based on this current information from ${new Date(searchContext.timestamp).toLocaleDateString()}, create a mind map that reflects the latest facts and developments.
 `;

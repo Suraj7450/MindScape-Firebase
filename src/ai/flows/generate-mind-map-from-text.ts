@@ -7,7 +7,6 @@
  * - generateMindMapFromText - A function that generates the mind map from text.
  */
 
-import { ai } from '@/ai/genkit';
 import {
   GenerateMindMapFromTextInput,
   GenerateMindMapFromTextInputSchema,

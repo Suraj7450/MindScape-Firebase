@@ -439,17 +439,17 @@ export const mindscapeMap = {
                             isExpanded: false
                         },
                         {
-                            name: "Google Genkit",
-                            description: "AI framework for building and deploying generative AI flows with observability.",
-                            icon: "brain",
-                            tags: ["AI", "Flows", "Observability"],
+                            name: "Pollinations AI",
+                            description: "The core AI engine powering mind map generation, real-time search, and creative content.",
+                            icon: "zap",
+                            tags: ["Single-Provider", "Generation", "Intelligence"],
                             isExpanded: false
                         },
                         {
-                            name: "Gemini AI",
-                            description: "Google's advanced language model powering mind map generation and explanations.",
-                            icon: "sparkles",
-                            tags: ["LLM", "Generation", "Intelligence"],
+                            name: "Multi-Model Search",
+                            description: "Advanced search strategy utilizing Perplexity and Mistral models for maximum accuracy.",
+                            icon: "search",
+                            tags: ["Research", "Citations", "Accuracy"],
                             isExpanded: false
                         }
                     ]

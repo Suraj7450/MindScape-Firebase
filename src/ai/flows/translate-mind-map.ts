@@ -9,7 +9,6 @@
  * - TranslateMindMapOutput - The return type for the translateMindMap function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { MindMapSchema } from '@/ai/mind-map-schema';
 
@@ -58,40 +57,3 @@ export async function translateMindMap(
 
   return result;
 }
-
-const prompt = ai.definePrompt({
-  name: 'translateMindMapPrompt',
-  input: {
-    schema: z.object({
-      mindMapDataString: z.string(),
-      targetLang: z.string(),
-    }),
-  },
-  output: { schema: TranslateMindMapOutputSchema },
-  prompt: `You are an expert translator. Translate the provided mind map JSON data into the target language: {{{targetLang}}}.
-
-  - Translate all user-facing strings: 'topic', 'name', and 'description'.
-  - Do NOT translate the 'icon' fields. Keep them as they are.
-  - Ensure the output is a valid JSON object with the same structure as the input.
-
-  Original Mind Map Data:
-  {{{mindMapDataString}}}
-
-  Translate this into {{{targetLang}}} and return only the translated JSON object.
-  `,
-});
-
-const translateMindMapFlow = ai.defineFlow(
-  {
-    name: 'translateMindMapFlow',
-    inputSchema: TranslateMindMapInputSchema,
-    outputSchema: TranslateMindMapOutputSchema,
-  },
-  async ({ mindMapData, targetLang }) => {
-    const { output } = await prompt({
-      mindMapDataString: JSON.stringify(mindMapData, null, 2),
-      targetLang,
-    });
-    return output!;
-  }
-);

@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'rea
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { MindMap } from '@/components/mind-map';
-import { MindMapData, NestedExpansionItem } from '@/types/mind-map';
+import { MindMapData, NestedExpansionItem, MindMapWithId } from '@/types/mind-map';
 import { GenerationLoading } from '@/components/generation-loading';
 import dynamic from 'next/dynamic';
 
@@ -58,7 +58,6 @@ import { useMindMapRouter } from '@/hooks/use-mind-map-router';
 import { useMindMapPersistence } from '@/hooks/use-mind-map-persistence';
 import { useAIHealth } from '@/hooks/use-ai-health';
 
-type MindMapWithId = MindMapData;
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -211,13 +210,13 @@ function MindMapPageContent() {
       setIsLoading(true);
       setError(null);
 
-      let result: { data: MindMapWithId | null; error: string | null } = { data: null, error: null };
+      let result: { data: MindMapData | null; error: string | null } = { data: null, error: null };
       let currentMode = 'standard';
 
       try {
         if (params.isSelfReference) {
           currentMode = 'self-reference';
-          result.data = mindscapeMap as GenerateMindMapOutput;
+          result.data = { ...mindscapeMap, id: 'mindscape' } as MindMapWithId;
         } else if (params.mapId && params.isRegenerating) {
           currentMode = 'saved';
           // 1. Get topic from state or fetch it
@@ -720,6 +719,7 @@ function MindMapPageContent() {
           {mindMap.searchSources && mindMap.searchSources.length > 0 && (
             <SearchReferencesPanel
               sources={mindMap.searchSources}
+              images={mindMap.searchImages}
               timestamp={mindMap.searchTimestamp}
             />
           )}

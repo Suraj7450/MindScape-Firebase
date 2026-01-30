@@ -1,7 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { RelatedQuestionsOutputSchema, RelatedQuestionsOutput } from '@/ai/schemas/related-questions-schema';
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 

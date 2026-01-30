@@ -10,7 +10,7 @@ import { AIProvider } from '@/ai/client-dispatcher';
  * 
  * This action:
  * 1. Validates input parameters
- * 2. Executes Google Search via Pollinations gemini-search model
+ * 2. Executes decentralized search via Pollinations
  * 3. Normalizes and filters results
  * 4. Returns structured search context or null on failure
  * 

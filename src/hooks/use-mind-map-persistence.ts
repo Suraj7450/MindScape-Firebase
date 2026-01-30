@@ -5,7 +5,7 @@ import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@
 import { MindMapData } from '@/types/mind-map';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { trackMapCreated, trackStudyTime } from '@/lib/activity-tracker';
+import { trackMapCreated, trackStudyTime, trackNodesAdded, trackNestedExpansion } from '@/lib/activity-tracker';
 
 interface PersistenceOptions {
     onRemoteUpdate?: (data: MindMapData) => void;
@@ -270,6 +270,16 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
                 // Track creation
                 await trackMapCreated(firestore, user.uid);
+
+                // Track initial nodes
+                if (nodes && nodes.length > 0) {
+                    await trackNodesAdded(firestore, user.uid, nodes.length);
+                }
+
+                // Track nested expansion if applicable
+                if (metadataFinal.isSubMap || metadataFinal.parentMapId) {
+                    await trackNestedExpansion(firestore, user.uid);
+                }
             }
 
             if (!isSilent) {

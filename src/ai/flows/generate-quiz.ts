@@ -10,10 +10,8 @@ export const GenerateQuizInputSchema = z.object({
 
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
-// Plain async function bypassing Genkit
+// Plain async function
 export async function generateQuizFlow(input: GenerateQuizInput): Promise<any> {
-    console.log('🚀 generateQuizFlow called with:', input);
-    console.log('🚀 This is the NEW plain async version, NOT Genkit!');
     const { topic, difficulty, mindMapContext } = input;
 
 

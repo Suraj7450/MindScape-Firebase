@@ -107,7 +107,8 @@ export function OnboardingWizard() {
 
     const handleConnectPollinations = () => {
         const redirectUrl = encodeURIComponent(window.location.origin + '/');
-        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance&models=flux,openai,mistral,qwen&expiry=30`;
+        // Standardized BYOP URL with profile, balance, usage and our core rotating models
+        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance,usage&models=flux,openai,mistral,qwen,nova&expiry=30`;
         window.location.href = authUrl;
     };
 
@@ -246,9 +247,9 @@ export function OnboardingWizard() {
                                             <Zap className="w-8 h-8 text-purple-500" />
                                         </div>
                                         <div className="space-y-2">
-                                            <DialogTitle className="text-3xl font-black text-white tracking-tight">AI Engine</DialogTitle>
+                                            <DialogTitle className="text-3xl font-black text-white tracking-tight">Unlimited High-Fidelity</DialogTitle>
                                             <DialogDescription className="text-zinc-400 text-sm leading-relaxed max-w-[320px] mx-auto">
-                                                Connect <span className="text-purple-400 font-bold">Pollinations.ai</span> to unlock unlimited high-quality mind map generations for <span className="text-emerald-400 font-bold">FREE</span>.
+                                                Connect <span className="text-purple-400 font-bold">Pollinations.ai</span> to unlock unlimited high-quality maps (Flux, Qwen) for <span className="text-emerald-400 font-bold">FREE</span>.
                                             </DialogDescription>
                                         </div>
                                     </div>
@@ -265,16 +266,21 @@ export function OnboardingWizard() {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
+                                            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
+                                                <div className="flex items-center gap-3 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                                    BYOP: Bring Your Own Pollen
+                                                </div>
+                                                <p className="text-[11px] text-zinc-500 leading-relaxed italic">
+                                                    "Connect your personal API key to avoid rate limits and use the world's best open-source models at no platform cost."
+                                                </p>
+                                            </div>
                                             <Button
                                                 onClick={handleConnectPollinations}
                                                 className="w-full h-16 bg-gradient-to-r from-violet-600 via-purple-600 to-accent hover:brightness-110 text-white rounded-2xl font-black text-lg transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] group active:scale-[0.98]"
                                             >
-                                                Connect Pollinations AI <Zap className="ml-2 w-4 h-4 text-amber-300 animate-pulse" />
+                                                Connect Personal Key <Zap className="ml-2 w-4 h-4 text-amber-300 animate-pulse" />
                                             </Button>
-                                            <div className="flex items-center gap-2 justify-center text-[10px] text-zinc-500 uppercase tracking-widest font-black">
-                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                High-Quality Models Enabled
-                                            </div>
                                         </div>
                                     )}
 
