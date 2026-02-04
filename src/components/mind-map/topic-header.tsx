@@ -9,7 +9,8 @@ import {
     Palette,
     Brain,
     RefreshCw,
-    List
+    List,
+    Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MindMapData } from '@/types/mind-map';
@@ -45,8 +46,8 @@ export const TopicHeader = ({
 }: TopicHeaderProps) => {
     return (
         <div className={cn(
-            "relative animate-in fade-in slide-in-from-top-4 duration-1000",
-            isMinimal ? "mb-0" : "mb-12"
+            "relative animate-in fade-in slide-in-from-top-4 duration-1000 mt-8",
+            isMinimal ? "mb-0" : "mb-6"
         )}>
             {/* Premium Container */}
             <div className={cn(
@@ -122,8 +123,19 @@ export const TopicHeader = ({
                     )}>
                         {mindMap.shortTitle || mindMap.topic}
                     </h1>
+
+                    {/* Mission Objective Subtitle */}
+                    <div className="flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-left-4 duration-700 delay-200">
+                        <div className="p-1 rounded-full bg-white/5 border border-white/10">
+                            <Search className="w-3 h-3 text-zinc-500" />
+                        </div>
+                        <span className="text-sm font-bold text-zinc-500 uppercase tracking-widest font-orbitron">
+                            {mindMap.topic}
+                        </span>
+                    </div>
+
                     {description && (
-                        <p className="text-lg md:text-xl text-zinc-400 font-medium leading-relaxed max-w-2xl animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
+                        <p className="text-lg md:text-xl text-zinc-400 font-medium leading-relaxed max-w-2xl mt-6 animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
                             {description}
                         </p>
                     )}

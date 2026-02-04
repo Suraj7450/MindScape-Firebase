@@ -15,6 +15,7 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
 });
 
 import { SearchReferencesPanel } from '@/components/canvas/SearchReferencesPanel';
+import { QueryIntel } from '@/components/query-intel';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -502,7 +503,22 @@ function MindMapPageContent() {
       await handleSaveMapFromHook(silent);
       setHasUnsavedChanges(false);
     };
-    return setupAutoSave(mindMap, hasUnsavedChanges, params.isSelfReference, persistFn);
+
+    // Warn on tab close if unsaved
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    const cleanupAutoSave = setupAutoSave(mindMap, hasUnsavedChanges, params.isSelfReference, persistFn);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      cleanupAutoSave();
+    };
   }, [mindMap, hasUnsavedChanges, params.isSelfReference, handleSaveMapFromHook, setupAutoSave]);
 
   // Ref to track mindMap for stable callbacks

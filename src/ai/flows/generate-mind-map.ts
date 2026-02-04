@@ -47,9 +47,9 @@ export type GenerateMindMapOutput = z.infer<typeof GenerateMindMapOutputSchema>;
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function generateMindMap(
-  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider; searchContext?: SearchContext | null }
+  input: GenerateMindMapInput & { apiKey?: string; provider?: AIProvider; searchContext?: SearchContext | null; model?: string }
 ): Promise<GenerateMindMapOutput> {
-  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey, searchContext } = input;
+  const { topic, parentTopic, targetLang, persona, depth = 'low', provider, apiKey, searchContext, model } = input;
 
   // Map depth to structural density with STRICT enforcement
   let densityInstruction = '';
@@ -158,7 +158,7 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
 {
   "mode": "single",
   "topic": "${topic}",
-  "shortTitle": "Impactful Short Title",
+  "shortTitle": "(Generate a catchy, short title for the map)",
   "icon": "brain-circuit",
   "subTopics": [
     {
@@ -197,12 +197,28 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
 
   CRITICAL: Return ONLY valid JSON. No markdown formatting, no backticks, no extra text.`;
 
+  // Determine capability based on inputs
+  let capability = 'creative';
+  if (depth === 'deep' || (depth as any) === 'detailed') { // Cast to any to avoid TS error if 'detailed' is not in strict enum
+    capability = 'coding'; // Qwen-Coder is faster and better at structured JSON than generic reasoning
+  } else if (persona === 'expert' || persona === 'teacher') {
+    capability = 'reasoning'; // Need accuracy
+  } else if (prompt.includes('search')) { // Fixed: variable name was systemPrompt
+    capability = 'fast';
+  }
+
   const result = await generateContent({
     provider: provider,
     apiKey: apiKey,
     systemPrompt: "You are a mind map generator. Output MUST be strictly valid JSON according to the requested structure.",
     userPrompt: prompt,
     schema: AIGeneratedMindMapSchema,
+    options: {
+      // Fixed: Removed undefined aiOptions
+      // CRITICAL: Overwrite 'model' with undefined if we have a specific capability in mind
+      model: capability !== 'creative' ? undefined : model,
+      capability: capability as any // Pass capability hint
+    }
   });
 
   console.log(`✅ Mind map generated successfully:`, {

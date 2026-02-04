@@ -170,7 +170,7 @@ export interface GenerateMindMapFromImageInput {
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput & { useSearch?: boolean },
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: { apiKey?: string; provider?: AIProvider; model?: string } = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   // Ensure input.topic is treated as a plain string
   const topic = String(input.topic);

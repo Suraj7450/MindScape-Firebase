@@ -858,7 +858,17 @@ export default function DashboardPage() {
             {filteredAndSortedMaps.map((rawMap) => {
               // Sanitize map to prevent Firestore Timestamp serialization errors
               const map = sanitizeMapForState(rawMap);
-              const updatedAt = map.updatedAt instanceof Date ? map.updatedAt : null;
+
+              // Robust date parsing for display
+              const getDisplayDate = (d: any) => {
+                if (d instanceof Date) return d;
+                if (typeof d === 'number') return new Date(d);
+                if (d?.toDate && typeof d.toDate === 'function') return d.toDate();
+                if (d?.toMillis && typeof d.toMillis === 'function') return new Date(d.toMillis());
+                return null;
+              };
+
+              const updatedAt = getDisplayDate(map.updatedAt) || getDisplayDate(map.createdAt);
 
 
               return (

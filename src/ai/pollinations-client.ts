@@ -5,26 +5,82 @@
 
 'use server';
 
+// ----------------------------------------------------------------------
+// Types & Constants
+// ----------------------------------------------------------------------
+
+export type ModelCapability = 'reasoning' | 'coding' | 'fast' | 'creative';
+
+interface ModelDef {
+    id: string;
+    feature: ModelCapability;
+    description: string;
+    context: number; // max context
+    isFree: boolean;
+}
+
+// Registry of available models
+const AVAILABLE_MODELS: ModelDef[] = [
+    // Reasoning / Coding (High Intelligence, JSON Structure)
+    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
+    { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
+    { id: 'mistral-nemo', feature: 'coding', description: 'Mistral Nemo 12B', context: 16000, isFree: true },
+
+    // Fast / Economy (High Speed, Lower Cost)
+    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
+    { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 8192, isFree: true },
+
+    // Creative / General (Balanced)
+    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 8192, isFree: false },
+    { id: 'mistral', feature: 'creative', description: 'Mistral Small', context: 8192, isFree: true },
+    { id: 'qwen', feature: 'creative', description: 'Qwen 2.5 72B', context: 16000, isFree: true },
+];
+
+/**
+ * Selects the best available model based on requested capability.
+ * Handles fallbacks based on attempt count.
+ */
+function selectModel(capability: ModelCapability = 'creative', attempt: number = 0): string {
+    // 1. Filter models matching capability
+    const validModels = AVAILABLE_MODELS.filter(m => m.feature === capability);
+
+    // 2. If models found, rotate through them
+    if (validModels.length > 0) {
+        return validModels[attempt % validModels.length].id;
+    }
+
+    // 3. Fallback: Try 'fast' models if original capability exhausted
+    if (capability !== 'fast') {
+        const fastModels = AVAILABLE_MODELS.filter(m => m.feature === 'fast');
+        if (fastModels.length > 0) {
+            return fastModels[attempt % fastModels.length].id;
+        }
+    }
+
+    // 4. Final Fallback: Qwen Coder (reliable workhorse)
+    return 'qwen-coder';
+}
+
 export async function generateContentWithPollinations(
     systemPrompt: string,
     userPrompt: string,
     images?: { inlineData: { mimeType: string, data: string } }[],
     options: {
         model?: string,
+        capability?: ModelCapability, // New: Request specific capability
         response_format?: any,
         apiKey?: string,
         skipApiKey?: boolean,
-        attempt?: number
+        attempt?: number,
+        _stripParameters?: boolean
     } = {}
 ): Promise<any> {
     const hasImages = images && images.length > 0;
     const attempt = options.attempt || 0;
 
-    // Model rotation for stability (Qwen -> Mistral -> Nova -> OpenAI)
-    // Only rotate for text-based JSON tasks
-    const modelRotation = ['qwen-coder', 'mistral', 'nova-fast', 'openai-fast'];
-
-    let model = options.model || (hasImages ? 'openai' : modelRotation[attempt % modelRotation.length]);
+    // Use specific model if provided, OR select based on capability, OR default to creative
+    let model = options.model || (hasImages ? 'openai' : selectModel(options.capability || 'creative', attempt));
 
     // Override if specific capabilities are needed
     if (hasImages) {
@@ -80,10 +136,11 @@ CRITICAL:
         }
 
         // Increase max_tokens for models that support it to accommodate deep mind maps
-        const modelsWithLargeContext = ['openai', 'gpt-4o', 'qwen', 'mistral', 'qwen-coder', 'mistral-nemo'];
-        if (modelsWithLargeContext.includes(model)) {
+        const targetModelDef = AVAILABLE_MODELS.find(m => m.id === model);
+        if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
             // High token limit is essential for deep mode mind maps (120+ items)
-            body.max_tokens = (model === 'qwen-coder' || model === 'mistral' || model === 'mistral-nemo') ? 16384 : 8192;
+            // Reduced Mistral limit to 8192 to prevent 400 Bad Request errors
+            body.max_tokens = (model === 'qwen-coder') ? 16384 : 8192;
         }
 
         // Robust API Key selection
@@ -148,9 +205,27 @@ CRITICAL:
                 }
             }
 
-            // Handle service errors (Bad Gateway, Service Unavailable, etc.) with model rotation
+            // Handle 400 Bad Request (likely due to unsupported parameters)
+            if (status === 400 && !options.response_format && !body.max_tokens) {
+                // Even basic request failed, fatal error
+            } else if (status === 400) {
+                console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]. Retrying without advanced parameters (response_format/max_tokens)...`);
+                // Retry WITHOUT response_format and max_tokens
+                const simplifiedOptions = { ...options };
+                delete simplifiedOptions.response_format;
+
+                return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                    ...simplifiedOptions,
+                    model: model, // Try same model first, but simpler
+                    attempt: attempt, // Don't increment rotation yet
+                    _stripParameters: true // Custom internal flag to prevent re-adding max_tokens
+                } as any);
+            }
+
+            // Handle service errors (Bad Gateway, Service Unavailable, etc.) with model re-selection
             const isServiceError = status >= 500 && status <= 599;
-            if (isServiceError && attempt < modelRotation.length - 1) {
+            // Allow up to 3 retries
+            if (isServiceError && attempt < 3) {
                 console.warn(`⚠️ Pollinations Service Error (${status}): ${errorMessage}. Rotating to next model...`);
                 return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                     ...options,
@@ -161,7 +236,6 @@ CRITICAL:
             console.error(`❌ Pollinations API Error [Model: ${model}, Status: ${status}]:`, errorMessage);
             throw new Error(`Pollinations API error: ${status} ${errorMessage}`);
         }
-
         const data = await response.json();
         console.log(`✅ Pollinations Response Success [Model: ${model}]`);
         console.log('📦 Response data length:', JSON.stringify(data).length);

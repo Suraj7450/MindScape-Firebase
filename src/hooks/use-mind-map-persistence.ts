@@ -345,7 +345,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         const timer = setTimeout(() => {
             persistFn(true);
-        }, 60000); // 1 minute auto-save threshold
+        }, 3000); // 3 seconds auto-save threshold
 
         return () => clearTimeout(timer);
     }, [user]);

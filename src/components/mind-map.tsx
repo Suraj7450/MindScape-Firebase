@@ -565,8 +565,14 @@ export const MindMap = ({
   const lastNotifiedRef = useRef<string>('');
   useEffect(() => {
     if (onUpdate) {
+      const sanitizedExpansions = nestedExpansions.map(item => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { fullData, ...rest } = item;
+        return rest;
+      });
+
       const dataToNotify = toPlainObject({
-        nestedExpansions: nestedExpansions,
+        nestedExpansions: sanitizedExpansions,
         savedImages: generatedImages,
         explanations: explanations
       });
