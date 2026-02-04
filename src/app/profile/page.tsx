@@ -167,6 +167,7 @@ export default function ProfilePage() {
     const [showApiKey, setShowApiKey] = useState(false);
     const [preferredModel, setPreferredModel] = useState('flux');
     const [isSavingKey, setIsSavingKey] = useState(false);
+    const [apiKeyInput, setApiKeyInput] = useState('');
 
 
 
@@ -220,6 +221,7 @@ export default function ProfilePage() {
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
+                        setApiKeyInput(profileData.apiSettings?.pollinationsApiKey || '');
 
                         // Sync active maps count in real-time indirectly? 
                         // Actually, it's better to just fetch it here or use a separate listener.
@@ -368,13 +370,25 @@ export default function ProfilePage() {
         }
     };
 
+    const handleSaveApiKey = async () => {
+        if (!user || !firestore) return;
+        setIsSavingKey(true);
+        try {
+            await saveUserApiKey(firestore, user.uid, apiKeyInput, preferredModel);
+            toast({ title: 'API Key Saved', description: 'Your personal access key has been updated.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSavingKey(false);
+        }
+    };
+
     const handleSaveModelPreference = async (modelId: string) => {
         if (!user || !firestore) return;
         setIsSavingKey(true);
         try {
             setPreferredModel(modelId);
-            const currentKey = profile?.apiSettings?.pollinationsApiKey || '';
-            await saveUserApiKey(firestore, user.uid, currentKey, modelId);
+            await saveUserApiKey(firestore, user.uid, apiKeyInput, modelId);
             toast({ title: 'Preference Saved', description: `Default model set to ${modelId}` });
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -942,23 +956,33 @@ export default function ProfilePage() {
                                                 <div className="relative group">
                                                     <Input
                                                         type={showApiKey ? "text" : "password"}
-                                                        value={profile.apiSettings?.pollinationsApiKey || ''}
-                                                        readOnly
-                                                        className="bg-zinc-950/50 border-zinc-800 text-zinc-300 font-mono text-xs pr-10 focus-visible:ring-violet-500/50"
-                                                        placeholder="No API Key Connected"
+                                                        value={apiKeyInput}
+                                                        onChange={(e) => setApiKeyInput(e.target.value)}
+                                                        className="bg-zinc-950/50 border-zinc-800 text-zinc-300 font-mono text-xs pr-24 focus-visible:ring-violet-500/50"
+                                                        placeholder="Enter your Pollinations API Key"
                                                     />
-                                                    <button
-                                                        onClick={() => {
-                                                            if (profile.apiSettings?.pollinationsApiKey) {
-                                                                navigator.clipboard.writeText(profile.apiSettings.pollinationsApiKey);
-                                                                toast({ title: 'Copied', description: 'API key copied back to clipboard' });
-                                                            }
-                                                        }}
-                                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all opacity-0 group-hover:opacity-100"
-                                                        title="Copy Key"
-                                                    >
-                                                        <Copy className="h-3 w-3" />
-                                                    </button>
+                                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                if (apiKeyInput) {
+                                                                    navigator.clipboard.writeText(apiKeyInput);
+                                                                    toast({ title: 'Copied', description: 'API key copied back to clipboard' });
+                                                                }
+                                                            }}
+                                                            className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all opacity-0 group-hover:opacity-100"
+                                                            title="Copy Key"
+                                                        >
+                                                            <Copy className="h-3 w-3" />
+                                                        </button>
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-7 text-[10px] font-bold uppercase tracking-wider bg-violet-600/20 text-violet-400 border border-violet-500/30 hover:bg-violet-600/40"
+                                                            onClick={handleSaveApiKey}
+                                                            disabled={isSavingKey}
+                                                        >
+                                                            {isSavingKey ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
                                                 <p className="text-[10px] text-zinc-500 italic">

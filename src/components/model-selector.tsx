@@ -1,6 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Zap, Crown, Palette } from 'lucide-react';
+import { Sparkles, Zap, Crown, Palette, Monitor, Cloud } from 'lucide-react';
 
 export const POLLINATIONS_MODELS = [
     {
@@ -24,20 +24,38 @@ export const POLLINATIONS_MODELS = [
     {
         value: 'klein',
         label: 'FLUX.2 Klein 4B',
-        cost: 0.008,
+        cost: 0.0067,
         badge: 'Premium',
         icon: Sparkles,
         description: 'Premium quality with enhanced details',
-        isNew: false
+        isNew: true
     },
     {
         value: 'klein-large',
         label: 'FLUX.2 Klein 9B',
-        cost: 0.012,
+        cost: 0.0118,
         badge: 'Ultra',
         icon: Crown,
         description: 'Ultra detailed - one of the best available',
-        isNew: false
+        isNew: true
+    },
+    {
+        value: 'gptimage',
+        label: 'GPT Image 1 Mini',
+        cost: 0.0133,
+        badge: 'Balanced',
+        icon: Monitor,
+        description: 'Balanced performance for general prompts',
+        isNew: true
+    },
+    {
+        value: 'seedream',
+        label: 'Seedream 4.0',
+        cost: 0.0286,
+        badge: 'Creative',
+        icon: Cloud,
+        description: 'Artistic, dream-like creative styles',
+        isNew: true
     },
     {
         value: 'kontext',
@@ -47,6 +65,15 @@ export const POLLINATIONS_MODELS = [
         icon: Palette,
         description: 'In-context editing & generation',
         isNew: false
+    },
+    {
+        value: 'nanobanana',
+        label: 'NanoBanana',
+        cost: 0.04,
+        badge: 'Niche',
+        icon: Zap,
+        description: 'Niche creative generation specialist',
+        isNew: true
     }
 ] as const;
 
@@ -57,18 +84,21 @@ interface ModelSelectorProps {
     onChange: (value: string) => void;
     className?: string;
     showCost?: boolean;
+    freeOnly?: boolean;
 }
 
 export function ModelSelector({
     value,
     onChange,
     className,
-    showCost = true
+    showCost = true,
+    freeOnly = false
 }: ModelSelectorProps) {
-    const selectedModel = POLLINATIONS_MODELS.find(m => m.value === value);
+    const models = freeOnly ? POLLINATIONS_MODELS.filter(m => m.cost < 0.005) : POLLINATIONS_MODELS;
+    const selectedModel = models.find(m => m.value === value) || models[0];
 
     return (
-        <Select value={value} onValueChange={onChange}>
+        <Select value={selectedModel.value} onValueChange={onChange}>
             <SelectTrigger className={className}>
                 <SelectValue>
                     <div className="flex items-center gap-2">
@@ -84,8 +114,8 @@ export function ModelSelector({
                     </div>
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className="min-w-[450px]">
-                {POLLINATIONS_MODELS.map(model => {
+            <SelectContent className="min-w-[450px] z-[250]">
+                {models.map(model => {
                     const Icon = model.icon;
                     return (
                         <SelectItem
@@ -138,14 +168,17 @@ export function ModelSelector({
 /**
  * Compact model selector for inline use
  */
-export function CompactModelSelector({ value, onChange, className }: ModelSelectorProps) {
+export function CompactModelSelector({ value, onChange, className, freeOnly = false }: ModelSelectorProps) {
+    const models = freeOnly ? POLLINATIONS_MODELS.filter(m => m.cost < 0.005) : POLLINATIONS_MODELS;
+    const selectedModel = models.find(m => m.value === value) || models[0];
+
     return (
-        <Select value={value} onValueChange={onChange}>
+        <Select value={selectedModel.value} onValueChange={onChange}>
             <SelectTrigger className={className}>
                 <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-                {POLLINATIONS_MODELS.map(model => (
+            <SelectContent className="z-[250]">
+                {models.map(model => (
                     <SelectItem
                         key={model.value}
                         value={model.value}

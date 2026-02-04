@@ -4,16 +4,22 @@ import { NextResponse } from 'next/server';
 const POLLINATIONS_MODELS = {
   'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - Fast & High Quality' },
   'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Fast Alternative' },
-  'klein': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Quality' },
-  'klein-large': { cost: 0.012, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Quality' },
-  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - Contextual' }
+  'klein': { cost: 0.0067, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Quality' },
+  'klein-large': { cost: 0.0118, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Quality' },
+  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini' },
+  'seedream': { cost: 0.0286, quality: 'creative', description: 'Seedream 4.0' },
+  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - Contextual' },
+  'nanobanana': { cost: 0.04, quality: 'niche', description: 'NanoBanana - Niche Specialist' }
 } as const;
 
-type ModelName = keyof typeof POLLINATIONS_MODELS;
+type ModelName = keyof typeof POLLINATIONS_MODELS | string;
 
 interface GenerateImageRequest {
   prompt: string;
-  model?: ModelName;
+  model?: string;
+  style?: string;
+  composition?: string;
+  mood?: string;
   width?: number;
   height?: number;
   userId?: string;
@@ -21,36 +27,78 @@ interface GenerateImageRequest {
 }
 
 /**
- * Enhance prompt with cinematic 3D render effects
- * Detects if prompt is about people/figures and adjusts accordingly
+ * Enhance prompt with style-specific keywords or cinematic defaults
  */
-function enhanceCinematicPrompt(prompt: string): string {
+function applyStyleToPrompt(prompt: string, style?: string, composition?: string, mood?: string): string {
   const lowerPrompt = prompt.toLowerCase();
+  let enhancedPrompt = prompt;
 
-  // Keywords that indicate the prompt is about a person or figure
-  const personKeywords = [
-    'person', 'people', 'man', 'woman', 'leader', 'figure', 'celebrity',
-    'scientist', 'artist', 'politician', 'entrepreneur', 'founder', 'ceo',
-    'president', 'king', 'queen', 'emperor', 'philosopher', 'inventor',
-    'author', 'writer', 'actor', 'musician', 'athlete', 'coach', 'teacher',
-    'doctor', 'engineer', 'designer', 'developer', 'researcher', 'professor',
-    // Historical figures
-    'einstein', 'newton', 'tesla', 'jobs', 'gates', 'musk', 'bezos',
-    'gandhi', 'lincoln', 'washington', 'churchill', 'napoleon', 'caesar',
-    'da vinci', 'michelangelo', 'shakespeare', 'beethoven', 'mozart',
-    // Generic person indicators
-    'he ', 'she ', 'his ', 'her ', 'him ', 'himself', 'herself'
-  ];
-
-  const isPerson = personKeywords.some(keyword => lowerPrompt.includes(keyword));
-
-  if (isPerson) {
-    // For people: focus on portrait photography style
-    return `${prompt}, professional portrait photography, dramatic studio lighting, high detail facial features, cinematic composition, 8k quality, photorealistic, sharp focus, professional headshot style, magazine cover quality`;
-  } else {
-    // For objects/concepts: use 3D render style
-    return `${prompt}, cinematic lighting, 3D render, octane render, ultra detailed, 8k quality, dramatic shadows, depth of field, photorealistic, professional photography`;
+  // Add composition keywords
+  if (composition && composition !== 'none') {
+    const compKeywords: Record<string, string> = {
+      'close-up': 'extreme close-up shot, detailed textures, shallow depth of field',
+      'wide-shot': 'wide cinematic pan, sweeping landscape composition, expansive view',
+      'bird-eye': 'overlooking bird\'s eye view from above, high angle perspective',
+      'macro': 'macro photography, extreme detail, focused on tiny intricate features',
+      'low-angle': 'heroic low angle shot, looking up, imposing perspective'
+    };
+    if (compKeywords[composition]) enhancedPrompt += `, ${compKeywords[composition]}`;
   }
+
+  // Add mood keywords
+  if (mood && mood !== 'none') {
+    const moodKeywords: Record<string, string> = {
+      'golden-hour': 'golden hour sunset lighting, warm orange glow, long soft shadows',
+      'rainy': 'heavy rain, wet surfaces, moody gray lighting, atmospheric droplets',
+      'foggy': 'dense mysterious fog, low visibility, soft ethereal atmosphere',
+      'neon': 'vibrant neon lighting, glowing signs, cyberpunk night aesthetic',
+      'mystical': 'ethereal magical glow, dreamlike lighting, glowing particles',
+      'nocturnal': 'dark midnight lighting, moonlight shadows, deep blue atmosphere'
+    };
+    if (moodKeywords[mood]) enhancedPrompt += `, ${moodKeywords[mood]}`;
+  }
+
+  // If a specific style is provided, prioritize it
+  if (style && style !== 'none' && style !== 'cinematic') {
+    const styleKeywords: Record<string, string> = {
+      'anime': 'Studio Ghibli aesthetic, hand-painted textures, vibrant cel-shading, high detail anime style',
+      '3d-render': 'Unreal Engine 5 aesthetic, Octane render, ray-tracing, intricate PBR materials, digital perfection',
+      'cyberpunk': 'Neon noir lighting, rainy streets, holographic interfaces, vibrant pink and blue color palette',
+      'minimalist': 'Clean lines, negative space, soft neutral colors, elegant simplicity, high-end design',
+      'watercolor': 'Soft bleeding edges, textured paper, vibrant washes, artistic hand-painted watercolor style',
+      'pencil': 'Fine graphite lines, cross-hatching, realistic shading, hand-drawn pencil sketch aesthetic',
+      'polaroid': 'Vintage film grain, washed out colors, soft focus, authentic nostalgic polaroid photo look',
+      'pop-art': 'Bold halftone patterns, vibrant saturated colors, thick black outlines, Andy Warhol aesthetic',
+      'oil-painting': 'Rich impasto textures, visible brushstrokes, classic canvas feel, masterwork oil painting',
+      'pixel-art': 'Sharp 16-bit sprites, limited color palette, clean grid alignment, retro gaming aesthetic'
+    };
+
+    const keywords = styleKeywords[style] || '';
+    if (keywords) enhancedPrompt += `, ${keywords}`;
+  } else if (!style || style === 'cinematic') {
+    // Fallback to the existing person-aware cinematic enhancement if no major style is set
+    const personKeywords = [
+      'person', 'people', 'man', 'woman', 'leader', 'figure', 'celebrity',
+      'scientist', 'artist', 'politician', 'entrepreneur', 'founder', 'ceo',
+      'president', 'king', 'queen', 'emperor', 'philosopher', 'inventor',
+      'author', 'writer', 'actor', 'musician', 'athlete', 'coach', 'teacher',
+      'doctor', 'engineer', 'designer', 'developer', 'researcher', 'professor',
+      'einstein', 'newton', 'tesla', 'jobs', 'gates', 'musk', 'bezos',
+      'gandhi', 'lincoln', 'washington', 'churchill', 'napoleon', 'caesar',
+      'da vinci', 'michelangelo', 'shakespeare', 'beethoven', 'mozart',
+      'he ', 'she ', 'his ', 'her ', 'him ', 'himself', 'herself'
+    ];
+
+    const isPerson = personKeywords.some(keyword => lowerPrompt.includes(keyword));
+
+    if (isPerson) {
+      enhancedPrompt += ', professional portrait photography, dramatic studio lighting, high detail, cinematic composition, 8k quality, photorealistic';
+    } else {
+      enhancedPrompt += ', cinematic lighting, 3D render, octane render, ultra detailed, 8k quality, dramatic shadows';
+    }
+  }
+
+  return enhancedPrompt;
 }
 
 /**
@@ -65,6 +113,9 @@ export async function POST(req: Request) {
     const {
       prompt,
       model = 'flux',
+      style,
+      composition,
+      mood,
       width = 1024,
       height = 1024,
       userApiKey
@@ -78,14 +129,18 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!POLLINATIONS_MODELS[model]) {
+    // Relaxed model validation
+    const isValidModel = !!(POLLINATIONS_MODELS as any)[model];
+
+    // If not a known model and no user API key, block it
+    if (!isValidModel && !userApiKey) {
       return NextResponse.json(
-        { error: `Invalid model. Available models: ${Object.keys(POLLINATIONS_MODELS).join(', ')}` },
+        { error: `Invalid model for guest generation. Available models: ${Object.keys(POLLINATIONS_MODELS).join(', ')}` },
         { status: 400 }
       );
     }
 
-    console.log(`🎨 Generating image with model: ${model}`);
+    console.log(`🎨 Generating image with model: ${model} (${userApiKey ? 'User Key' : 'Server Key'})`);
 
     // Determine which API key to use (user key takes priority)
     const apiKey = userApiKey || process.env.POLLINATIONS_API_KEY;
@@ -97,8 +152,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Enhance prompt for cinematic effect
-    const enhancedPrompt = enhanceCinematicPrompt(prompt);
+    // Enhance prompt using the new style-aware logic
+    const enhancedPrompt = applyStyleToPrompt(prompt, style, composition, mood);
 
     // Build Pollinations API URL
     // We'll use the query param key as a fallback, but Bearer token is preferred in docs
@@ -155,15 +210,15 @@ export async function POST(req: Request) {
 
     console.log(`✅ Image generated and converted to Base64 (${Math.round(buffer.length / 1024)} KB)`);
 
-    // Calculate cost based on our internal tracker
-    const modelInfo = POLLINATIONS_MODELS[model];
+    // Calculate cost based on our internal tracker (optional info)
+    const modelInfo = POLLINATIONS_MODELS[model as keyof typeof POLLINATIONS_MODELS];
 
     return NextResponse.json({
       success: true,
-      imageUrl: dataUrl, // Return the actual data URL
+      imageUrl: dataUrl,
       model,
-      cost: modelInfo.cost,
-      quality: modelInfo.quality,
+      cost: modelInfo?.cost || 0.04, // Default to highest cost if unknown
+      quality: modelInfo?.quality || 'custom',
       size: {
         width,
         height

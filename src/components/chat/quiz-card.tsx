@@ -72,7 +72,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                         transition={{ duration: 0.2 }}
                         className="space-y-4"
                     >
-                        <h4 className="text-sm md:text-md font-semibold text-white leading-snug">
+                        <h4 className="text-sm md:text-base font-semibold text-white leading-relaxed font-sans normal-case">
                             {currentQuestion.question}
                         </h4>
 
@@ -84,7 +84,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                                         key={option.id}
                                         onClick={() => handleSelect(option.id)}
                                         className={cn(
-                                            "group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left relative overflow-hidden",
+                                            "group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left relative overflow-hidden normal-case font-sans tracking-normal",
                                             isSelected
                                                 ? "bg-primary/20 border-primary/50 shadow-md scale-[1.01]"
                                                 : "bg-white/5 border-white/5 hover:bg-white/10"
@@ -99,7 +99,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                                             {option.id}
                                         </div>
                                         <span className={cn(
-                                            "text-xs font-medium transition-colors",
+                                            "text-[13px] font-medium transition-colors leading-snug pr-6",
                                             isSelected ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
                                         )}>
                                             {option.text}

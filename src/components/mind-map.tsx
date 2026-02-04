@@ -162,6 +162,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { useAIConfig } from '@/contexts/ai-config-context';
+import { ImageGenerationDialog, ImageSettings } from './mind-map/image-generation-dialog';
 import {
   Tooltip,
   TooltipContent,
@@ -200,6 +201,7 @@ import { trackNestedExpansion, trackImageGenerated, trackMapCreated } from '@/li
  */
 interface MindMapProps {
   data: MindMapData;
+  isExpanded?: boolean;
   isSaved: boolean;
   onSaveMap: () => void;
   onExplainInChat: (message: string) => void;
@@ -371,6 +373,11 @@ export const MindMap = ({
   const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
 
+  // Advanced Image Generation (Visual Insight Lab)
+  const [isImageLabOpen, setIsImageLabOpen] = useState(false);
+  const [labNode, setLabNode] = useState<SubCategoryInfo | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
 
   // State for images and expansions is initialized from data prop
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(data.savedImages || []);
@@ -411,7 +418,7 @@ export const MindMap = ({
 
   // AUTO-SUMMARIZE when canvas content is fully loaded/generated
   useEffect(() => {
-    const isReady = status === 'idle' && data && (data.subTopics?.length || 0) > 0;
+    const isReady = status === 'idle' && data && data.mode === 'single' && (data.subTopics?.length || 0) > 0;
     const isNewMap = !data.summary && !summaryContent && !isSummarizing;
 
     if (isReady && isNewMap) {
@@ -730,49 +737,82 @@ export const MindMap = ({
     setIsExampleDialogOpen(true);
   };
 
-  const handleGenerateImageClick = async (subCategory: SubCategoryInfo) => {
+  const handleGenerateImageClick = (subCategory: SubCategoryInfo) => {
+    // Instead of immediately generating, open the "Visual Insight Lab"
+    setLabNode(subCategory);
+    setIsImageLabOpen(true);
+  };
+
+  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string) => {
+    setIsEnhancing(true);
+    try {
+      const { enhancedPrompt, error } = await enhanceImagePromptAction({
+        prompt,
+        style,
+        composition,
+        mood
+      }, providerOptions);
+
+      if (error) throw new Error(error);
+      return enhancedPrompt?.enhancedPrompt || prompt;
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Enhancement Failed',
+        description: err.message,
+      });
+      return prompt;
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleGenerateImageWithSettings = async (settings: ImageSettings) => {
+    if (!labNode) return;
+
     const generationId = `img-${Date.now()}`;
 
     const placeholderImage: GeneratedImage = {
       id: generationId,
       url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI3MjcyNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5HZW5lcmF0aW5nLi4uPC90ZXh0Pjwvc3ZnPg==',
-      name: subCategory.name,
-      description: subCategory.description,
+      name: labNode.name,
+      description: labNode.description,
       status: 'generating',
     };
     setGeneratedImages(prev => [...prev, placeholderImage]);
 
     const { id: toastId, update } = toast({
-      title: 'Generating Image...',
-      description: `Creating cinematic 3D render for "${subCategory.name}"`,
+      title: 'Generating Insight...',
+      description: `Creating ${settings.aspectRatio} ${settings.style} render using ${settings.model}`,
       duration: Infinity,
     });
 
+    // Opening the Gallery immediately so the user can see the progress
+    setIsGalleryOpen(true);
+
     try {
-      // Try to get user's API key if available (gracefully handle permission errors)
+      // Try to get user API key
       let userSettings = null;
       try {
         const { getUserImageSettings } = await import('@/lib/firestore-helpers');
         userSettings = user ? await getUserImageSettings(firestore, user.uid) : null;
       } catch (firestoreError: any) {
         console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
-        // Continue without user settings - will use server API key
       }
 
-      // Create enhanced prompt with context
-      const contextPrompt = `${subCategory.name} in the context of "${data.topic}": ${subCategory.description}`;
+      console.log('🎨 Generating with custom settings:', settings);
 
-      console.log('🎨 Generating node image:', contextPrompt);
-
-      // Call Pollinations API directly (skip AI enhancement for speed and reliability)
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: contextPrompt,
-          model: userSettings?.preferredModel || 'flux',
-          width: 1024,
-          height: 1024,
+          prompt: settings.enhancedPrompt,
+          model: settings.model,
+          style: settings.style,
+          composition: settings.composition,
+          mood: settings.mood,
+          width: settings.width,
+          height: settings.height,
           userId: user?.uid,
           userApiKey: userSettings?.pollinationsApiKey
         })
@@ -784,43 +824,48 @@ export const MindMap = ({
       }
 
       const imageData = await response.json();
-      console.log('✅ Image generated:', imageData);
 
-      // Update gallery state
       const newImage: GeneratedImage = {
         id: generationId,
         url: imageData.imageUrl,
-        name: subCategory.name,
-        description: subCategory.description,
+        name: labNode.name,
+        description: labNode.description,
         status: 'completed',
+        settings: {
+          initialPrompt: settings.initialPrompt,
+          enhancedPrompt: settings.enhancedPrompt,
+          model: settings.model,
+          aspectRatio: settings.aspectRatio,
+          style: settings.style,
+          composition: settings.composition,
+          mood: settings.mood
+        }
       };
 
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? newImage : img));
 
-      // Try to track usage if user is logged in (gracefully handle permission errors)
       if (firestore && user) {
         try {
           await trackImageGenerated(firestore, user.uid);
-        } catch (firestoreError: any) {
-          console.warn('⚠️ Could not track usage in Firestore:', firestoreError.message);
-          // Image was generated successfully, just couldn't track usage
+        } catch (fE: any) {
+          console.warn('⚠️ Could not track usage:', fE.message);
         }
       }
 
       update({
         id: toastId,
-        title: 'Image Created!',
-        description: `Generated with ${imageData.model} (${imageData.cost} pollen)${imageData.usingUserKey ? ' using your API key' : ''}`,
+        title: 'Insight Generated!',
+        description: `Created successfully using ${imageData.model}`,
         duration: 5000,
       });
 
     } catch (err: any) {
-      console.error('Image generation failed:', err);
+      console.error('Generation failed:', err);
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? { ...img, status: 'failed' } : img));
       update({
         id: toastId,
         title: 'Generation Failed',
-        description: err.message || 'Failed to generate image. Please try again.',
+        description: err.message || 'Failed to generate image.',
         variant: 'destructive',
         duration: 5000,
       });
@@ -1248,6 +1293,19 @@ export const MindMap = ({
         }}
         isGlobalBusy={status !== 'idle'}
       />
+
+      {isImageLabOpen && labNode && (
+        <ImageGenerationDialog
+          isOpen={isImageLabOpen}
+          onClose={() => setIsImageLabOpen(false)}
+          onGenerate={handleGenerateImageWithSettings}
+          nodeName={labNode.name}
+          nodeDescription={labNode.description}
+          initialPrompt={`${labNode.name} in the context of "${data.topic}": ${labNode.description}`}
+          onEnhancePrompt={handleEnhancePrompt}
+          isEnhancing={isEnhancing}
+        />
+      )}
     </div>
   );
 };

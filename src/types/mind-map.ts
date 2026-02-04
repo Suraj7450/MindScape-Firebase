@@ -40,7 +40,7 @@ export interface CompareNode {
   id: string;
   title: string;
   description?: string;
-  icon?: string;
+  icon: string;
   children?: CompareNode[];
   tags?: string[];
 }
@@ -78,6 +78,15 @@ export interface GeneratedImage {
   name: string;
   description: string;
   status: 'generating' | 'completed' | 'failed';
+  settings?: {
+    initialPrompt: string;
+    enhancedPrompt: string;
+    model: string;
+    aspectRatio: string;
+    style: string;
+    composition?: string;
+    mood?: string;
+  };
 }
 
 export interface NestedExpansionItem {

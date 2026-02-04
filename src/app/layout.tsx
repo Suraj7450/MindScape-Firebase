@@ -9,6 +9,9 @@ import { Icons } from '@/components/icons';
 import { Space_Grotesk, Orbitron } from 'next/font/google';
 import { AIConfigProvider } from '@/contexts/ai-config-context';
 import { NotificationProvider } from '@/contexts/notification-context';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { PollinationsAuthHandler } from '@/components/pollinations-auth-handler';
+import { OnboardingWizard } from '@/components/onboarding-wizard';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -38,10 +41,6 @@ function BackgroundGlow() {
     </>
   );
 }
-
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { PollinationsAuthHandler } from '@/components/pollinations-auth-handler';
-import { OnboardingWizard } from '@/components/onboarding-wizard';
 
 /**
  * The root layout component for the entire application.

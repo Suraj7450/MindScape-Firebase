@@ -10,6 +10,7 @@ const NestedSubCategorySchema: z.ZodType<any> = z.lazy(() =>
     description: z.string().describe('A brief description of the sub-category.'),
     icon: z
       .string()
+      .optional()
       .describe(
         'A relevant icon name from the lucide-react library, in kebab-case (e.g., "book-open").'
       ),
@@ -26,7 +27,7 @@ const NestedSubCategorySchema: z.ZodType<any> = z.lazy(() =>
       })
       .optional()
       .describe('Nested sub-mindmap expansion for this category'),
-    isExpanded: z.boolean().optional().default(false),
+    isExpanded: z.boolean().optional(),
   })
 );
 
@@ -35,6 +36,7 @@ const SubCategorySchema = z.object({
   description: z.string().describe('A brief description of the sub-category.'),
   icon: z
     .string()
+    .optional()
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "book-open").'
     ),
@@ -51,13 +53,14 @@ const SubCategorySchema = z.object({
     })
     .optional()
     .describe('Nested sub-mindmap expansion for this category'),
-  isExpanded: z.boolean().optional().default(false),
+  isExpanded: z.boolean().optional(),
 });
 
 const CategorySchema = z.object({
   name: z.string().describe('The name of the category.'),
   icon: z
     .string()
+    .optional()
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "folder").'
     ),
@@ -72,6 +75,7 @@ const SubTopicSchema = z.object({
   name: z.string().describe('The name of the sub-topic.'),
   icon: z
     .string()
+    .optional()
     .describe(
       'A relevant icon name from the lucide-react library, in kebab-case (e.g., "flag").'
     ),
