@@ -27,7 +27,7 @@ Make each suggestion a self-contained, intriguing topic (5-10 words each).`;
     try {
         const result = await generateContent({
             provider: 'pollinations',
-            model: 'qwen-coder',
+            capability: 'creative',
             apiKey,
             systemPrompt,
             userPrompt,

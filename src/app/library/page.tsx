@@ -130,6 +130,9 @@ export default function DashboardPage() {
       suggestRelatedTopicsAction({
         topic: selectedMapForPreview.topic,
         summary: selectedMapForPreview.summary
+      }, {
+        provider: config.provider,
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey
       }).then(res => {
         if (isMounted && res.topics) setSuggestedTopics(res.topics);
         if (isMounted) setIsSuggestingTopics(false);
@@ -516,6 +519,9 @@ export default function DashboardPage() {
       const { categories, error: catError } = await categorizeMindMapAction({
         topic: map.topic,
         summary: map.summary,
+      }, {
+        provider: config.provider,
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey
       });
 
       if (catError) throw new Error(catError);
@@ -742,7 +748,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: map.topic,
-          model: userSettings?.preferredModel || 'flux',
+          model: userSettings?.preferredModel || 'klein-large',
           width: 512,
           height: 288,
           userId: user.uid,
@@ -878,7 +884,7 @@ export default function DashboardPage() {
                 >
                   <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image" onClick={() => handleMindMapClick(map.id)}>
                     <img
-                      src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
+                      src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=klein-large&enhance=true`}
                       alt={map.topic}
                       className={cn(
                         "w-full h-full object-cover transition-all duration-700 group-hover:scale-110",
@@ -1129,7 +1135,7 @@ export default function DashboardPage() {
                 {/* Visual Preview */}
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-[#050505] mb-6">
                   <img
-                    src={selectedMapForPreview.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${selectedMapForPreview.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
+                    src={selectedMapForPreview.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${selectedMapForPreview.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=klein-large&enhance=true`}
                     alt={selectedMapForPreview.topic}
                     className={cn(
                       "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-300",

@@ -4,6 +4,15 @@ import { Sparkles, Zap, Crown, Palette, Monitor, Cloud } from 'lucide-react';
 
 export const POLLINATIONS_MODELS = [
     {
+        value: 'klein-large',
+        label: 'FLUX.2 Klein 9B',
+        cost: 0.0118,
+        badge: 'Ultra',
+        icon: Crown,
+        description: 'Ultra detailed - one of the best available',
+        isNew: true
+    },
+    {
         value: 'flux',
         label: 'Flux Schnell',
         cost: 0.0002,
@@ -28,15 +37,6 @@ export const POLLINATIONS_MODELS = [
         badge: 'Premium',
         icon: Sparkles,
         description: 'Premium quality with enhanced details',
-        isNew: true
-    },
-    {
-        value: 'klein-large',
-        label: 'FLUX.2 Klein 9B',
-        cost: 0.0118,
-        badge: 'Ultra',
-        icon: Crown,
-        description: 'Ultra detailed - one of the best available',
         isNew: true
     },
     {

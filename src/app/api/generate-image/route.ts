@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     const body: GenerateImageRequest = await req.json();
     const {
       prompt,
-      model = 'flux',
+      model = 'klein-large',
       style,
       composition,
       mood,

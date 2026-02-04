@@ -36,6 +36,7 @@ export async function categorizeMindMap(
     const result = await generateContent({
         provider: provider,
         apiKey: apiKey,
+        capability: 'creative',
         systemPrompt: "System: Mind map categorizer. Output MUST be strictly valid JSON.",
         userPrompt: prompt,
         schema: CategorizeMindMapOutputSchema,

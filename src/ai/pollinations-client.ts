@@ -176,50 +176,61 @@ CRITICAL:
 
             // Handle invalid API key or exhausted balance
             if (status === 401 || status === 403) {
-                // If the client key failed and we haven't tried the server key yet, fallback to server key
-                if (effectiveApiKey === clientKey && serverKey && serverKey !== clientKey) {
+                // Determine if we are currently using a client-provided key
+                const isUsingClientKey = clientKey && effectiveApiKey === clientKey;
+
+                // Case 1: Client key failed - Fallback to Server key (if different)
+                if (isUsingClientKey && serverKey && serverKey !== clientKey && !isFailover) {
                     console.warn(`⚠️ Client API Key failed (${status}). Falling back to Server API Key...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
-                        _isFailover: true as any // Custom internal flag
+                        _isFailover: true as any
                     } as any);
                 }
 
-                // If effectiveApiKey exists (could be client or server), verify balance
-                if (effectiveApiKey) {
-                    console.warn(`⚠️ API Key failed (${status}). Verifying balance...`);
-                    const balanceInfo = await checkPollinationsBalance(effectiveApiKey);
+                // Case 2: Server key also failed (or we were already on it) 
+                // OR no keys worked - Fallback to free-tier (mistral or selectModel('fast'))
+                console.warn(`⚠️ API Key failed (${status}) for ${effectiveApiKey === serverKey ? 'Server' : 'Client'} key. Checking balance or forcing free fallback...`);
 
+                let balanceExhausted = false;
+                if (effectiveApiKey) {
+                    const balanceInfo = await checkPollinationsBalance(effectiveApiKey);
                     if (balanceInfo !== null && balanceInfo <= 0) {
-                        errorMessage = "Out of Pollen balance. Your Pollinations account has 0 pollen left. Please top up at enter.pollinations.ai.";
-                        console.error(`❌ Pollinations Balance Exhausted: ${errorMessage}`);
-                    } else {
-                        console.warn("⚠️ Retrying without key as fallback (switching to free-tier mode)...");
-                        return generateContentWithPollinations(systemPrompt, userPrompt, images, {
-                            ...options,
-                            model: 'mistral', // Force switch to a commonly free model
-                            apiKey: undefined,
-                            skipApiKey: true
-                        });
+                        balanceExhausted = true;
+                        console.error(`❌ Pollinations Balance Exhausted (0 pollen remaining).`);
                     }
                 }
+
+                console.warn(`⚠️ Forcing free-tier retry (Model: mistral, No API Key)...`);
+                return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                    ...options,
+                    model: 'mistral',
+                    apiKey: undefined,
+                    skipApiKey: true,
+                    _isFailover: false as any // Reset failover state for free retry
+                });
             }
 
-            // Handle 400 Bad Request (likely due to unsupported parameters)
-            if (status === 400 && !options.response_format && !body.max_tokens) {
-                // Even basic request failed, fatal error
-            } else if (status === 400) {
-                console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]. Retrying without advanced parameters (response_format/max_tokens)...`);
-                // Retry WITHOUT response_format and max_tokens
-                const simplifiedOptions = { ...options };
-                delete simplifiedOptions.response_format;
+            // Handle 400 Bad Request (likely due to unsupported parameters or model limitations)
+            if (status === 400) {
+                const alreadyStripped = (options as any)._stripParameters;
+                const hasExtraParams = options.response_format || body.max_tokens;
 
-                return generateContentWithPollinations(systemPrompt, userPrompt, images, {
-                    ...simplifiedOptions,
-                    model: model, // Try same model first, but simpler
-                    attempt: attempt, // Don't increment rotation yet
-                    _stripParameters: true // Custom internal flag to prevent re-adding max_tokens
-                } as any);
+                if (!alreadyStripped && hasExtraParams) {
+                    console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]. Retrying without advanced parameters (response_format/max_tokens)...`);
+                    return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                        ...options,
+                        _stripParameters: true // Internal flag to prevent re-adding params
+                    } as any);
+                } else if (attempt < 3) {
+                    // If stripping parameters didn't help or we already tried, rotate to next model
+                    console.warn(`⚠️ Pollinations 400 persistent error [Model: ${model}]. Rotating to next model (Attempt ${attempt + 1})...`);
+                    return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                        ...options,
+                        attempt: attempt + 1, // This will select the NEXT model in selectModel()
+                        _stripParameters: false // Try next model WITH parameters first
+                    });
+                }
             }
 
             // Handle service errors (Bad Gateway, Service Unavailable, etc.) with model re-selection

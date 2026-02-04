@@ -144,13 +144,8 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-            // Create highly specific, literal thumbnail prompt
-            let thumbnailPrompt = `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
-
-            if (isCompare) {
-                // Better prompt for comparisons to ensure both topics are visible
-                thumbnailPrompt = `Side-by-side comparison photograph of ${mapToSave.topic}, both subjects clearly visible, split-screen composition, equal representation, professional lighting, sharp focus, 8k resolution, realistic comparison`;
-            }
+            // Create highly specific, literal thumbnail prompt - Unified for all modes
+            const thumbnailPrompt = `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
 
             // SPLIT SCHEMA: Metadata vs Content
             const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;
@@ -179,7 +174,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: thumbnailPrompt,
-                            model: userSettings?.preferredModel || 'flux',
+                            model: userSettings?.preferredModel || 'klein-large',
                             width: 512,
                             height: 288,
                             userId: user.uid,
@@ -194,7 +189,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         console.log('✅ Background thumbnail generated:', data.model);
                     } else {
                         // Fallback to direct URL if API fails
-                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=flux&width=512&height=288&nologo=true&enhance=true`;
+                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=klein-large&width=512&height=288&nologo=true&enhance=true`;
                         console.log('⚠️ Using fallback thumbnail URL');
                     }
 

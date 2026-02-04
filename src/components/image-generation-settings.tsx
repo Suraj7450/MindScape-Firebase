@@ -19,7 +19,7 @@ export function ImageGenerationSettings() {
     const { toast } = useToast();
 
     const [apiKey, setApiKey] = useState('');
-    const [preferredModel, setPreferredModel] = useState('flux');
+    const [preferredModel, setPreferredModel] = useState('klein-large');
     const [showApiKey, setShowApiKey] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -265,11 +265,11 @@ export function ImageGenerationSettings() {
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">FLUX.2 Klein 4B</span>
-                            <Badge variant="outline">0.008/img</Badge>
+                            <Badge variant="outline">0.0067/img</Badge>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">FLUX.2 Klein 9B</span>
-                            <Badge variant="outline">0.012/img</Badge>
+                            <Badge variant="outline">0.0118/img</Badge>
                         </div>
                     </div>
                 </div>

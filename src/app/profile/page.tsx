@@ -165,7 +165,7 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'activity'>('overview');
     const [isSyncing, setIsSyncing] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
-    const [preferredModel, setPreferredModel] = useState('flux');
+    const [preferredModel, setPreferredModel] = useState('klein-large');
     const [isSavingKey, setIsSavingKey] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
 

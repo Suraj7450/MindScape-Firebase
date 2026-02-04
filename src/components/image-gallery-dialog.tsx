@@ -217,7 +217,7 @@ export function ImageGalleryDialog({
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant="outline" className="text-[9px] bg-zinc-900/50 border-zinc-800 text-zinc-400 h-5 px-1.5 hover:bg-zinc-800 transition-colors">
-                            {image.settings?.model || 'flux'}
+                            {image.settings?.model || 'klein-large'}
                           </Badge>
                           <Badge variant="outline" className="text-[9px] bg-zinc-900/50 border-zinc-800 text-zinc-400 h-5 px-1.5">
                             {image.settings?.style || 'cinematic'}
