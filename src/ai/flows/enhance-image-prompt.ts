@@ -12,91 +12,28 @@
 import { z } from 'zod';
 
 const EnhanceImagePromptInputSchema = z.object({
-  prompt: z.string().describe('The user-provided prompt to be enhanced.'),
-  style: z.string().optional().describe('An optional artistic style to apply.'),
+    prompt: z.string().describe('The user-provided prompt to be enhanced.'),
+    style: z.string().optional().describe('An optional artistic style to apply.'),
 });
 export type EnhanceImagePromptInput = z.infer<
-  typeof EnhanceImagePromptInputSchema
+    typeof EnhanceImagePromptInputSchema
 >;
 
 const EnhanceImagePromptOutputSchema = z.object({
-  enhancedPrompt: z
-    .string()
-    .describe('The detailed, artistic prompt for the image generation model.'),
+    enhancedPrompt: z
+        .string()
+        .describe('The detailed, artistic prompt for the image generation model.'),
 });
 export type EnhanceImagePromptOutput = z.infer<
-  typeof EnhanceImagePromptOutputSchema
+    typeof EnhanceImagePromptOutputSchema
 >;
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 
 export async function enhanceImagePrompt(
-  input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider; strict?: boolean; model?: string }
+    input: EnhanceImagePromptInput & { apiKey?: string; provider?: AIProvider; strict?: boolean; model?: string }
 ): Promise<EnhanceImagePromptOutput> {
-  const { provider = 'pollinations', apiKey, strict, model } = input;
-  if (provider === 'pollinations' || apiKey) {
-    const styleInstruction = input.style
-      ? `**Requested Style:**
-      "${input.style}"
-      
-      **Incorporate the Style:** The requested style is "${input.style}". It MUST be the primary focus. If abstract, blend with realistic elements.`
-      : `**Incorporate the Style:** No specific style requested. Default to a photorealistic or cinematic style.`;
-
-    const systemPrompt = `You are an expert prompt engineer for a high-end text-to-image AI. Your specialty is translating abstract concepts into **literal, concrete, and hyper-realistic visual scenes**.
-    
-    **Your Core Objective:**
-    Identify the **PHYSICAL OBJECTS** and **REAL-WORLD SETTINGS** implied by the user's prompt. If the prompt is "Home Theater Pairing", do NOT generate abstract art or rocks. Instead, generate a high-end home theater with speakers, a projector, and sleek furniture.
-    
-    **Rules for Enhancement:**
-    1.  **Authentic Brand Identity:** If the subject is a known company or brand (e.g., Ferrari, Apple, Coca-Cola), you MUST include keywords for their official logo, trademark colors, and real-world branding. For example, if the prompt is "Ferrari", mention "official Ferrari logo", "Rosso Corsa red", and "sleek Italian automotive design".
-    2.  **Be Literal & Realistic:** Identify the **PHYSICAL OBJECTS** and **REAL-WORLD SETTINGS**. Ground every scene in physical reality. No abstract shapes, no floating 3D blocks, and no "digital mind map" art unless specifically requested.
-    3.  **Hyper-Realism:** Use high-end photography terms: "8k resolution", "shot on 35mm lens", "f/1.8", "cinematic volumetric lighting", "industrial design", "award-winning photography", "unreal engine 5 render style" (for products).
-    4.  **No Abstract Fluff:** Remove vague words like "concept", "idea", "theory", or "universe". Replace them with physical representations in a real environment.
-    5.  **Balanced Comparisons:** If the prompt involves a comparison (e.g., "X vs Y" or "Comparing X and Y"), you MUST ensure the output describes a balanced visual composition that includes both subjects equally, such as a side-by-side, split-screen, or integrated dual-subject scene.
-    
-    **Output Format:**
-    You MUST return a valid JSON object with the following structure:
-    {
-      "enhancedPrompt": "A concise comma-separated list of 15-20 powerful visual keywords."
-    }
-    
-    IMPORTANT: Be extremely concise. Do NOT generate long lists of every possible activity. Focus on ONE cohesive visual scene.
-    
-    IMPORTANT: Return ONLY the raw JSON object. No markdown, no code blocks, no explanations.
-    
-    ${styleInstruction}`;
-
-    const userPrompt = `Enhance this prompt: "${input.prompt}"`;
-
-    const maxAttempts = 2;
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const result = await generateContent({
-          provider: provider,
-          apiKey: apiKey,
-          systemPrompt,
-          userPrompt,
-          schema: EnhanceImagePromptOutputSchema,
-          strict,
-          model
-        });
-
-        return result;
-      } catch (e: any) {
-        lastError = e;
-        console.error(`❌ Image prompt enhancement attempt ${attempt} failed:`, e.message);
-        if (attempt === maxAttempts) {
-          console.warn('⚠️ All enhancement attempts failed. Using original prompt as fall-back.');
-          return { enhancedPrompt: input.prompt };
-        }
-        await new Promise(res => setTimeout(res, 1000));
-      }
-    }
-
+    // Image generation disabled - return original prompt
+    console.log('ℹ️ Image prompt enhancement disabled, returning original prompt');
     return { enhancedPrompt: input.prompt };
-  }
-  return enhanceImagePromptFlow(input);
 }
-

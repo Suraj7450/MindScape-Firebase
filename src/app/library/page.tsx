@@ -724,55 +724,74 @@ export default function DashboardPage() {
     });
 
     try {
-      // 1. Enhance the prompt for higher quality
-      const { enhancedPrompt, error: enhanceError } = await enhanceImagePromptAction({
-        prompt: map.topic,
-        style: 'Cinematic'
-      });
+      // Try to get user's API key from Firestore (gracefully handle permission errors)
+      let userSettings = null;
+      try {
+        const { getUserImageSettings } = await import('@/lib/firestore-helpers');
+        userSettings = await getUserImageSettings(firestore, user.uid);
+      } catch (firestoreError: any) {
+        console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
+        // Continue without user settings - will use server API key
+      }
 
-      if (enhanceError) throw new Error(enhanceError);
-      const finalPrompt = enhancedPrompt?.enhancedPrompt || map.topic;
+      console.log('🎨 Regenerating thumbnail for:', map.topic);
 
-      // 2. Generate the new image
+      // Call Pollinations API directly (skip AI enhancement for speed)
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: finalPrompt,
-          style: 'Cinematic',
-          size: '512x288'
+          prompt: map.topic,
+          model: userSettings?.preferredModel || 'flux',
+          width: 512,
+          height: 288,
+          userId: user.uid,
+          userApiKey: userSettings?.pollinationsApiKey
         })
       });
 
-      if (!response.ok) throw new Error('Image generation failed');
-      const imgData = await response.json();
-      const newUrl = imgData.images?.[0];
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Generation failed: ${response.status}`);
+      }
 
-      if (!newUrl) throw new Error('No image URL returned');
+      const data = await response.json();
+      console.log('✅ Image generated:', data);
 
-      // 3. Update Firestore
-      const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
-      await updateDoc(mapRef, {
-        thumbnailUrl: newUrl,
-        thumbnailPrompt: finalPrompt,
-        updatedAt: Date.now()
-      });
+      // Only add cache-busting if it's not a data URL (base64)
+      const finalImageUrl = data.imageUrl.startsWith('data:')
+        ? data.imageUrl
+        : `${data.imageUrl}${data.imageUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
 
-      // 4. Update preview state if active
+      // Try to update Firestore with new thumbnail (gracefully handle permission errors)
+      try {
+        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
+        await updateDoc(mapRef, {
+          thumbnailUrl: finalImageUrl,
+          updatedAt: Date.now()
+        });
+        console.log('✅ Thumbnail saved to Firestore');
+      } catch (firestoreError: any) {
+        console.warn('⚠️ Could not save thumbnail to Firestore:', firestoreError.message);
+        // Image was generated successfully, just couldn't save to Firestore
+      }
+
+      // Update preview if active (use cache-busted URL)
       if (selectedMapForPreview?.id === map.id) {
-        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: newUrl }) : null);
+        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: cacheBustedImageUrl }) : null);
       }
 
       toast({
-        title: "Thumbnail Regenerated",
-        description: `Visual for "${map.topic}" has been updated with AI-enhanced prompt.`,
+        title: "Thumbnail Regenerated!",
+        description: `Generated with ${data.model} model (${data.cost} pollen)${data.usingUserKey ? ' using your API key' : ''}`,
       });
     } catch (err: any) {
       console.error("Regeneration failed:", err);
+      setImageErrorMapIds(prev => new Set(prev).add(map.id));
       toast({
         variant: "destructive",
         title: "Regeneration Failed",
-        description: err.message || "Failed to update thumbnail."
+        description: err.message || "Failed to regenerate thumbnail. Please try again."
       });
     } finally {
       setRegeneratingMapIds(prev => {
@@ -849,7 +868,7 @@ export default function DashboardPage() {
                 >
                   <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image" onClick={() => handleMindMapClick(map.id)}>
                     <img
-                      src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`High-end commercial photography of ${map.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`)}?width=400&height=225&nologo=true&model=flux`}
+                      src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
                       alt={map.topic}
                       className={cn(
                         "w-full h-full object-cover transition-all duration-700 group-hover:scale-110",
@@ -1098,9 +1117,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Visual Preview */}
-                <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-zinc-900/50 group">
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-[#050505] mb-6">
                   <img
-                    src={selectedMapForPreview.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${selectedMapForPreview.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
+                    src={selectedMapForPreview.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${selectedMapForPreview.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
                     alt={selectedMapForPreview.topic}
                     className={cn(
                       "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-300",

@@ -8,6 +8,7 @@ import { updateProfile, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,9 @@ import { useToast } from '@/hooks/use-toast';
 import { languages } from '@/lib/languages';
 import { format } from 'date-fns';
 import { syncHistoricalStatistics } from '@/lib/activity-tracker';
+import { ModelSelector } from '@/components/model-selector';
+import { Eye, EyeOff } from 'lucide-react';
+import { getUserImageSettings, saveUserApiKey } from '@/lib/firestore-helpers';
 
 // Types
 // Types
@@ -158,19 +162,13 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [isPollinationsKeyConfigured, setIsPollinationsKeyConfigured] = useState(false);
-    const [manualPollinationsKey, setManualPollinationsKey] = useState('');
     const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'activity'>('overview');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [preferredModel, setPreferredModel] = useState('flux');
+    const [isSavingKey, setIsSavingKey] = useState(false);
 
-    // Initial key check
-    useEffect(() => {
-        import('@/app/actions').then(m => {
-            m.checkPollinationsKeyAction().then(res => {
-                setIsPollinationsKeyConfigured(res.isConfigured);
-            });
-        });
-    }, []);
+
 
     // Load profile data
     useEffect(() => {
@@ -222,7 +220,6 @@ export default function ProfilePage() {
                         };
                         setProfile(profileData);
                         setEditName(profileData.displayName);
-                        setManualPollinationsKey(profileData.apiSettings?.pollinationsApiKey || '');
 
                         // Sync active maps count in real-time indirectly? 
                         // Actually, it's better to just fetch it here or use a separate listener.
@@ -256,7 +253,6 @@ export default function ProfilePage() {
                         };
                         setProfile(defaultData);
                         setEditName(defaultData.displayName);
-                        setManualPollinationsKey('');
                     }
                     setLoading(false);
                 }, (error) => {
@@ -280,6 +276,13 @@ export default function ProfilePage() {
         };
 
         setupListeners();
+
+        // Load additional image settings
+        getUserImageSettings(firestore, user.uid).then(settings => {
+            if (settings?.preferredModel) {
+                setPreferredModel(settings.preferredModel);
+            }
+        });
 
         return () => {
             if (unsubscribeProfile) unsubscribeProfile();
@@ -353,50 +356,7 @@ export default function ProfilePage() {
         }
     };
 
-    const savePollinationsKey = async () => {
-        if (!manualPollinationsKey.trim()) return;
 
-        setIsSaving(true);
-        const cleanKey = manualPollinationsKey.trim().replace(/\s/g, '');
-
-        try {
-            updateConfig({
-                pollinationsApiKey: cleanKey,
-                provider: 'pollinations'
-            });
-
-            if (user && firestore) {
-                const userRef = doc(firestore, 'users', user.uid);
-                await setDoc(userRef, {
-                    apiSettings: {
-                        pollinationsApiKey: cleanKey,
-                        provider: 'pollinations'
-                    }
-                }, { merge: true });
-            }
-
-            toast({
-                title: "Settings Saved",
-                description: "Your Pollinations API key has been updated.",
-            });
-            setManualPollinationsKey('');
-        } catch (error) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to save API key.",
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const connectPollinations = () => {
-        const redirectUrl = encodeURIComponent(window.location.origin + '/profile');
-        // Standardized BYOP URL with profile, balance, usage and our core rotating models
-        const authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${redirectUrl}&permissions=profile,balance,usage&models=flux,openai,mistral,qwen,nova&expiry=30`;
-        window.location.href = authUrl;
-    };
 
     const equipBadge = async (badgeId: string) => {
         if (!user || !firestore) return;
@@ -405,6 +365,21 @@ export default function ProfilePage() {
             toast({ title: 'Badge Equipped', description: 'Your profile badge has been updated.' });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to equip badge' });
+        }
+    };
+
+    const handleSaveModelPreference = async (modelId: string) => {
+        if (!user || !firestore) return;
+        setIsSavingKey(true);
+        try {
+            setPreferredModel(modelId);
+            const currentKey = profile?.apiSettings?.pollinationsApiKey || '';
+            await saveUserApiKey(firestore, user.uid, currentKey, modelId);
+            toast({ title: 'Preference Saved', description: `Default model set to ${modelId}` });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSavingKey(false);
         }
     };
 
@@ -906,7 +881,7 @@ export default function ProfilePage() {
                                     </CardContent>
                                 </Card>
 
-                                {/* Developer Settings */}
+                                {/* AI & Engine Configuration - Universal for all AI operations */}
                                 <Card className="bg-zinc-900/40 border-zinc-800">
                                     <CardHeader className="pb-4">
                                         <CardTitle className="text-lg">AI & Engine Configuration</CardTitle>
@@ -926,58 +901,124 @@ export default function ProfilePage() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-4 animate-in slide-in-from-top-2">
-                                            <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-4">
+                                        {profile.apiSettings?.pollinationsApiKey && (
+                                            <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                                                    <span className="text-emerald-400 font-medium">Personal API Key Connected</span>
+                                                </div>
+                                                <p className="text-xs text-zinc-500 mt-1 ml-4">
+                                                    Using your own Pollinations API key for all AI operations (text, images, and more)
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {!profile.apiSettings?.pollinationsApiKey && (
+                                            <div className="p-3 bg-zinc-950/50 border border-zinc-800 rounded-lg">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <div className="w-2 h-2 rounded-full bg-zinc-600" />
+                                                    <span className="text-zinc-400 font-medium">Using Server API Key</span>
+                                                </div>
+                                                <p className="text-xs text-zinc-500 mt-1 ml-4">
+                                                    Connect your personal key below for unlimited access
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <div className="pt-4 border-t border-zinc-800 space-y-6">
+                                            {/* API Key Management */}
+                                            <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.6)]" />
-                                                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Pollen Connection</span>
-                                                    </div>
-                                                    {profile.apiSettings?.pollinationsApiKey && (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-400 border-none px-2 py-0">Active</Badge>
-                                                    )}
+                                                    <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Universal API Key</Label>
+                                                    <button
+                                                        onClick={() => setShowApiKey(!showApiKey)}
+                                                        className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
+                                                    >
+                                                        {showApiKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                        {showApiKey ? 'Hide Key' : 'Show Key'}
+                                                    </button>
                                                 </div>
-                                                <Button onClick={connectPollinations} className="w-full bg-violet-600 hover:bg-violet-700 h-10 shadow-lg shadow-violet-600/20">
-                                                    <Sparkles className="h-4 w-4 mr-2" /> Connect with Pollinations
-                                                </Button>
-                                                <div className="flex gap-2">
+
+                                                <div className="relative group">
                                                     <Input
-                                                        type="password"
-                                                        placeholder="Manual sk-..."
-                                                        value={manualPollinationsKey}
-                                                        onChange={(e) => setManualPollinationsKey(e.target.value)}
-                                                        className="bg-zinc-900 border-zinc-800"
+                                                        type={showApiKey ? "text" : "password"}
+                                                        value={profile.apiSettings?.pollinationsApiKey || ''}
+                                                        readOnly
+                                                        className="bg-zinc-950/50 border-zinc-800 text-zinc-300 font-mono text-xs pr-10 focus-visible:ring-violet-500/50"
+                                                        placeholder="No API Key Connected"
                                                     />
-                                                    <Button onClick={savePollinationsKey} disabled={isSaving} className="bg-zinc-800 hover:bg-zinc-700">Apply</Button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (profile.apiSettings?.pollinationsApiKey) {
+                                                                navigator.clipboard.writeText(profile.apiSettings.pollinationsApiKey);
+                                                                toast({ title: 'Copied', description: 'API key copied back to clipboard' });
+                                                            }
+                                                        }}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Copy Key"
+                                                    >
+                                                        <Copy className="h-3 w-3" />
+                                                    </button>
                                                 </div>
+
+                                                <p className="text-[10px] text-zinc-500 italic">
+                                                    This key is used for all AI operations across MindScape.
+                                                </p>
                                             </div>
 
-                                            {/* BYOP Educational Card */}
-                                            <Card className="bg-violet-500/5 border-violet-500/10 overflow-hidden">
-                                                <CardHeader className="pb-2">
-                                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                                        <HelpCircle className="h-4 w-4 text-violet-400" />
-                                                        Why Connect Personal Pollen?
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="text-xs text-zinc-400 space-y-2">
-                                                    <p>Connect your personal Pollinations account to unlock **Unlimited High-Quality Mode**.</p>
-                                                    <ul className="space-y-1 ml-4 list-disc">
-                                                        <li><span className="text-zinc-200">Zero Cost</span>: Use your own pollen balance ($0 for researchers).</li>
-                                                        <li><span className="text-zinc-200">Higher Limits</span>: Avoid platform-wide rate limits and 429 errors.</li>
-                                                        <li><span className="text-zinc-200">Privacy First</span>: Your key never touches our server logs.</li>
-                                                    </ul>
-                                                </CardContent>
-                                            </Card>
+                                            {/* Preferred Model Section */}
+                                            <div className="space-y-3">
+                                                <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Default Image Model</Label>
+                                                <ModelSelector
+                                                    value={preferredModel}
+                                                    onChange={handleSaveModelPreference}
+                                                    className="w-full bg-zinc-950/50 border-zinc-800 h-10"
+                                                />
+                                                <p className="text-[10px] text-zinc-500 italic">
+                                                    Choose your preferred image generation model.
+                                                </p>
+                                            </div>
+
+                                            <div className="pt-2">
+                                                <p className="text-xs text-zinc-400 mb-4">
+                                                    Get or rotate your API key at{' '}
+                                                    <a
+                                                        href="https://enter.pollinations.ai"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-violet-400 hover:text-violet-300 underline font-medium"
+                                                    >
+                                                        enter.pollinations.ai
+                                                    </a>
+                                                </p>
+                                                <div className="p-4 bg-violet-500/5 border border-violet-500/10 rounded-2xl">
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 text-xs font-bold text-violet-400 uppercase tracking-tighter">
+                                                            <HelpCircle className="h-3.5 w-3.5" />
+                                                            Personal Pollen Benefits
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-2 text-[11px] text-zinc-400">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1 h-1 rounded-full bg-violet-500" />
+                                                                <span className="text-zinc-300">Unlimited Usage:</span> High-priority queue access
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1 h-1 rounded-full bg-violet-500" />
+                                                                <span className="text-zinc-300">Advanced Models:</span> Access to FLUX.2 Klein and more
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1 h-1 rounded-full bg-violet-500" />
+                                                                <span className="text-zinc-300">Private:</span> Keys stored locally and encrypted
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
-
-
                             </div>
                         )}
-
-
                     </main>
                 </div>
             </div>

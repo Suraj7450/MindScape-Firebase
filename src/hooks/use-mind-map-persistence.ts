@@ -144,11 +144,12 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
-            let thumbnailPrompt = `High-end commercial photography of ${mapToSave.topic}. Literal subject representation, authentic brand identity, sharp focus, professional lighting, 8k resolution, cinematic atmosphere.`;
+            // Create highly specific, literal thumbnail prompt
+            let thumbnailPrompt = `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
 
             if (isCompare) {
                 // Better prompt for comparisons to ensure both topics are visible
-                thumbnailPrompt = `A high-end commercial comparison photograph featuring both topics: ${mapToSave.topic}. A side-by-side or dual-subject composition showing the authentic brand identities of both subjects. Professional lighting, sharp focus, 8k resolution, cinematic atmosphere.`;
+                thumbnailPrompt = `Side-by-side comparison photograph of ${mapToSave.topic}, both subjects clearly visible, split-screen composition, equal representation, professional lighting, sharp focus, 8k resolution, realistic comparison`;
             }
 
             // SPLIT SCHEMA: Metadata vs Content
@@ -160,39 +161,56 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 if (thumbnailUrl) return;
 
                 try {
-                    console.log('🖼️ Starting background thumbnail generation...');
+                    console.log('🖼️ Generating background thumbnail...');
+
+                    // Try to get user's API key if available (gracefully handle permission errors)
+                    let userSettings = null;
+                    try {
+                        const { getUserImageSettings } = await import('@/lib/firestore-helpers');
+                        userSettings = await getUserImageSettings(firestore, user.uid);
+                    } catch (firestoreError: any) {
+                        console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
+                        // Continue without user settings - will use server API key
+                    }
+
+                    // Call Pollinations API
                     const response = await fetch('/api/generate-image', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: thumbnailPrompt,
-                            style: 'Cinematic',
-                            provider: 'pollinations',
-                            size: '512x288'
+                            model: userSettings?.preferredModel || 'flux',
+                            width: 512,
+                            height: 288,
+                            userId: user.uid,
+                            userApiKey: userSettings?.pollinationsApiKey
                         })
                     });
 
                     let finalThumbnailUrl = '';
                     if (response.ok) {
                         const data = await response.json();
-                        if (data.images && data.images[0]) {
-                            finalThumbnailUrl = data.images[0];
+                        finalThumbnailUrl = data.imageUrl;
+                        console.log('✅ Background thumbnail generated:', data.model);
+                    } else {
+                        // Fallback to direct URL if API fails
+                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=flux&width=512&height=288&nologo=true&enhance=true`;
+                        console.log('⚠️ Using fallback thumbnail URL');
+                    }
+
+                    // Try to update Firestore with the thumbnail (gracefully handle permission errors)
+                    if (finalThumbnailUrl) {
+                        try {
+                            const metadataRef = doc(firestore, 'users', user.uid, 'mindmaps', mapId);
+                            await updateDoc(metadataRef, { thumbnailUrl: finalThumbnailUrl });
+                            console.log('✅ Thumbnail saved to Firestore');
+                        } catch (firestoreError: any) {
+                            console.warn('⚠️ Could not save thumbnail to Firestore:', firestoreError.message);
+                            // Thumbnail was generated successfully, just couldn't save to Firestore
                         }
                     }
-
-                    // Fallback
-                    if (!finalThumbnailUrl) {
-                        finalThumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(thumbnailPrompt)}?width=512&height=288&nologo=true&model=turbo`;
-                    }
-
-                    // Update Firestore with the thumbnail
-                    if (finalThumbnailUrl) {
-                        const metadataRef = doc(firestore, 'users', user.uid, 'mindmaps', mapId);
-                        await updateDoc(metadataRef, { thumbnailUrl: finalThumbnailUrl });
-                        console.log('✅ Background thumbnail updated for:', mapId);
-                    }
                 } catch (err) {
-                    console.warn('⚠️ Background thumbnail failed:', err);
+                    console.warn('⚠️ Background thumbnail generation failed:', err);
                 }
             };
 

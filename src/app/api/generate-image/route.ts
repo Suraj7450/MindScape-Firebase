@@ -1,151 +1,198 @@
-
-import { enhanceImagePromptAction } from '@/app/actions';
 import { NextResponse } from 'next/server';
 
-const pollinationsModels = ['flux', 'turbo', 'gptimage', 'kontext', 'seedream', 'nanobanana'];
+// Available Pollinations models with pricing
+const POLLINATIONS_MODELS = {
+  'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - Fast & High Quality' },
+  'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Fast Alternative' },
+  'klein': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Quality' },
+  'klein-large': { cost: 0.012, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Quality' },
+  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - Contextual' }
+} as const;
 
+type ModelName = keyof typeof POLLINATIONS_MODELS;
+
+interface GenerateImageRequest {
+  prompt: string;
+  model?: ModelName;
+  width?: number;
+  height?: number;
+  userId?: string;
+  userApiKey?: string;
+}
+
+/**
+ * Enhance prompt with cinematic 3D render effects
+ * Detects if prompt is about people/figures and adjusts accordingly
+ */
+function enhanceCinematicPrompt(prompt: string): string {
+  const lowerPrompt = prompt.toLowerCase();
+
+  // Keywords that indicate the prompt is about a person or figure
+  const personKeywords = [
+    'person', 'people', 'man', 'woman', 'leader', 'figure', 'celebrity',
+    'scientist', 'artist', 'politician', 'entrepreneur', 'founder', 'ceo',
+    'president', 'king', 'queen', 'emperor', 'philosopher', 'inventor',
+    'author', 'writer', 'actor', 'musician', 'athlete', 'coach', 'teacher',
+    'doctor', 'engineer', 'designer', 'developer', 'researcher', 'professor',
+    // Historical figures
+    'einstein', 'newton', 'tesla', 'jobs', 'gates', 'musk', 'bezos',
+    'gandhi', 'lincoln', 'washington', 'churchill', 'napoleon', 'caesar',
+    'da vinci', 'michelangelo', 'shakespeare', 'beethoven', 'mozart',
+    // Generic person indicators
+    'he ', 'she ', 'his ', 'her ', 'him ', 'himself', 'herself'
+  ];
+
+  const isPerson = personKeywords.some(keyword => lowerPrompt.includes(keyword));
+
+  if (isPerson) {
+    // For people: focus on portrait photography style
+    return `${prompt}, professional portrait photography, dramatic studio lighting, high detail facial features, cinematic composition, 8k quality, photorealistic, sharp focus, professional headshot style, magazine cover quality`;
+  } else {
+    // For objects/concepts: use 3D render style
+    return `${prompt}, cinematic lighting, 3D render, octane render, ultra detailed, 8k quality, dramatic shadows, depth of field, photorealistic, professional photography`;
+  }
+}
+
+/**
+ * POST /api/generate-image
+ * 
+ * Generate images using Pollinations.ai API
+ * Supports user API keys with fallback to server key
+ */
 export async function POST(req: Request) {
   try {
-    const { prompt, size, style, provider, apiKey } = await req.json();
+    const body: GenerateImageRequest = await req.json();
+    const {
+      prompt,
+      model = 'flux',
+      width = 1024,
+      height = 1024,
+      userApiKey
+    } = body;
 
-    if (!prompt) {
+    // Validate inputs
+    if (!prompt || prompt.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Missing prompt text' },
+        { error: 'Prompt is required' },
         { status: 400 }
       );
     }
 
-    // 1. Enhance the user's prompt - exclusively use Pollinations
-    const { enhancedPrompt, error: enhanceError } =
-      await enhanceImagePromptAction(
-        { prompt, style },
-        {
-          provider: 'pollinations',
-          apiKey: apiKey
-        }
-      );
-
-    if (enhanceError || !enhancedPrompt) {
-      throw new Error(
-        enhanceError || 'Failed to enhance prompt before generation.'
+    if (!POLLINATIONS_MODELS[model]) {
+      return NextResponse.json(
+        { error: `Invalid model. Available models: ${Object.keys(POLLINATIONS_MODELS).join(', ')}` },
+        { status: 400 }
       );
     }
 
-    const finalPrompt = enhancedPrompt.enhancedPrompt || prompt;
+    console.log(`🎨 Generating image with model: ${model}`);
 
-    return await generateWithPollinations(finalPrompt, size, apiKey);
+    // Determine which API key to use (user key takes priority)
+    const apiKey = userApiKey || process.env.POLLINATIONS_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'No API key available. Please add your Pollinations API key in your profile settings.' },
+        { status: 401 }
+      );
+    }
+
+    // Enhance prompt for cinematic effect
+    const enhancedPrompt = enhanceCinematicPrompt(prompt);
+
+    // Build Pollinations API URL
+    // We'll use the query param key as a fallback, but Bearer token is preferred in docs
+    const baseUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}`;
+    const params = new URLSearchParams({
+      model,
+      width: width.toString(),
+      height: height.toString(),
+      nologo: 'true',
+      seed: Math.floor(Math.random() * 1000000).toString()
+    });
+
+    const imageUrl = `${baseUrl}?${params}`;
+    console.log(`🔗 Generation Request: ${imageUrl.substring(0, 150)}...`);
+
+    // Call Pollinations API with Bearer token authentication
+    const response = await fetch(imageUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'image/jpeg, image/png'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Pollinations API error: ${response.status} - ${errorText}`);
+
+      return NextResponse.json(
+        {
+          error: `Image generation failed: ${response.status}`,
+          details: errorText,
+          suggestion: response.status === 401
+            ? 'Invalid API key or insufficient balance. Please check your Pollinations account.'
+            : 'Please try again or select a different model.'
+        },
+        { status: response.status }
+      );
+    }
+
+    // Verify the response is an image
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    if (!contentType.startsWith('image/')) {
+      console.warn(`⚠️ Unexpected content type: ${contentType}`);
+    }
+
+    // Convert image buffer to base64 data URL
+    // This is the most reliable way to return the image to the client
+    // because it avoids a second unauthenticated request from the browser
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = buffer.toString('base64');
+    const dataUrl = `data:${contentType};base64,${base64Image}`;
+
+    console.log(`✅ Image generated and converted to Base64 (${Math.round(buffer.length / 1024)} KB)`);
+
+    // Calculate cost based on our internal tracker
+    const modelInfo = POLLINATIONS_MODELS[model];
+
+    return NextResponse.json({
+      success: true,
+      imageUrl: dataUrl, // Return the actual data URL
+      model,
+      cost: modelInfo.cost,
+      quality: modelInfo.quality,
+      size: {
+        width,
+        height
+      },
+      usingUserKey: !!userApiKey
+    });
 
   } catch (error: any) {
-    console.error('💥 Error in /api/generate-image:', error);
+    console.error('💥 Error generating image:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      {
+        error: error.message || 'Internal Server Error',
+        details: error.stack
+      },
       { status: 500 }
     );
   }
 }
 
-async function generateWithPollinations(prompt: string, size?: string, apiKey?: string) {
-  const [width, height] = (size || '1024x1024').split('x').map(Number);
-  // Flux is best quality, Turbo is fastest fallback.
-  const reliableModels = ['flux', 'turbo', 'flux-pro', 'gptimage', 'zimage'];
-
-  const clientKey = (apiKey && apiKey.trim() !== "") ? apiKey : null;
-  const serverKey = process.env.POLLINATIONS_API_KEY;
-  let useServerKeyOnly = false;
-
-  for (const model of reliableModels) {
-    try {
-      const encodedPrompt = encodeURIComponent(prompt);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true&enhance=false&seed=${Math.floor(Math.random() * 1000000)}`;
-
-      const effectiveApiKey = (!useServerKeyOnly && clientKey) ? clientKey : serverKey;
-      const keySource = (effectiveApiKey === clientKey) ? 'Client' : 'Server Env';
-
-      console.log(`🎨 Attempting image generation with model: ${model} (12s timeout) using ${keySource} key`);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-      try {
-        const imageResponse = await fetch(imageUrl, {
-          signal: controller.signal,
-          headers: {
-            ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
-          }
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!imageResponse.ok) {
-          const status = imageResponse.status;
-          const statusText = await imageResponse.text().catch(() => imageResponse.statusText);
-
-          // Handle invalid API key or exhausted balance
-          if ((status === 401 || status === 403) && effectiveApiKey === clientKey && serverKey && serverKey !== clientKey) {
-            console.warn(`⚠️ Client API Key failed for image generation (${status}). Retrying same model with Server API Key...`);
-            useServerKeyOnly = true; // Switch to server key for this and future attempts
-
-            // Retry the current model immediately with server key
-            const retryResponse = await fetch(imageUrl, {
-              headers: {
-                ...(serverKey ? { 'Authorization': `Bearer ${serverKey}` } : {})
-              }
-            });
-
-            if (retryResponse.ok) {
-              return NextResponse.json({ images: [imageUrl] });
-            }
-            console.warn(`⚠️ Server API Key also failed for ${model}: ${retryResponse.status}`);
-          } else {
-            console.warn(`⚠️ Pollinations model ${model} failed: ${status} ${statusText}`);
-          }
-          continue;
-        }
-
-        return NextResponse.json({ images: [imageUrl] });
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          console.warn(`🕒 Model ${model} timed out`);
-        } else {
-          throw err;
-        }
-      }
-    } catch (error) {
-      console.warn(`❌ Pollinations model ${model} error:`, error);
-    }
-  }
-
-  console.log('🛡️ All AI models failed, providing Premium SVG fallback');
-  const fallbackSvg = `
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="premiumGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
-          <stop offset="50%" style="stop-color:#1e1b4b;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#312e81;stop-opacity:1" />
-        </linearGradient>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="15" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#premiumGrad)" />
-      
-      <!-- Subtle Decorative Circles -->
-      <circle cx="${width * 0.8}" cy="${height * 0.2}" r="${width * 0.3}" fill="#c084fc" opacity="0.05" />
-      <circle cx="${width * 0.2}" cy="${height * 0.8}" r="${width * 0.3}" fill="#818cf8" opacity="0.05" />
-      
-      <!-- Icon representation (Sparkle) -->
-      <path d="M${width / 2} ${height / 2 - 40} L${width / 2 + 10} ${height / 2 - 10} L${width / 2 + 40} ${height / 2} L${width / 2 + 10} ${height / 2 + 10} L${width / 2} ${height / 2 + 40} L${width / 2 - 10} ${height / 2 + 10} L${width / 2 - 40} ${height / 2} L${width / 2 - 10} ${height / 2 - 10} Z" fill="#a78bfa" opacity="0.5" filter="url(#glow)" />
-
-      <text x="50%" y="55%" font-family="system-ui, -apple-system, sans-serif" font-size="32" fill="white" text-anchor="middle" font-weight="900" style="letter-spacing: 0.1em; text-transform: uppercase;">Awaiting Vision</text>
-      <text x="50%" y="62%" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94a3b8" text-anchor="middle" font-weight="500">AI nodes are currently saturated</text>
-      
-      <rect x="${width / 2 - 100}" y="${height * 0.8}" width="200" height="2" fill="white" opacity="0.1" />
-      <text x="50%" y="${height * 0.85}" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#6366f1" text-anchor="middle" font-weight="bold" style="letter-spacing: 0.3em; text-transform: uppercase;">MindScape Intelligent Frame</text>
-    </svg>
-  `;
-  const base64Svg = Buffer.from(fallbackSvg).toString('base64');
-  return NextResponse.json({ images: [`data:image/svg+xml;base64,${base64Svg}`] });
+/**
+ * GET /api/generate-image/models
+ * 
+ * Get list of available models
+ */
+export async function GET() {
+  return NextResponse.json({
+    models: Object.entries(POLLINATIONS_MODELS).map(([name, info]) => ({
+      name,
+      ...info
+    }))
+  });
 }
-

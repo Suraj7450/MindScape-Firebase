@@ -7,21 +7,24 @@ import { Card } from './ui/card';
 
 /**
  * A list of steps displayed to the user during mind map generation.
+ * Option A: Technical & Accurate - reflects detailed background tasks.
  * @const {string[]}
  */
 const generationSteps = [
-  'Initiating Generation...',
-  'Brainstorming Core Ideas...',
-  'Structuring Categories...',
-  'Creating Detailed Content...',
-  'Finalizing & Rendering...',
+  'Initializing AI & Configuring Depth...',
+  'Gathering Context & Research...',
+  'Constructing AI Prompt...',
+  'Generating Mind Map Structure...',
+  'Validating & Processing...',
+  'Creating Thumbnail & Saving...',
 ];
 
 /**
  * The duration for each step of the generation animation.
+ * Adjusted to match actual processing times for each detailed step.
  * @const {number[]}
  */
-const stepDurations = [1200, 2500, 2500, 3000, 1500];
+const stepDurations = [1500, 2500, 1000, 6000, 1500, 2000];
 
 /**
  * A component that displays an animated loading sequence for mind map generation.

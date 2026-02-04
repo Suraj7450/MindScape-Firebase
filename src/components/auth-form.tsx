@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, User, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { Icons } from '@/components/icons';
 
@@ -154,40 +154,73 @@ export function AuthForm() {
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  {isSignUp ? 'Create Account' : 'Welcome Back'}
+              <div className="mb-6 text-center">
+                <h2 className="text-3xl font-bold text-foreground mb-2">
+                  {isSignUp ? 'Create an account' : 'Welcome back'}
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  {isSignUp ? 'Start building your mind maps' : 'Continue your journey'}
+                <p className="text-base text-muted-foreground">
+                  {isSignUp ? 'Start your knowledge journey today' : 'Sign in to access your mind maps'}
                 </p>
+              </div>
+
+              {/* Google Sign In Button - Moved to top */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 bg-zinc-950/50 border-white/5 hover:bg-zinc-900/60 hover:border-white/10 text-foreground mb-4"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Icons.google className="mr-2 h-5 w-5" />
+                )}
+                Continue with Google
+              </Button>
+
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-white/5" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-zinc-900/40 px-3 text-muted-foreground">
+                    or continue with email
+                  </span>
+                </div>
               </div>
 
               {isSignUp && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Username</label>
-                  <Input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Choose a username"
-                    disabled={isLoading}
-                    className="h-12 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
-                  />
+                  <label className="text-sm font-medium text-foreground">Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Your name"
+                      disabled={isLoading}
+                      className="h-12 pl-10 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
                 </div>
               )}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Email</label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={isLoading}
-                  required
-                  className="h-12 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={isLoading}
+                    required
+                    className="h-12 pl-10 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -203,72 +236,61 @@ export function AuthForm() {
                     </button>
                   )}
                 </div>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={isLoading}
-                  required
-                  minLength={6}
-                  className="h-12 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
-                />
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    disabled={isLoading}
+                    required
+                    minLength={6}
+                    className="h-12 pl-10 bg-zinc-950/50 border-white/5 focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
 
               <Button
                 type="submit"
-                className="w-full h-12 bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white font-semibold shadow-lg shadow-purple-500/30"
-                disabled={isLoading}
-              >
-                {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                {isSignUp ? 'Create Account' : 'Sign In'}
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/5" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-zinc-900/40 px-3 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 bg-zinc-950/50 border-white/5 hover:bg-zinc-900/60 hover:border-white/10 text-foreground"
-                onClick={handleGoogleLogin}
+                className="w-full h-12 bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white font-semibold shadow-lg shadow-purple-500/30 group"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
-                  <Icons.google className="mr-2 h-5 w-5" />
+                  <>
+                    {isSignUp ? 'Create Account' : 'Sign In'}
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </>
                 )}
-                Google
               </Button>
 
               {isSignUp ? (
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsSignUp(false)}
-                    className="text-sm text-muted-foreground hover:text-purple-400 transition-colors"
-                  >
-                    Already have an account? <span className="font-semibold text-purple-400">Sign in</span>
-                  </button>
+                <div className="text-center pt-4">
+                  <span className="text-sm text-muted-foreground">
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setIsSignUp(false)}
+                      className="text-foreground hover:text-purple-400 transition-colors font-medium"
+                    >
+                      Sign in
+                    </button>
+                  </span>
                 </div>
               ) : (
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsSignUp(true)}
-                    className="text-sm text-muted-foreground hover:text-purple-400 transition-colors"
-                  >
-                    Need an account? <span className="font-semibold text-purple-400">Sign up</span>
-                  </button>
+                <div className="text-center pt-4">
+                  <span className="text-sm text-muted-foreground">
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setIsSignUp(true)}
+                      className="text-foreground hover:text-purple-400 transition-colors font-medium"
+                    >
+                      Sign up
+                    </button>
+                  </span>
                 </div>
               )}
             </form>

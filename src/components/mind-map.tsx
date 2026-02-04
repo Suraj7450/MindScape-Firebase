@@ -743,49 +743,53 @@ export const MindMap = ({
     setGeneratedImages(prev => [...prev, placeholderImage]);
 
     const { id: toastId, update } = toast({
-      title: 'Starting Image Generation...',
-      description: `Preparing to create image for "${subCategory.name}".`,
+      title: 'Generating Image...',
+      description: `Creating cinematic 3D render for "${subCategory.name}"`,
       duration: Infinity,
     });
 
     try {
-      // 1. Enhance the prompt using main topic context
-      update({ id: toastId, title: 'Enhancing Prompt...', description: 'AI is analyzing your topic for perfect visuals.' });
-      const promptToEnhance = `${subCategory.name} in the context of "${data.topic}": ${subCategory.description}`;
+      // Try to get user's API key if available (gracefully handle permission errors)
+      let userSettings = null;
+      try {
+        const { getUserImageSettings } = await import('@/lib/firestore-helpers');
+        userSettings = user ? await getUserImageSettings(firestore, user.uid) : null;
+      } catch (firestoreError: any) {
+        console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
+        // Continue without user settings - will use server API key
+      }
 
-      const { enhancedPrompt, error: enhanceError } = await enhanceImagePromptAction(
-        { prompt: promptToEnhance, style: 'Photorealistic' },
-        providerOptions
-      );
+      // Create enhanced prompt with context
+      const contextPrompt = `${subCategory.name} in the context of "${data.topic}": ${subCategory.description}`;
 
-      if (enhanceError || !enhancedPrompt) throw new Error(enhanceError || 'Prompt enhancement failed');
+      console.log('🎨 Generating node image:', contextPrompt);
 
-      // 2. Call Image Generation API
-      update({ id: toastId, title: 'Generating Image...', description: `Connecting to ${imageProviderOptions?.provider === 'bytez' ? 'Bytez' : 'Pollinations'} model...` });
-
+      // Call Pollinations API directly (skip AI enhancement for speed and reliability)
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: subCategory.name,
-          description: subCategory.description,
-          style: 'Photorealistic',
-          provider: imageProviderOptions?.provider,
-          apiKey: imageProviderOptions?.provider === 'pollinations' ? (imageProviderOptions as any).apiKey : undefined
+          prompt: contextPrompt,
+          model: userSettings?.preferredModel || 'flux',
+          width: 1024,
+          height: 1024,
+          userId: user?.uid,
+          userApiKey: userSettings?.pollinationsApiKey
         })
       });
 
-      if (!response.ok) throw new Error('Image generation failed at the server.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Image generation failed');
+      }
 
       const imageData = await response.json();
-      if (!imageData.images?.[0]) throw new Error('No image returned from server.');
+      console.log('✅ Image generated:', imageData);
 
-      const imageUrl = imageData.images[0];
-
-      // 3. Update Gallery State
+      // Update gallery state
       const newImage: GeneratedImage = {
         id: generationId,
-        url: imageUrl,
+        url: imageData.imageUrl,
         name: subCategory.name,
         description: subCategory.description,
         status: 'completed',
@@ -793,37 +797,30 @@ export const MindMap = ({
 
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? newImage : img));
 
+      // Try to track usage if user is logged in (gracefully handle permission errors)
       if (firestore && user) {
-        await trackImageGenerated(firestore, user.uid);
+        try {
+          await trackImageGenerated(firestore, user.uid);
+        } catch (firestoreError: any) {
+          console.warn('⚠️ Could not track usage in Firestore:', firestoreError.message);
+          // Image was generated successfully, just couldn't track usage
+        }
       }
 
       update({
         id: toastId,
         title: 'Image Created!',
-        description: `Visual for "${subCategory.name}" is ready in high quality.`,
+        description: `Generated with ${imageData.model} (${imageData.cost} pollen)${imageData.usingUserKey ? ' using your API key' : ''}`,
         duration: 5000,
-        action: (
-          <div className="flex items-center gap-2">
-            <Image
-              src={newImage.url}
-              alt={newImage.name}
-              width={40}
-              height={40}
-              className="rounded-md"
-            />
-            <Button size="sm" onClick={() => setIsGalleryOpen(true)}>
-              View Gallery
-            </Button>
-          </div>
-        ),
       });
 
     } catch (err: any) {
+      console.error('Image generation failed:', err);
       setGeneratedImages(prev => prev.map(img => img.id === generationId ? { ...img, status: 'failed' } : img));
       update({
         id: toastId,
-        title: 'Image Generation Failed',
-        description: err.message,
+        title: 'Generation Failed',
+        description: err.message || 'Failed to generate image. Please try again.',
         variant: 'destructive',
         duration: 5000,
       });

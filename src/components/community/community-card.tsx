@@ -162,7 +162,7 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
 
                 <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A] group/image">
                     <img
-                        src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`A detailed 3D visualization representing ${map.topic}, cinematic lighting, purple tones, high resolution`)}?width=400&height=225&nologo=true`}
+                        src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`Professional product photography of ${map.topic}, exact subject matter, literal representation, NO people, realistic objects only, studio lighting, 8k quality`)}?width=400&height=225&nologo=true&model=flux&enhance=true`}
                         alt={`Thumbnail for ${map.topic}`}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         loading="lazy"
