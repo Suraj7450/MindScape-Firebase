@@ -1,4 +1,4 @@
-import { generateContentWithPollinations } from './pollinations-client';
+import { generateContentWithPollinations, ModelCapability } from './pollinations-client';
 export type AIProvider = 'pollinations';
 
 interface GenerateContentOptions {
@@ -9,7 +9,12 @@ interface GenerateContentOptions {
     images?: { inlineData: { mimeType: string, data: string } }[];
     schema?: any; // Zod schema for validation
     model?: string; // Optional model name
+    capability?: ModelCapability; // Optional capability hint
     strict?: boolean; // Optional strict response validation
+    options?: {
+        model?: string;
+        capability?: ModelCapability;
+    };
 }
 
 export class StructuredOutputError extends Error {
@@ -151,7 +156,8 @@ export async function generateContent(options: GenerateContentOptions): Promise<
             const currentAttempt = baseFailureCount + retryIndex;
 
             const raw = await generateContentWithPollinations(effectiveSystemPrompt, userPrompt, images, {
-                model: options.model,
+                model: options.model || options.options?.model,
+                capability: options.capability || options.options?.capability,
                 apiKey: options.apiKey,
                 response_format: schema ? { type: 'json_object' } : undefined,
                 attempt: currentAttempt

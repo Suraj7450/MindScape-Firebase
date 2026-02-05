@@ -7,12 +7,10 @@ import {
   Sparkles,
   Bot,
   Paperclip,
-  X,
   List,
   ArrowRight,
   Globe,
   GitBranch,
-  Scan,
   Zap,
   Image as ImageIcon,
   Loader2,
@@ -20,6 +18,7 @@ import {
   Zap as ZapIcon,
   Palette,
   Brain,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -159,7 +158,7 @@ function Hero({
   };
 
   return (
-    <section className="relative mx-auto max-w-7xl px-6 pt-32 pb-24 overflow-hidden">
+    <section className="relative mx-auto max-w-7xl px-6 pt-[58px] pb-0 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -374,138 +373,8 @@ function Hero({
 
 
 
-// ---------- FEATURES ----------
-function Features({ onDocMapClick }: { onDocMapClick: () => void }) {
-  const router = useRouter();
-
-  const items = [
-    {
-      icon: List,
-      title: 'Library',
-      desc: 'Access, manage, and revisit all of your saved mind maps in one place.',
-      href: '/library',
-    },
-    {
-      icon: Globe,
-      title: 'Community Maps',
-      desc: 'Explore a gallery of mind maps created and shared by the community.',
-      href: '/community',
-    },
-  ];
-
-  return (
-    <section id="features" className="mx-auto max-w-6xl px-4 pb-24">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((card, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.5, delay: i * 0.1 }}
-            className="group relative h-full"
-          >
-            <div
-              className="group relative p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-lg hover:border-purple-400/30 hover:shadow-[0_0_35px_rgba(168,85,247,0.2)] transition-all duration-300 ease-out h-full flex flex-col hover:-translate-y-1"
-              onClick={() => {
-                if (card.href) {
-                  router.push(card.href);
-                }
-              }}
-              style={{ cursor: (card.href) ? 'pointer' : 'default' }}
-            >
-              <div className="flex items-center gap-3">
-                <div className={'cursor-default'}>
-                  <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-b from-purple-600/30 to-purple-900/20 border border-purple-500/30 group-hover:scale-110 transition duration-300">
-                    <card.icon className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition" />
-                  </div>
-                </div>
-                <h4 className="text-lg font-semibold text-white">
-                  {card.title}
-                </h4>
-              </div>
-
-              <p className="mt-4 text-sm text-gray-400 leading-relaxed">
-                {card.desc}
-              </p>
-
-              <div className="self-end mt-auto pt-4">
-                <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 
-// ---------- TRANSITION SECTION ----------
-function TransitionSection() {
-  return (
-    <section className="relative py-24 px-6 overflow-hidden">
-      <div className="max-w-4xl mx-auto text-center">
-        <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-          Unleash the Power of <br />
-          <span className="text-primary">Visual Thinking</span>
-        </h2>
-        <p className="text-zinc-400 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
-          Break through cognitive barriers. Our AI-driven engine maps out complex topics in seconds,
-          allowing you to see the big picture and the smallest details simultaneously.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-// ---------- CAPABILITY STRIP ----------
-function CapabilityStrip() {
-  const capabilities = [
-    {
-      icon: Sparkles,
-      title: "AI Generation",
-      desc: "Deep-layered maps from simple prompts"
-    },
-    {
-      icon: GitBranch,
-      title: "Nested Exploration",
-      desc: "Infinite depth for complex subjects"
-    },
-    {
-      icon: ImageIcon,
-      title: "Visual Assets",
-      desc: "AI-curated imagery for context"
-    },
-    {
-      icon: Scan,
-      title: "Vision Mode",
-      desc: "Convert papers & images to maps"
-    },
-  ];
-
-  return (
-    <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-32">
-      {capabilities.map((cap, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.1 }}
-          className="group relative flex flex-col items-center text-center p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-primary/20 transition-all duration-500"
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem]" />
-          <div className="relative z-10 w-16 h-16 flex items-center justify-center rounded-2xl bg-zinc-900 border border-white/10 mb-6 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300 shadow-xl">
-            <cap.icon className="w-6 h-6 text-primary" />
-          </div>
-          <h3 className="relative z-10 text-lg font-bold text-white mb-2">{cap.title}</h3>
-          <p className="relative z-10 text-sm text-zinc-500 leading-relaxed">{cap.desc}</p>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
 
 // ---------- ROOT COMPONENT ----------
 export default function Home() {
@@ -531,6 +400,14 @@ export default function Home() {
       sessionStorage.removeItem('welcome_back');
     }
   }, [toast]);
+
+  useEffect(() => {
+    // Definitive scroll lock for the home page to remove the vertical scrollbar
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
 
 
@@ -622,12 +499,9 @@ export default function Home() {
     router.push(`/canvas?${query}`);
   };
 
-  const handleDocMapClick = () => {
-    fileInputRef.current?.click();
-  };
 
   return (
-    <>
+    <div className="h-[calc(100dvh-5rem)] overflow-hidden flex flex-col">
       <Hero
         onGenerate={handleGenerate}
         onCompare={handleCompare}
@@ -642,11 +516,6 @@ export default function Home() {
         fileInputRef={fileInputRef}
       />
 
-      <TransitionSection />
-      <CapabilityStrip />
-
-      <Features onDocMapClick={handleDocMapClick} />
-
       <button
         onClick={() => setIsChatOpen(true)}
         className="fixed bottom-6 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white shadow-lg transition-transform hover:scale-110"
@@ -659,6 +528,6 @@ export default function Home() {
         onClose={() => setIsChatOpen(false)}
         topic="General Conversation"
       />
-    </>
+    </div>
   );
 }

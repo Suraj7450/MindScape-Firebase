@@ -1412,8 +1412,8 @@ export function ChatPanel({
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent",
-                  isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-foreground"
+                  "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full transition-all hover:-translate-y-1/2 shadow-none",
+                  isListening ? "text-red-500 animate-pulse bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
                 )}
                 onClick={handleVoiceInput}
                 disabled={isLoading}

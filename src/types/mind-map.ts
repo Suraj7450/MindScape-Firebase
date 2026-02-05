@@ -18,6 +18,7 @@ export interface SubCategory {
 
 export interface Category {
   name: string;
+  thought?: string;
   icon: string;
   subCategories: SubCategory[];
   insight?: string;
@@ -25,6 +26,7 @@ export interface Category {
 
 export interface SubTopic {
   name: string;
+  thought?: string;
   icon: string;
   categories: Category[];
   insight?: string;
@@ -88,7 +90,7 @@ export interface GeneratedImage {
     mood?: string;
   };
 }
-
+   
 export interface NestedExpansionItem {
   id: string;
   parentName: string;
@@ -105,6 +107,7 @@ export interface NestedExpansionItem {
 export interface BaseMindMapData {
   id?: string;
   topic: string;
+  thought?: string;
   shortTitle?: string;
   icon?: string;
   uid?: string;

@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DepthBadge } from '@/components/mind-map/depth-badge';
+import { ImageGenerationDialog, ImageSettings } from '@/components/mind-map/image-generation-dialog';
 
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -111,6 +112,9 @@ export default function DashboardPage() {
   const [isFullDataLoading, setIsFullDataLoading] = useState(false);
   const [regeneratingMapIds, setRegeneratingMapIds] = useState<Set<string>>(new Set());
   const [imageErrorMapIds, setImageErrorMapIds] = useState<Set<string>>(new Set());
+  const [isImageLabOpen, setIsImageLabOpen] = useState(false);
+  const [mapForImageLab, setMapForImageLab] = useState<SavedMindMap | null>(null);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
 
   // Recommendation Action State
   const [showChoiceDialog, setShowChoiceDialog] = useState(false);
@@ -719,40 +723,30 @@ export default function DashboardPage() {
     }
   };
 
-  const handleRegenerateImage = async (map: SavedMindMap) => {
-    if (!user || regeneratingMapIds.has(map.id)) return;
+  const handleRegenerateImageWithSettings = async (settings: ImageSettings) => {
+    if (!user || !mapForImageLab || regeneratingMapIds.has(mapForImageLab.id)) return;
 
-    setRegeneratingMapIds(prev => new Set(prev).add(map.id));
+    const mapId = mapForImageLab.id;
+    setRegeneratingMapIds(prev => new Set(prev).add(mapId));
     setImageErrorMapIds(prev => {
       const next = new Set(prev);
-      next.delete(map.id);
+      next.delete(mapId);
       return next;
     });
 
     try {
-      // Try to get user's API key from Firestore (gracefully handle permission errors)
-      let userSettings = null;
-      try {
-        const { getUserImageSettings } = await import('@/lib/firestore-helpers');
-        userSettings = await getUserImageSettings(firestore, user.uid);
-      } catch (firestoreError: any) {
-        console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
-        // Continue without user settings - will use server API key
-      }
+      console.log('🎨 Regenerating thumbnail with settings for:', mapForImageLab.topic);
 
-      console.log('🎨 Regenerating thumbnail for:', map.topic);
-
-      // Call Pollinations API directly (skip AI enhancement for speed)
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: map.topic,
-          model: userSettings?.preferredModel || 'klein-large',
-          width: 512,
-          height: 288,
+          prompt: settings.enhancedPrompt,
+          model: settings.model,
+          width: settings.width,
+          height: settings.height,
           userId: user.uid,
-          userApiKey: userSettings?.pollinationsApiKey
+          // userApiKey is handled by the API route from context/firestore
         })
       });
 
@@ -762,49 +756,67 @@ export default function DashboardPage() {
       }
 
       const data = await response.json();
-      console.log('✅ Image generated:', data);
+      const finalImageUrl = data.imageUrl;
 
-      // Only add cache-busting if it's not a data URL (base64)
-      const finalImageUrl = data.imageUrl.startsWith('data:')
-        ? data.imageUrl
-        : `${data.imageUrl}${data.imageUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      // Update Firestore
+      const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', mapId);
+      await updateDoc(mapRef, {
+        thumbnailUrl: finalImageUrl,
+        updatedAt: Date.now()
+      });
 
-      // Try to update Firestore with new thumbnail (gracefully handle permission errors)
-      try {
-        const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
-        await updateDoc(mapRef, {
-          thumbnailUrl: finalImageUrl,
-          updatedAt: Date.now()
-        });
-        console.log('✅ Thumbnail saved to Firestore');
-      } catch (firestoreError: any) {
-        console.warn('⚠️ Could not save thumbnail to Firestore:', firestoreError.message);
-        // Image was generated successfully, just couldn't save to Firestore
-      }
-
-      // Update preview if active (use cache-busted URL)
-      if (selectedMapForPreview?.id === map.id) {
-        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: cacheBustedImageUrl }) : null);
+      // Update local state for immediate feedback
+      if (selectedMapForPreview?.id === mapId) {
+        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: finalImageUrl }) : null);
       }
 
       toast({
-        title: "Thumbnail Regenerated!",
-        description: `Generated with ${data.model} model (${data.cost} pollen)${data.usingUserKey ? ' using your API key' : ''}`,
+        title: "Thumbnail Updated!",
+        description: "Your new AI-crafted thumbnail is ready.",
       });
     } catch (err: any) {
       console.error("Regeneration failed:", err);
-      setImageErrorMapIds(prev => new Set(prev).add(map.id));
+      setImageErrorMapIds(prev => new Set(prev).add(mapId));
       toast({
         variant: "destructive",
         title: "Regeneration Failed",
-        description: err.message || "Failed to regenerate thumbnail. Please try again."
+        description: err.message || "Failed to regenerate thumbnail."
       });
     } finally {
       setRegeneratingMapIds(prev => {
         const next = new Set(prev);
-        next.delete(map.id);
+        next.delete(mapId);
         return next;
       });
+      setIsImageLabOpen(false);
+      setMapForImageLab(null);
+    }
+  };
+
+  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string) => {
+    setIsEnhancingPrompt(true);
+    try {
+      const { enhancedPrompt, error } = await enhanceImagePromptAction({
+        prompt,
+        style,
+        composition,
+        mood
+      }, {
+        provider: config.provider,
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey
+      });
+
+      if (error) throw new Error(error);
+      return enhancedPrompt?.enhancedPrompt || prompt;
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Enhancement Failed",
+        description: err.message,
+      });
+      return prompt;
+    } finally {
+      setIsEnhancingPrompt(false);
     }
   };
 
@@ -912,12 +924,13 @@ export default function DashboardPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRegenerateImage(map);
+                            setMapForImageLab(map);
+                            setIsImageLabOpen(true);
                           }}
                           className="h-8 rounded-full bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/40 text-purple-100 text-[10px] font-bold uppercase tracking-widest px-4"
                         >
-                          <RefreshCw className="h-3 w-3 mr-2" />
-                          Retry AI Render
+                          <Sparkles className="h-3 w-3 mr-2" />
+                          AI Repaint
                         </Button>
                       </div>
                     )}
@@ -1015,7 +1028,10 @@ export default function DashboardPage() {
                               "h-8 w-8 rounded-full text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300",
                               regeneratingMapIds.has(map.id) && "animate-pulse text-purple-400"
                             )}
-                            onClick={() => handleRegenerateImage(map)}
+                            onClick={() => {
+                              setMapForImageLab(map);
+                              setIsImageLabOpen(true);
+                            }}
                             disabled={regeneratingMapIds.has(map.id)}
                           >
                             {regeneratingMapIds.has(map.id) ? (
@@ -1026,7 +1042,7 @@ export default function DashboardPage() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p>Retry AI Render</p>
+                          <p>AI Re-Imagine (Labs)</p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -1162,11 +1178,12 @@ export default function DashboardPage() {
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRegenerateImage(selectedMapForPreview);
+                          setMapForImageLab(selectedMapForPreview);
+                          setIsImageLabOpen(true);
                         }}
                         className="rounded-full h-9 w-9 bg-purple-600/50 backdrop-blur-xl border border-purple-500/60 hover:bg-purple-600 text-white transition-all duration-300 hover:scale-110 active:scale-90"
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <Sparkles className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
@@ -1347,6 +1364,22 @@ export default function DashboardPage() {
           </div>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Visual Insight Lab for Thumbnails */}
+      {mapForImageLab && (
+        <ImageGenerationDialog
+          isOpen={isImageLabOpen}
+          onClose={() => {
+            setIsImageLabOpen(false);
+            setMapForImageLab(null);
+          }}
+          onGenerate={handleRegenerateImageWithSettings}
+          nodeName={mapForImageLab.topic}
+          nodeDescription={`Updating thumbnail for your mind map: ${mapForImageLab.topic}`}
+          initialPrompt={mapForImageLab.topic}
+          onEnhancePrompt={handleEnhancePrompt}
+          isEnhancing={isEnhancingPrompt}
+        />
+      )}
     </TooltipProvider >
   );
 }

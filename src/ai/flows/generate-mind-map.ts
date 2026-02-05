@@ -63,13 +63,13 @@ export async function generateMindMap(
     - QUALITY CHECK: Every node must have a full name and description.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets`;
   } else if (depth === 'deep') {
-    // Deep mode: 5×4×6 = 120 items
+    // Deep mode: 6×4×8 = 192 items
     densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
-    - Generate EXACTLY 5 subTopics (no more, no less)
-    - EACH subTopic MUST have EXACTLY 4 categories
-    - EACH category MUST have EXACTLY 6 subCategories
-    - Total items: 5 × 4 × 6 = 120 items
-    - QUALITY CHECK: Every single sub-category MUST have a substantial name AND a descriptive description.
+    - Generate EXACTLY 6 subTopics (no more, no less)
+    - EACH subTopic MUST have EXACTLY 4-5 categories
+    - EACH category MUST have EXACTLY 8-10 subCategories
+    - Target: ~200 highly detailed items
+    - QUALITY CHECK: Every node must have a full name, description, and thought process.
     - DO NOT generate empty or placeholder objects.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets
     - If approaching token limit, prioritize closing JSON structures over adding more content.`;
@@ -154,21 +154,24 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
   ${targetLang ? `The entire mind map, including all topics, categories, and descriptions, MUST be in the following language: ${targetLang}.` : 'The entire mind map MUST be in English.'}
   ${searchContextSection}
 
-  The mind map must have the FOLLOWING JSON structure (MANDATORY):
+  The mind map must start with { and have the FOLLOWING JSON structure (MANDATORY):
 {
   "mode": "single",
   "topic": "${topic}",
   "shortTitle": "(Generate a catchy, short title for the map)",
   "icon": "brain-circuit",
+  "thought": "Deep reasoning about the entire topic structure...",
   "subTopics": [
     {
       "name": "Subtopic Name",
       "icon": "flag",
+      "thought": "Reasoning about this branch...",
       "insight": "Wisdom about subtopic",
       "categories": [
         {
           "name": "Category Name",
           "icon": "folder",
+          "thought": "Reasoning about this category...",
           "insight": "Wisdom about category",
           "subCategories": [
             {
@@ -185,12 +188,14 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
 
   IMPORTANT RULES:
   - YOU MUST include "mode": "single" in the root object.
-  - JSON field names MUST be EXACTLY: mode, topic, shortTitle, icon, subTopics, categories, subCategories, name, description, insight.
+  - JSON field names MUST be EXACTLY: mode, topic, shortTitle, icon, thought, subTopics, categories, subCategories, name, description, insight.
+  - The "thought" fields are for deep analysis and are CRITICAL for Deep Mode. Use them to plan the complexity of each branch.
   - Icons must be valid lucide-react names in kebab-case (e.g., "scroll", "landmark", "shield").
   - Sub-category descriptions MUST be exactly one sentence.
   - ${densityInstruction}
   - Ensure ALL JSON is properly closed.
   - DO NOT TRUNCATE. If you must stop, close all open [ and { structures.
+  - PRIORITY: Depth and accuracy are more important than speed. Take your time to generate a full, rich dataset.
   ${searchContext ? '- Ground all information in the provided search results. Use current facts and recent developments.' : ''}
 
   Create an informative and well-structured mind map for the topic: "${topic}".

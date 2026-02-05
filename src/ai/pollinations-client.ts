@@ -24,17 +24,18 @@ const AVAILABLE_MODELS: ModelDef[] = [
     // Reasoning / Coding (High Intelligence, JSON Structure)
     { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
     { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
-    { id: 'mistral-nemo', feature: 'coding', description: 'Mistral Nemo 12B', context: 16000, isFree: true },
+    { id: 'deepseek-reasoner', feature: 'reasoning', description: 'DeepSeek R1 (Reasoning)', context: 64000, isFree: true },
+    { id: 'mistral-nemo', feature: 'coding', description: 'Mistral Nemo 12B', context: 32000, isFree: true },
 
     // Fast / Economy (High Speed, Lower Cost)
-    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
     { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
-    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 8192, isFree: true },
+    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 16000, isFree: true },
 
     // Creative / General (Balanced)
-    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 8192, isFree: false },
-    { id: 'mistral', feature: 'creative', description: 'Mistral Small', context: 8192, isFree: true },
-    { id: 'qwen', feature: 'creative', description: 'Qwen 2.5 72B', context: 16000, isFree: true },
+    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 16000, isFree: false },
+    { id: 'mistral', feature: 'creative', description: 'Mistral Small', context: 16000, isFree: true },
+    { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
 ];
 
 /**
@@ -45,21 +46,14 @@ function selectModel(capability: ModelCapability = 'creative', attempt: number =
     // 1. Filter models matching capability
     const validModels = AVAILABLE_MODELS.filter(m => m.feature === capability);
 
-    // 2. If models found, rotate through them
-    if (validModels.length > 0) {
-        return validModels[attempt % validModels.length].id;
+    // 2. If models found and we are on an early attempt, stay within capability
+    if (validModels.length > 0 && attempt < validModels.length) {
+        return validModels[attempt].id;
     }
 
-    // 3. Fallback: Try 'fast' models if original capability exhausted
-    if (capability !== 'fast') {
-        const fastModels = AVAILABLE_MODELS.filter(m => m.feature === 'fast');
-        if (fastModels.length > 0) {
-            return fastModels[attempt % fastModels.length].id;
-        }
-    }
-
-    // 4. Final Fallback: Qwen Coder (reliable workhorse)
-    return 'qwen-coder';
+    // 3. Fallback: Rotate through ALL models to find something that works
+    // This handles cases where entire capabilities (like 'coding') might be having issues
+    return AVAILABLE_MODELS[attempt % AVAILABLE_MODELS.length].id;
 }
 
 export async function generateContentWithPollinations(
@@ -73,7 +67,8 @@ export async function generateContentWithPollinations(
         apiKey?: string,
         skipApiKey?: boolean,
         attempt?: number,
-        _stripParameters?: boolean
+        _stripParameters?: boolean,
+        _isFailover?: boolean
     } = {}
 ): Promise<any> {
     const hasImages = images && images.length > 0;
@@ -131,16 +126,25 @@ CRITICAL:
         };
 
         // Only add response_format if a schema/format is requested AND model likely supports it
-        if (options.response_format) {
+        if (options.response_format && !(options as any)._stripParameters) {
             body.response_format = options.response_format;
         }
 
         // Increase max_tokens for models that support it to accommodate deep mind maps
         const targetModelDef = AVAILABLE_MODELS.find(m => m.id === model);
+
+        // If it's a known model or a model with high context potential
         if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
             // High token limit is essential for deep mode mind maps (120+ items)
-            // Reduced Mistral limit to 8192 to prevent 400 Bad Request errors
-            body.max_tokens = (model === 'qwen-coder') ? 16384 : 8192;
+            // Using 16k as a stable upper limit for large models, 8k for medium ones
+            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'openai' || model === 'sur') {
+                body.max_tokens = 16384;
+            } else {
+                body.max_tokens = 8192;
+            }
+        } else if (!targetModelDef && !(options as any)._stripParameters) {
+            // Unknown model? Default to a safe large-ish limit
+            body.max_tokens = 8192;
         }
 
         // Robust API Key selection
@@ -184,8 +188,8 @@ CRITICAL:
                     console.warn(`⚠️ Client API Key failed (${status}). Falling back to Server API Key...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
-                        _isFailover: true as any
-                    } as any);
+                        _isFailover: true
+                    });
                 }
 
                 // Case 2: Server key also failed (or we were already on it) 
@@ -207,7 +211,7 @@ CRITICAL:
                     model: 'mistral',
                     apiKey: undefined,
                     skipApiKey: true,
-                    _isFailover: false as any // Reset failover state for free retry
+                    _isFailover: false // Reset failover state for free retry
                 });
             }
 
@@ -221,7 +225,7 @@ CRITICAL:
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
                         _stripParameters: true // Internal flag to prevent re-adding params
-                    } as any);
+                    });
                 } else if (attempt < 3) {
                     // If stripping parameters didn't help or we already tried, rotate to next model
                     console.warn(`⚠️ Pollinations 400 persistent error [Model: ${model}]. Rotating to next model (Attempt ${attempt + 1})...`);

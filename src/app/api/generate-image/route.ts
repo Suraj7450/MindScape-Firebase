@@ -89,7 +89,10 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
       'he ', 'she ', 'his ', 'her ', 'him ', 'himself', 'herself'
     ];
 
-    const isPerson = personKeywords.some(keyword => lowerPrompt.includes(keyword));
+    const isPerson = personKeywords.some(keyword => {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      return regex.test(lowerPrompt);
+    });
 
     if (isPerson) {
       enhancedPrompt += ', professional portrait photography, dramatic studio lighting, high detail, cinematic composition, 8k quality, photorealistic';
@@ -100,6 +103,12 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 
   return enhancedPrompt;
 }
+
+/**
+ * Model registry for rotation
+ */
+const MODEL_ROTATION_ORDER = ['klein-large', 'klein', 'flux', 'seedream'];
+
 
 /**
  * POST /api/generate-image
@@ -155,84 +164,92 @@ export async function POST(req: Request) {
     // Enhance prompt using the new style-aware logic
     const enhancedPrompt = applyStyleToPrompt(prompt, style, composition, mood);
 
-    // Build Pollinations API URL
-    // We'll use the query param key as a fallback, but Bearer token is preferred in docs
-    const baseUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}`;
-    const params = new URLSearchParams({
-      model,
-      width: width.toString(),
-      height: height.toString(),
-      nologo: 'true',
-      seed: Math.floor(Math.random() * 1000000).toString()
-    });
+    // Implement model rotation for higher success rate
+    let currentModel = model;
+    let rotationIndex = 0;
+    const maxRetries = 3;
 
-    const imageUrl = `${baseUrl}?${params}`;
-    console.log(`🔗 Generation Request: ${imageUrl.substring(0, 150)}...`);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        console.log(`🎨 Attempt ${attempt + 1}: Generating image with model: ${currentModel}`);
 
-    // Call Pollinations API with Bearer token authentication
-    const response = await fetch(imageUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'image/jpeg, image/png'
+        // Build Pollinations API URL
+        const baseUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}`;
+        const params = new URLSearchParams({
+          model: currentModel,
+          width: width.toString(),
+          height: height.toString(),
+          nologo: 'true',
+          seed: Math.floor(Math.random() * 1000000).toString()
+        });
+
+        const imageUrl = `${baseUrl}?${params}`;
+
+        const response = await fetch(imageUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Accept': 'image/jpeg, image/png'
+          }
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const isModeration = errorText.includes('moderation_blocked') || errorText.includes('safety system');
+
+          console.error(`❌ Pollinations API error [Model: ${currentModel}]: ${response.status} - ${errorText.substring(0, 100)}...`);
+
+          if (attempt < maxRetries - 1) {
+            // Rotate to next model in list
+            rotationIndex = (rotationIndex + 1) % MODEL_ROTATION_ORDER.length;
+            currentModel = MODEL_ROTATION_ORDER[rotationIndex];
+            console.warn(`🔄 Rotating to next model: ${currentModel} due to ${isModeration ? 'moderation' : 'API error'}...`);
+            continue;
+          }
+
+          return NextResponse.json(
+            {
+              error: `Image generation failed: ${response.status}`,
+              details: errorText,
+              suggestion: response.status === 401
+                ? 'Invalid API key or insufficient balance.'
+                : 'Moderation or capacity error. Please try a more general prompt.'
+            },
+            { status: response.status }
+          );
+        }
+
+        // Success! Convert to base64
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Image = buffer.toString('base64');
+        const dataUrl = `data:${contentType};base64,${base64Image}`;
+
+        console.log(`✅ Image generated with model ${currentModel} (${Math.round(buffer.length / 1024)} KB)`);
+
+        return NextResponse.json({
+          success: true,
+          imageUrl: dataUrl,
+          model: currentModel,
+          cost: (POLLINATIONS_MODELS as any)[currentModel]?.cost || 0.04,
+          quality: (POLLINATIONS_MODELS as any)[currentModel]?.quality || 'custom',
+          size: { width, height },
+          usingUserKey: !!userApiKey
+        });
+
+      } catch (error: any) {
+        console.error(`💥 Error in attempt ${attempt + 1}:`, error);
+        if (attempt === maxRetries - 1) throw error;
       }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Pollinations API error: ${response.status} - ${errorText}`);
-
-      return NextResponse.json(
-        {
-          error: `Image generation failed: ${response.status}`,
-          details: errorText,
-          suggestion: response.status === 401
-            ? 'Invalid API key or insufficient balance. Please check your Pollinations account.'
-            : 'Please try again or select a different model.'
-        },
-        { status: response.status }
-      );
     }
 
-    // Verify the response is an image
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    if (!contentType.startsWith('image/')) {
-      console.warn(`⚠️ Unexpected content type: ${contentType}`);
-    }
-
-    // Convert image buffer to base64 data URL
-    // This is the most reliable way to return the image to the client
-    // because it avoids a second unauthenticated request from the browser
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString('base64');
-    const dataUrl = `data:${contentType};base64,${base64Image}`;
-
-    console.log(`✅ Image generated and converted to Base64 (${Math.round(buffer.length / 1024)} KB)`);
-
-    // Calculate cost based on our internal tracker (optional info)
-    const modelInfo = POLLINATIONS_MODELS[model as keyof typeof POLLINATIONS_MODELS];
-
-    return NextResponse.json({
-      success: true,
-      imageUrl: dataUrl,
-      model,
-      cost: modelInfo?.cost || 0.04, // Default to highest cost if unknown
-      quality: modelInfo?.quality || 'custom',
-      size: {
-        width,
-        height
-      },
-      usingUserKey: !!userApiKey
-    });
+    return NextResponse.json({ error: 'Failed after multiple attempts' }, { status: 500 });
 
   } catch (error: any) {
-    console.error('💥 Error generating image:', error);
+    console.error('💥 Fatal error generating image:', error);
     return NextResponse.json(
-      {
-        error: error.message || 'Internal Server Error',
-        details: error.stack
-      },
+      { error: error.message || 'Internal Server Error' },
       { status: 500 }
     );
   }

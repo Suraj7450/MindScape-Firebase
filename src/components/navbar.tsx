@@ -16,7 +16,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Menu } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Skeleton } from './ui/skeleton';
 import { motion } from 'framer-motion';
 import { Icons } from './icons';
@@ -31,6 +38,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { resetConfig } = useAIConfig();
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Listen to Firestore for real-time displayName updates
   useEffect(() => {
@@ -179,6 +187,58 @@ export function Navbar() {
             <div className="flex flex-1 items-center justify-end gap-3">
               <NotificationCenter />
               {renderUserAuth()}
+
+              {/* Mobile Hamburger Menu */}
+              <div className="md:hidden">
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-xl bg-zinc-900/40 border border-white/10 text-white"
+                    >
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[300px] border-white/10 bg-black/90 backdrop-blur-2xl p-0">
+                    <SheetHeader className="p-6 border-b border-white/5">
+                      <SheetTitle className="text-left">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 flex items-center justify-center rounded-xl bg-zinc-900 border border-white/10 shadow-2xl">
+                            <Icons.logo className="h-5 w-5" />
+                          </div>
+                          <span className="text-lg font-black text-white tracking-widest font-orbitron">
+                            Mind<span className="text-primary">Scape</span>
+                          </span>
+                        </div>
+                      </SheetTitle>
+                    </SheetHeader>
+                    <div className="flex flex-col py-4">
+                      {navItems.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={cn(
+                            "flex items-center px-6 py-4 text-sm font-bold tracking-widest uppercase font-orbitron transition-all",
+                            pathname === item.href
+                              ? "bg-primary/10 text-primary border-r-2 border-primary"
+                              : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                          )}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-white/5">
+                      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-[0.2em]">
+                        &copy; 2026 MindScape AI
+                      </p>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
             </div>
           </div>
 

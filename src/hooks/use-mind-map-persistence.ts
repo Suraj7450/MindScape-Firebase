@@ -144,8 +144,15 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
 
         try {
             const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
+            // Detect person to avoid contradictory "NO portraits" for people
+            const personKeywords = ['person', 'scientist', 'mathematician', 'leader', 'artist', 'founder', 'philosopher', 'explorer'];
+            const lowerTopic = mapToSave.topic.toLowerCase();
+            const isProbablyPerson = personKeywords.some(kw => lowerTopic.includes(kw)) || /\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(mapToSave.topic);
+
             // Create highly specific, literal thumbnail prompt - Unified for all modes
-            const thumbnailPrompt = `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
+            const thumbnailPrompt = isProbablyPerson
+                ? `Professional studio portrait of ${mapToSave.topic}, photorealistic, high detail, authentic representation, dramatic lighting, sharp focus, 8k quality`
+                : `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
 
             // SPLIT SCHEMA: Metadata vs Content
             const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;

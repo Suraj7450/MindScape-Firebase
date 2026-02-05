@@ -58,6 +58,7 @@ const SubCategorySchema = z.object({
 
 const CategorySchema = z.object({
   name: z.string().describe('The name of the category.'),
+  thought: z.string().optional().describe('Analysis and planning for this category.'),
   icon: z
     .string()
     .optional()
@@ -73,6 +74,7 @@ const CategorySchema = z.object({
 
 const SubTopicSchema = z.object({
   name: z.string().describe('The name of the sub-topic.'),
+  thought: z.string().optional().describe('Analysis and planning for this branch.'),
   icon: z
     .string()
     .optional()
@@ -198,14 +200,17 @@ export const NestedExpansionOutputSchema = z.object({
 export const AIGeneratedMindMapSchema = z.object({
   mode: z.literal('single').default('single'),
   topic: z.string().describe('The main topic of the mind map.'),
+  thought: z.string().optional().describe('Deep reasoning about the entire topic structure.'),
   shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words).'),
   icon: z.string().describe('Icon name in kebab-case.'),
   subTopics: z.array(z.object({
     name: z.string(),
+    thought: z.string().optional(),
     icon: z.string(),
     insight: z.string().optional(),
     categories: z.array(z.object({
       name: z.string(),
+      thought: z.string().optional(),
       icon: z.string(),
       insight: z.string().optional(),
       subCategories: z.array(z.object({
