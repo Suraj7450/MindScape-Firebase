@@ -165,7 +165,8 @@ export function ChatPanel({
     provider: providerOptionsConfig.provider,
     apiKey: providerOptionsConfig.provider === 'pollinations' ? providerOptionsConfig.pollinationsApiKey : providerOptionsConfig.apiKey,
     model: providerOptionsConfig.pollinationsModel,
-  }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsApiKey, providerOptionsConfig.pollinationsModel]);
+    userId: user?.uid,
+  }), [providerOptionsConfig.provider, providerOptionsConfig.apiKey, providerOptionsConfig.pollinationsApiKey, providerOptionsConfig.pollinationsModel, user?.uid]);
 
   // 1. STATE MANAGEMENT
   const [input, setInput] = useState('');

@@ -114,7 +114,7 @@ export const NestedExpansionItemSchema = z.object({
 export const CompareNodeSchema = z.object({
   id: z.string().optional(),
   title: z.string().describe('Short name of the core principle.'),
-  description: z.string().describe('Evocative one-sentence explanation.'),
+  description: z.string().optional().describe('Evocative one-sentence explanation.'),
   icon: z.string().describe('Lucide icon name.'),
   children: z.array(z.lazy(() => z.any())).optional(), // Simplified for now
 });

@@ -336,7 +336,11 @@ export function ImageGenerationDialog({
                                     >
                                         Launch Render
                                     </Button>
-                                    <Button variant="ghost" onClick={onClose} className="w-full h-12 rounded-2xl text-zinc-600 hover:text-zinc-400 font-bold uppercase tracking-widest text-[10px]">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={onClose}
+                                        className="w-full h-12 rounded-2xl bg-transparent border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/40 font-bold uppercase tracking-widest text-[10px] transition-all duration-300"
+                                    >
                                         Abort Mission
                                     </Button>
                                 </div>

@@ -8,6 +8,8 @@ export const RegenerateQuizInputSchema = z.object({
     weakAreas: z.array(z.string()).describe('List of conceptTags where the user struggled'),
     otherAreas: z.array(z.string()).optional().describe('Other conceptTags from the original quiz'),
     previousQuestions: z.array(z.string()).optional().describe('List of question texts to avoid repetitions'),
+    apiKey: z.string().optional(),
+    provider: z.string().optional() as z.Schema<AIProvider | undefined>
 });
 
 export type RegenerateQuizInput = z.infer<typeof RegenerateQuizInputSchema>;
@@ -54,7 +56,8 @@ export async function regenerateQuizFlow(input: RegenerateQuizInput): Promise<an
     Generate a new, unique follow-up quiz now that helps reinforce these weak areas.`;
 
     const output = await generateContent({
-        provider: 'pollinations',
+        provider: (input as any).provider || 'pollinations',
+        apiKey: (input as any).apiKey,
         systemPrompt,
         userPrompt,
         schema: QuizSchema,

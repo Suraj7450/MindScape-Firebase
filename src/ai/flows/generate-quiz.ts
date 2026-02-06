@@ -6,6 +6,8 @@ export const GenerateQuizInputSchema = z.object({
     topic: z.string(),
     difficulty: z.enum(['easy', 'medium', 'hard']),
     mindMapContext: z.string().optional().describe('Text representation of the mind map nodes and structure'),
+    apiKey: z.string().optional(),
+    provider: z.string().optional() as z.Schema<AIProvider | undefined>
 });
 
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
@@ -62,7 +64,8 @@ export async function generateQuizFlow(input: GenerateQuizInput): Promise<any> {
     Remember: Return the JSON with "topic", "difficulty", and "questions" at the root level.`;
 
     const output = await generateContent({
-        provider: 'pollinations',
+        provider: (input as any).provider || 'pollinations',
+        apiKey: (input as any).apiKey,
         systemPrompt,
         userPrompt,
         schema: QuizSchema,

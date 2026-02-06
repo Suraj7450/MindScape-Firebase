@@ -44,7 +44,7 @@ async function retry<T>(fn: (attempt: number) => Promise<T>, retries = 3, delayM
 
             // AI-specific retryable errors: syntax errors in JSON and reasoning-only outputs
             const isAISyntaxError = err instanceof StructuredOutputError && !err.zodError;
-            const isReasoningOnlyErr = errorMessage.includes('reasoning-only');
+            const isReasoningOnlyErr = errorMessage.includes('reasoning-only') || errorMessage.includes('empty content');
 
             const shouldRetry = isRateLimit || isTimeout || isRetryableServerErr || isAISyntaxError || isReasoningOnlyErr;
 

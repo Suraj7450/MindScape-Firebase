@@ -7,6 +7,7 @@ import {
   GenerateMindMapOutput,
   GenerateMindMapInput,
 } from '@/ai/flows/generate-mind-map';
+import { getUserImageSettings } from '@/lib/firestore-helpers';
 import {
   generateMindMapFromImage,
   GenerateMindMapFromImageOutput,
@@ -163,6 +164,34 @@ export interface GenerateMindMapFromImageInput {
 }
 
 /**
+ * Internal helper to resolve the effective API key for AI generation.
+ * Prioritizes explicitly provided keys, then user-specific keys from Firestore, 
+ * and finally falls back to server-side environmental variables.
+ */
+async function resolveApiKey(options: { apiKey?: string; userId?: string; provider?: AIProvider }): Promise<string | undefined> {
+  let effectiveApiKey = options.apiKey;
+
+  // If no API key provided, try to fetch from user profile on server
+  if (!effectiveApiKey && options.userId && (options.provider === 'pollinations' || !options.provider)) {
+    try {
+      const { initializeFirebaseServer } = await import('@/firebase/server');
+      const { firestore } = initializeFirebaseServer();
+      if (firestore) {
+        const userSettings = await getUserImageSettings(firestore, options.userId);
+        if (userSettings?.pollinationsApiKey) {
+          effectiveApiKey = userSettings.pollinationsApiKey;
+          console.log(`🔑 Using Pollinations API key from Firestore for user: ${options.userId}`);
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to fetch user API key from Firestore, falling back to server default:', err);
+    }
+  }
+
+  return effectiveApiKey;
+}
+
+/**
  * Server action to generate a mind map based on a given topic.
  * @param {GenerateMindMapInput} input - The input for the mind map generation, containing the topic.
  * @param {boolean} input.useSearch - Optional flag to enable Google Search for real-time context
@@ -170,16 +199,17 @@ export interface GenerateMindMapFromImageInput {
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput & { useSearch?: boolean },
-  options: { apiKey?: string; provider?: AIProvider; model?: string } = {}
+  options: { apiKey?: string; provider?: AIProvider; model?: string; userId?: string } = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
-  // Ensure input.topic is treated as a plain string
-  const topic = String(input.topic);
-
-  if (!topic || topic.length < 1) {
-    return { data: null, error: 'Topic must be at least 1 character long.' };
-  }
-
   try {
+    // Ensure input.topic is treated as a plain string
+    const topic = String(input.topic);
+
+    if (!topic || topic.length < 1) {
+      return { data: null, error: 'Topic must be at least 1 character long.' };
+    }
+
+    const effectiveApiKey = await resolveApiKey(options);
     let searchContext = null;
 
     // Generate search context if requested
@@ -188,7 +218,7 @@ export async function generateMindMapAction(
       const searchResult = await generateSearchContext({
         query: topic,
         depth: input.depth === 'deep' ? 'deep' : 'basic',
-        apiKey: options.apiKey,
+        apiKey: effectiveApiKey,
         provider: options.provider,
       });
 
@@ -204,7 +234,8 @@ export async function generateMindMapAction(
       ...input,
       topic,
       searchContext,
-      ...options
+      ...options,
+      apiKey: effectiveApiKey
     });
 
     if (!result) return { data: null, error: 'AI failed to generate content.' };
@@ -260,7 +291,7 @@ export async function updateAIModelPreferenceAction(userId: string, model: strin
  */
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: { apiKey?: string; provider?: AIProvider; userId?: string } = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
@@ -268,7 +299,8 @@ export async function generateMindMapFromImageAction(
 
   try {
     const depth = input.depth || 'low';
-    const rawResult = await generateMindMapFromImage({ ...input, depth, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const rawResult = await generateMindMapFromImage({ ...input, depth, ...options, apiKey: effectiveApiKey });
     if (!rawResult) return { data: null, error: 'AI failed to process image.' };
 
     const sanitized = mapToMindMapData(rawResult, depth);
@@ -299,7 +331,8 @@ export async function generateMindMapFromTextAction(
 
   try {
     const depth = input.depth || 'low';
-    const result = await generateMindMapFromText({ ...input, depth, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await generateMindMapFromText({ ...input, depth, ...options, apiKey: effectiveApiKey });
     if (!result) return { data: null, error: 'AI failed to process text.' };
 
     const sanitized = mapToMindMapData(result, depth);
@@ -328,7 +361,8 @@ export async function explainNodeAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
-    const result = await explainMindMapNode({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await explainMindMapNode({ ...input, ...options, apiKey: effectiveApiKey });
     return { explanation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -351,7 +385,8 @@ export async function chatAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
-    const result = await chatWithAssistant({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await chatWithAssistant({ ...input, ...options, apiKey: effectiveApiKey });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -374,7 +409,8 @@ export async function translateMindMapAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ translation: MindMapData | null; error: string | null }> {
   try {
-    const result = await translateMindMap({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await translateMindMap({ ...input, ...options, apiKey: effectiveApiKey });
     if (!result) return { translation: null, error: 'AI failed to get translation.' };
     const sanitized = mapToMindMapData(result);
     return { translation: sanitized, error: null };
@@ -399,7 +435,8 @@ export async function explainWithExampleAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
-    const result = await explainWithExample({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await explainWithExample({ ...input, ...options, apiKey: effectiveApiKey });
     return { example: result, error: null };
   } catch (error) {
     console.error('Error in explainWithExampleAction:', error);
@@ -422,7 +459,8 @@ export async function summarizeChatAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ summary: SummarizeChatOutput | null; error: string | null }> {
   try {
-    const result = await summarizeChat({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await summarizeChat({ ...input, ...options, apiKey: effectiveApiKey });
     return { summary: result, error: null };
   } catch (error) {
     console.error(error);
@@ -443,7 +481,8 @@ export async function summarizeTopicAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ summary: string | null; error: string | null }> {
   try {
-    const result = await summarizeTopic({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await summarizeTopic({ ...input, ...options, apiKey: effectiveApiKey });
     return { summary: result.summary, error: null };
   } catch (error) {
     console.error('Error in summarizeTopicAction:', error);
@@ -464,7 +503,8 @@ export async function conversationalMindMapAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
   try {
-    const result = await conversationalMindMap({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await conversationalMindMap({ ...input, ...options, apiKey: effectiveApiKey });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);
@@ -490,7 +530,8 @@ export async function enhanceImagePromptAction(
   error: string | null;
 }> {
   try {
-    const result = await enhanceImagePrompt({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await enhanceImagePrompt({ ...input, ...options, apiKey: effectiveApiKey });
     return { enhancedPrompt: result, error: null };
   } catch (error) {
     console.error('Error in enhanceImagePromptAction:', error);
@@ -516,7 +557,8 @@ export async function expandNodeAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
-    const result = await expandNode({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await expandNode({ ...input, ...options, apiKey: effectiveApiKey });
     return { expansion: result, error: null };
   } catch (error) {
     console.error('Error in expandNodeAction:', error);
@@ -541,7 +583,8 @@ export async function generateRelatedQuestionsAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: RelatedQuestionsOutput | null; error: string | null }> {
   try {
-    const result = await generateRelatedQuestions({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await generateRelatedQuestions({ ...input, ...options, apiKey: effectiveApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateRelatedQuestionsAction:', error);
@@ -565,7 +608,7 @@ export async function getAIHealthReportAction() {
  */
 export async function generateComparisonMapAction(
   input: GenerateComparisonMapInput & { useSearch?: boolean },
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: { apiKey?: string; provider?: AIProvider; userId?: string } = {}
 ): Promise<{ data: CompareMindMapData | null; error: string | null }> {
   // TODO: Validate Firebase ID token server-side before invoking AI
 
@@ -578,6 +621,7 @@ export async function generateComparisonMapAction(
   }
 
   try {
+    const effectiveApiKey = await resolveApiKey(options);
     let searchContextA = null;
     let searchContextB = null;
 
@@ -590,13 +634,13 @@ export async function generateComparisonMapAction(
         generateSearchContext({
           query: input.topic1,
           depth: input.depth === 'deep' ? 'deep' : 'basic',
-          apiKey: options.apiKey,
+          apiKey: effectiveApiKey,
           provider: options.provider,
         }),
         generateSearchContext({
           query: input.topic2,
           depth: input.depth === 'deep' ? 'deep' : 'basic',
-          apiKey: options.apiKey,
+          apiKey: effectiveApiKey,
           provider: options.provider,
         }),
       ]);
@@ -620,7 +664,8 @@ export async function generateComparisonMapAction(
       ...input,
       searchContextA,
       searchContextB,
-      ...options
+      ...options,
+      apiKey: effectiveApiKey
     });
 
     if (!result) return { data: null, error: 'AI failed to generate comparison.' };
@@ -659,7 +704,8 @@ export async function generateQuizAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: Quiz | null; error: string | null }> {
   try {
-    const result = await generateQuizFlow({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await generateQuizFlow({ ...input, ...options, apiKey: effectiveApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in generateQuizAction:', error);
@@ -678,7 +724,8 @@ export async function regenerateQuizAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ data: Quiz | null; error: string | null }> {
   try {
-    const result = await regenerateQuizFlow({ ...input, ...options });
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await regenerateQuizFlow({ ...input, ...options, apiKey: effectiveApiKey });
     return { data: result, error: null };
   } catch (error) {
     console.error('Error in regenerateQuizAction:', error);

@@ -22,20 +22,20 @@ interface ModelDef {
 // Registry of available models
 const AVAILABLE_MODELS: ModelDef[] = [
     // Reasoning / Coding (High Intelligence, JSON Structure)
-    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
     { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
-    { id: 'deepseek-reasoner', feature: 'reasoning', description: 'DeepSeek R1 (Reasoning)', context: 64000, isFree: true },
-    { id: 'mistral-nemo', feature: 'coding', description: 'Mistral Nemo 12B', context: 32000, isFree: true },
+    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
+    { id: 'deepseek-chat', feature: 'reasoning', description: 'DeepSeek Chat', context: 64000, isFree: true },
+    { id: 'mistral', feature: 'coding', description: 'Mistral Large', context: 32000, isFree: true },
 
     // Fast / Economy (High Speed, Lower Cost)
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 16000, isFree: true },
     { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
     { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
-    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 16000, isFree: true },
 
     // Creative / General (Balanced)
-    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 16000, isFree: false },
-    { id: 'mistral', feature: 'creative', description: 'Mistral Small', context: 16000, isFree: true },
     { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
+    { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
+    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 16000, isFree: false },
 ];
 
 /**
@@ -137,7 +137,7 @@ CRITICAL:
         if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
             // High token limit is essential for deep mode mind maps (120+ items)
             // Using 16k as a stable upper limit for large models, 8k for medium ones
-            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'openai' || model === 'sur') {
+            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'openai' || model === 'sur' || model === 'openai-fast') {
                 body.max_tokens = 16384;
             } else {
                 body.max_tokens = 8192;
@@ -177,6 +177,23 @@ CRITICAL:
         if (!response.ok) {
             let errorMessage = response.statusText;
             const status = response.status;
+            let errorBody: any = null;
+
+            try {
+                errorBody = await response.json();
+                if (errorBody && errorBody.error && typeof errorBody.error === 'object') {
+                    errorMessage = errorBody.error.message || JSON.stringify(errorBody.error);
+                } else if (errorBody && typeof errorBody === 'object') {
+                    errorMessage = JSON.stringify(errorBody);
+                }
+            } catch (e) {
+                // Fallback to text if JSON parse fails
+                try {
+                    errorMessage = await response.text() || response.statusText;
+                } catch {
+                    errorMessage = response.statusText;
+                }
+            }
 
             // Handle invalid API key or exhausted balance
             if (status === 401 || status === 403) {
@@ -259,7 +276,7 @@ CRITICAL:
 
         if (!text || text.trim() === '') {
             console.error('❌ Pollinations returned empty content. Full response:', JSON.stringify(data, null, 2));
-            throw new Error('Pollinations returned empty content');
+            throw new Error('Pollinations returned empty content (reasoning-heavy or token-limited)');
         }
 
         let parsedResponse;

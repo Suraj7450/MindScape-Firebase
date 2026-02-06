@@ -287,13 +287,15 @@ export const MindMap = ({
     provider: config.provider,
     apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
     model: config.pollinationsModel,
-  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);
+    userId: user?.uid,
+  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel, user?.uid]);
 
   const imageProviderOptions = useMemo(() => ({
     provider: config.provider as 'pollinations' | 'bytez',
     apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-    model: config.pollinationsModel
-  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel]);
+    model: config.pollinationsModel,
+    userId: user?.uid,
+  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel, user?.uid]);
 
 
 

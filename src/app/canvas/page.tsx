@@ -347,6 +347,7 @@ function MindMapPageContent() {
             provider: config.provider,
             apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
             model: config.pollinationsModel,
+            userId: user?.uid,
             strict: false
           };
           result = await generateComparisonMapAction({
@@ -363,6 +364,7 @@ function MindMapPageContent() {
             provider: config.provider,
             apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
             model: config.pollinationsModel,
+            userId: user?.uid,
             strict: false
           };
           result = await generateMindMapAction({
@@ -394,6 +396,7 @@ function MindMapPageContent() {
                 provider: config.provider,
                 apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
                 model: config.pollinationsModel,
+                userId: user?.uid,
                 strict: false
               };
               result = await generateMindMapFromImageAction({
@@ -409,6 +412,7 @@ function MindMapPageContent() {
                 provider: config.provider,
                 apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
                 model: config.pollinationsModel,
+                userId: user?.uid,
                 strict: false
               };
               result = await generateMindMapFromTextAction({

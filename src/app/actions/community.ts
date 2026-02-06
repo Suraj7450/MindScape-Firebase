@@ -7,15 +7,19 @@ import { MindMapWithId } from '@/types/mind-map';
 
 import { suggestRelatedTopics } from '@/ai/flows/suggest-related-topics';
 
+import { resolveApiKey } from '@/app/actions';
+
 export async function categorizeMindMapAction(
     input: { topic: string; summary?: string },
-    options?: { provider?: AIProvider; apiKey?: string }
+    options: { provider?: AIProvider; apiKey?: string; userId?: string } = {}
 ) {
     try {
+        const effectiveApiKey = await resolveApiKey(options);
         const result = await categorizeMindMap({
             topic: input.topic,
             summary: input.summary,
             ...options,
+            apiKey: effectiveApiKey
         });
         return { categories: result.categories, error: null };
     } catch (error: any) {
@@ -26,13 +30,15 @@ export async function categorizeMindMapAction(
 
 export async function suggestRelatedTopicsAction(
     input: { topic: string; summary?: string },
-    options?: { provider?: AIProvider; apiKey?: string }
+    options: { provider?: AIProvider; apiKey?: string; userId?: string } = {}
 ) {
     try {
+        const effectiveApiKey = await resolveApiKey(options);
         const result = await suggestRelatedTopics({
             topic: input.topic,
             summary: input.summary,
             ...options,
+            apiKey: effectiveApiKey
         });
 
         // If AI fails or returns nothing, provide high-quality fallback topics based on input
@@ -84,9 +90,8 @@ export async function removeFromCommunityAction(
         }
 
         // Initialize Firebase
-        const { initializeFirebase } = await import('@/firebase');
-        const sdk = await initializeFirebase();
-        const firestore = sdk.firestore;
+        const { initializeFirebaseServer } = await import('@/firebase/server');
+        const { firestore } = initializeFirebaseServer();
 
         if (!firestore) {
             throw new Error('Firestore not initialized');

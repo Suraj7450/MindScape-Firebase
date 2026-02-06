@@ -136,7 +136,8 @@ export default function DashboardPage() {
         summary: selectedMapForPreview.summary
       }, {
         provider: config.provider,
-        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+        userId: user?.uid
       }).then(res => {
         if (isMounted && res.topics) setSuggestedTopics(res.topics);
         if (isMounted) setIsSuggestingTopics(false);
@@ -245,12 +246,12 @@ export default function DashboardPage() {
       if (selectedMapFullData.mode === 'compare') {
         const cd = selectedMapFullData.compareData;
 
-        // Similarities
+        // Unity Nexus (Shared)
         doc.setFontSize(14);
         doc.setTextColor(16, 185, 129); // Emerald
-        doc.text("Shared Commonalities", 20, y);
+        doc.text("Unity Nexus (Shared Core Concepts)", 20, y);
         y += 8;
-        cd.similarities.forEach((node: any) => {
+        (cd.unityNexus || []).forEach((node: any) => {
           if (y > 270) { doc.addPage(); y = 20; }
           doc.setFontSize(11);
           doc.setTextColor(0);
@@ -264,23 +265,23 @@ export default function DashboardPage() {
           y += (desc.length * 5) + 8;
         });
 
-        // Topic A
+        // Dimensions
         if (y > 250) { doc.addPage(); y = 20; }
         y += 10;
         doc.setFontSize(14);
         doc.setTextColor(124, 58, 237);
-        doc.text(`Unique to ${cd.root.title.split(' vs ')[0]}`, 20, y);
+        doc.text("Comparison Dimensions", 20, y);
         y += 8;
-        cd.differences.topicA.forEach((node: any) => {
+        (cd.dimensions || []).forEach((dim: any) => {
           if (y > 270) { doc.addPage(); y = 20; }
           doc.setFontSize(11);
           doc.setTextColor(0);
           doc.setFont("helvetica", "bold");
-          doc.text(`- ${node.title}`, 20, y);
+          doc.text(`- ${dim.name}`, 20, y);
           y += 5;
           doc.setFont("helvetica", "normal");
           doc.setTextColor(80);
-          const desc = doc.splitTextToSize(node.description || "", 160);
+          const desc = doc.splitTextToSize(`${dim.topicAInsight} | ${dim.topicBInsight}`, 160);
           doc.text(desc, 25, y);
           y += (desc.length * 5) + 6;
         });
@@ -386,6 +387,7 @@ export default function DashboardPage() {
         }, {
           provider: config.provider,
           apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+          userId: user?.uid,
         });
 
         if (error) throw new Error(error);
@@ -525,7 +527,8 @@ export default function DashboardPage() {
         summary: map.summary,
       }, {
         provider: config.provider,
-        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey
+        apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+        userId: user?.uid
       });
 
       if (catError) throw new Error(catError);
