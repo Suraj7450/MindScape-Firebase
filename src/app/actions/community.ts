@@ -89,7 +89,7 @@ export async function removeFromCommunityAction(
             return { success: false, error: 'Map ID is required' };
         }
 
-        // Initialize Firebase
+        // Initialize Firebase Admin
         const { initializeFirebaseServer } = await import('@/firebase/server');
         const { firestore } = initializeFirebaseServer();
 
@@ -97,17 +97,18 @@ export async function removeFromCommunityAction(
             throw new Error('Firestore not initialized');
         }
 
-        const { doc, deleteDoc, updateDoc, getDoc } = await import('firebase/firestore');
-
         // Get the public map document
-        const publicMapRef = doc(firestore, 'publicMindmaps', mapId);
-        const publicMapSnap = await getDoc(publicMapRef);
+        const publicMapRef = firestore.collection('publicMindmaps').doc(mapId);
+        const publicMapSnap = await publicMapRef.get();
 
-        if (!publicMapSnap.exists()) {
+        if (!publicMapSnap.exists) {
             return { success: false, error: 'Map not found in community' };
         }
 
         const mapData = publicMapSnap.data();
+        if (!mapData) {
+            return { success: false, error: 'Map data is empty' };
+        }
 
         // Authorization check
         const isAuthor = mapData.originalAuthorId === userId;
@@ -122,17 +123,22 @@ export async function removeFromCommunityAction(
         }
 
         // Delete from publicMindmaps collection
-        await deleteDoc(publicMapRef);
+        await publicMapRef.delete();
 
         // Update the original map in user's library to set isPublic = false
         // Only if the user is the author (not admin removing someone else's map)
         if (isAuthor && mapData.originalAuthorId) {
             try {
-                const userMapRef = doc(firestore, 'users', mapData.originalAuthorId, 'mindmaps', mapId);
-                const userMapSnap = await getDoc(userMapRef);
+                const userMapRef = firestore
+                    .collection('users')
+                    .doc(mapData.originalAuthorId)
+                    .collection('mindmaps')
+                    .doc(mapId);
 
-                if (userMapSnap.exists()) {
-                    await updateDoc(userMapRef, {
+                const userMapSnap = await userMapRef.get();
+
+                if (userMapSnap.exists) {
+                    await userMapRef.update({
                         isPublic: false,
                         updatedAt: Date.now()
                     });

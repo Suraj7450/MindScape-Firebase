@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 
 // Available Pollinations models with pricing
 const POLLINATIONS_MODELS = {
-  'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - Fast & High Quality' },
-  'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Fast Alternative' },
-  'klein': { cost: 0.0067, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Quality' },
-  'klein-large': { cost: 0.0118, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Quality' },
-  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini' },
-  'seedream': { cost: 0.0286, quality: 'creative', description: 'Seedream 4.0' },
-  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - Contextual' },
+  'klein-large': { cost: 0.0118, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Cinematic Quality' },
+  'klein': { cost: 0.0067, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Professional Quality' },
+  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - High Contextual Awareness' },
+  'seedream': { cost: 0.0286, quality: 'creative', description: 'Seedream 4.0 - Artistic & Creative Flair' },
+  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini - Balanced & Logical' },
+  'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - High Quality & Rapid Speed' },
+  'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Maximum Performance' },
   'nanobanana': { cost: 0.04, quality: 'niche', description: 'NanoBanana - Niche Specialist' }
 } as const;
 
@@ -107,7 +107,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['klein-large', 'klein', 'flux', 'seedream'];
+const MODEL_ROTATION_ORDER = ['klein', 'flux', 'seedream', 'klein-large'];
 
 
 /**
@@ -118,10 +118,21 @@ const MODEL_ROTATION_ORDER = ['klein-large', 'klein', 'flux', 'seedream'];
  */
 export async function POST(req: Request) {
   try {
-    const body: GenerateImageRequest = await req.json();
+    // Safety check: ensure body is present to avoid "Unexpected end of JSON input"
+    if (!req.body) {
+      return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+    }
+
+    let body: GenerateImageRequest;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const {
       prompt,
-      model = 'klein-large',
+      model = 'klein',
       style,
       composition,
       mood,
@@ -204,6 +215,9 @@ export async function POST(req: Request) {
             rotationIndex = (rotationIndex + 1) % MODEL_ROTATION_ORDER.length;
             currentModel = MODEL_ROTATION_ORDER[rotationIndex];
             console.warn(`🔄 Rotating to next model: ${currentModel} due to ${isModeration ? 'moderation' : 'API error'}...`);
+
+            // Add a small delay before retry to handle transient 500 errors
+            await new Promise(resolve => setTimeout(resolve, 1500));
             continue;
           }
 

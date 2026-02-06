@@ -9,26 +9,8 @@ export const POLLINATIONS_MODELS = [
         cost: 0.0118,
         badge: 'Ultra',
         icon: Crown,
-        description: 'Ultra detailed - one of the best available',
+        description: 'Ultra Cinematic Quality - Highest detail and fidelity',
         isNew: true
-    },
-    {
-        value: 'flux',
-        label: 'Flux Schnell',
-        cost: 0.0002,
-        badge: 'Fast',
-        icon: Zap,
-        description: 'Fast & high quality - best for most use cases',
-        isNew: false
-    },
-    {
-        value: 'zimage',
-        label: 'Z-Image Turbo',
-        cost: 0.0002,
-        badge: 'Fast',
-        icon: Zap,
-        description: 'Fast alternative to Flux',
-        isNew: false
     },
     {
         value: 'klein',
@@ -36,25 +18,7 @@ export const POLLINATIONS_MODELS = [
         cost: 0.0067,
         badge: 'Premium',
         icon: Sparkles,
-        description: 'Premium quality with enhanced details',
-        isNew: true
-    },
-    {
-        value: 'gptimage',
-        label: 'GPT Image 1 Mini',
-        cost: 0.0133,
-        badge: 'Balanced',
-        icon: Monitor,
-        description: 'Balanced performance for general prompts',
-        isNew: true
-    },
-    {
-        value: 'seedream',
-        label: 'Seedream 4.0',
-        cost: 0.0286,
-        badge: 'Creative',
-        icon: Cloud,
-        description: 'Artistic, dream-like creative styles',
+        description: 'Premium Professional - Sharp details and realistic lighting',
         isNew: true
     },
     {
@@ -63,7 +27,43 @@ export const POLLINATIONS_MODELS = [
         cost: 0.04,
         badge: 'Contextual',
         icon: Palette,
-        description: 'In-context editing & generation',
+        description: 'High Contextual Awareness - Best for complex scene descriptions',
+        isNew: false
+    },
+    {
+        value: 'seedream',
+        label: 'Seedream 4.0',
+        cost: 0.0286,
+        badge: 'Creative',
+        icon: Cloud,
+        description: 'Artistic & Creative Flair - Vivid, imaginative dream-like styles',
+        isNew: true
+    },
+    {
+        value: 'gptimage',
+        label: 'GPT Image 1 Mini',
+        cost: 0.0133,
+        badge: 'Balanced',
+        icon: Monitor,
+        description: 'Balanced & Logical - Consistent and reliable composition',
+        isNew: true
+    },
+    {
+        value: 'flux',
+        label: 'Flux Schnell',
+        cost: 0.0002,
+        badge: 'Fast',
+        icon: Zap,
+        description: 'High Quality & Rapid Speed - Instant generation for quick iterations',
+        isNew: false
+    },
+    {
+        value: 'zimage',
+        label: 'Z-Image Turbo',
+        cost: 0.0002,
+        badge: 'Fast',
+        icon: Zap,
+        description: 'Maximum Performance - Optimized for raw processing speed',
         isNew: false
     },
     {
@@ -72,7 +72,7 @@ export const POLLINATIONS_MODELS = [
         cost: 0.04,
         badge: 'Niche',
         icon: Zap,
-        description: 'Niche creative generation specialist',
+        description: 'Niche Specialist - Specialized creative generation',
         isNew: true
     }
 ] as const;

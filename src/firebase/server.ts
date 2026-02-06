@@ -1,17 +1,27 @@
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import * as admin from 'firebase-admin';
 
 /**
- * Server-safe initialization for Firebase.
- * Does NOT use 'use client', making it safe for Server Actions.
+ * Server-safe initialization for Firebase using the Admin SDK.
+ * This provides full access to Firestore and other services without needing client-side auth.
  */
 export function initializeFirebaseServer() {
-    const apps = getApps();
-    const app = apps.length > 0 ? getApp() : initializeApp(firebaseConfig);
+    if (admin.apps.length === 0) {
+        try {
+            // Try to use service account if available
+            const serviceAccount = require('../../service-account.json');
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            console.log("✅ Firebase Admin initialized with service account");
+        } catch (e) {
+            // Fallback for environments where service-account.json might be missing (e.g. production env vars)
+            admin.initializeApp();
+            console.log("ℹ️ Firebase Admin initialized with default credentials");
+        }
+    }
 
     return {
-        app,
-        firestore: getFirestore(app),
+        app: admin.app(),
+        firestore: admin.firestore(),
     };
 }

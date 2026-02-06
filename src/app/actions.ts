@@ -168,23 +168,20 @@ export interface GenerateMindMapFromImageInput {
  * Prioritizes explicitly provided keys, then user-specific keys from Firestore, 
  * and finally falls back to server-side environmental variables.
  */
-async function resolveApiKey(options: { apiKey?: string; userId?: string; provider?: AIProvider }): Promise<string | undefined> {
+export async function resolveApiKey(options: { apiKey?: string; userId?: string; provider?: AIProvider }): Promise<string | undefined> {
   let effectiveApiKey = options.apiKey;
 
   // If no API key provided, try to fetch from user profile on server
   if (!effectiveApiKey && options.userId && (options.provider === 'pollinations' || !options.provider)) {
     try {
-      const { initializeFirebaseServer } = await import('@/firebase/server');
-      const { firestore } = initializeFirebaseServer();
-      if (firestore) {
-        const userSettings = await getUserImageSettings(firestore, options.userId);
-        if (userSettings?.pollinationsApiKey) {
-          effectiveApiKey = userSettings.pollinationsApiKey;
-          console.log(`🔑 Using Pollinations API key from Firestore for user: ${options.userId}`);
-        }
+      const { getUserImageSettingsAdmin } = await import('@/lib/firestore-server-helpers');
+      const userSettings = await getUserImageSettingsAdmin(options.userId);
+      if (userSettings?.pollinationsApiKey) {
+        effectiveApiKey = userSettings.pollinationsApiKey;
+        console.log(`🔑 Using Pollinations API key from Firestore Admin for user: ${options.userId}`);
       }
     } catch (err) {
-      console.warn('⚠️ Failed to fetch user API key from Firestore, falling back to server default:', err);
+      console.warn('⚠️ Failed to fetch user API key from Firestore Admin, falling back to server default:', err);
     }
   }
 
@@ -269,12 +266,10 @@ export async function checkPollinationsKeyAction(): Promise<{ isConfigured: bool
  */
 export async function updateAIModelPreferenceAction(userId: string, model: string): Promise<{ success: boolean; error: string | null }> {
   try {
-    const { doc, setDoc } = await import('firebase/firestore');
-    const sdk = await (await import('@/firebase')).initializeFirebase();
-    const firestore = sdk.firestore;
-    if (!firestore) throw new Error("Firestore not initialized");
+    const { initializeFirebaseServer } = await import('@/firebase/server');
+    const { firestore } = initializeFirebaseServer();
 
-    await setDoc(doc(firestore, 'users', userId), {
+    await firestore.collection('users').doc(userId).set({
       apiSettings: { pollinationsModel: model }
     }, { merge: true });
 

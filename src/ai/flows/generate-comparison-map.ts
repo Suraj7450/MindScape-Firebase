@@ -85,7 +85,7 @@ export async function generateComparisonMap(
   The mind map must have the following structure (use exact field names):
     - mode: Must be exactly "compare".
     - topic: A main topic like "${input.topic1} vs. ${input.topic2}".
-    - shortTitle: A condensed version like "${input.topic1} vs ${input.topic2}" (max 4 words).
+    - shortTitle: A condensed version like "${input.topic1} vs ${input.topic2}" (max 4 words). DO NOT include 'Mind Map'.
     - icon: A relevant lucide-react icon for comparison, such as "scale" or "git-compare-arrows".
     - compareData:
       1. **"unityNexus"**: 

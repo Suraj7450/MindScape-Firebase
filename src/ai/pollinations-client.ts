@@ -21,21 +21,23 @@ interface ModelDef {
 
 // Registry of available models
 const AVAILABLE_MODELS: ModelDef[] = [
-    // Reasoning / Coding (High Intelligence, JSON Structure)
+    // Primary / Stable (Optimized for Mind Map generation)
+    { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.0 Flash Lite', context: 32000, isFree: true },
+    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 128000, isFree: false },
     { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
-    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
+
+    // Reasoning / Coding
     { id: 'deepseek-chat', feature: 'reasoning', description: 'DeepSeek Chat', context: 64000, isFree: true },
-    { id: 'mistral', feature: 'coding', description: 'Mistral Large', context: 32000, isFree: true },
 
-    // Fast / Economy (High Speed, Lower Cost)
-    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 16000, isFree: true },
-    { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
-    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
-
-    // Creative / General (Balanced)
+    // Fallbacks / Niche
     { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
     { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
-    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 16000, isFree: false },
+    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
+    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
+    { id: 'mistral', feature: 'coding', description: 'Mistral Large', context: 32000, isFree: true },
+
+    // Demoted (Reasoning-heavy, unstable for long JSON)
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 128000, isFree: true },
 ];
 
 /**
@@ -92,10 +94,13 @@ export async function generateContentWithPollinations(
             {
                 role: 'system',
                 content: systemPrompt + `
-CRITICAL:
-- Do NOT include reasoning, planning, analysis, or internal thoughts.
-- Think minimally.
-- Output ONLY the final JSON object.
+                
+CRITICAL SAFETY & OUTPUT RULES:
+- You must return ONLY the final structured JSON answer.
+- Do NOT include internal reasoning, analysis, planning, or hidden thoughts.
+- If you cannot complete the task, return a minimal valid JSON response instead of an empty output.
+- Keep the response concise, factual, and strictly schema-compliant.
+- Think minimally. Output ONLY the raw JSON string.
 - Start with '{' and end with '}'.
 `
             }
@@ -136,14 +141,17 @@ CRITICAL:
         // If it's a known model or a model with high context potential
         if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
             // High token limit is essential for deep mode mind maps (120+ items)
-            // Using 16k as a stable upper limit for large models, 8k for medium ones
-            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'openai' || model === 'sur' || model === 'openai-fast') {
-                body.max_tokens = 16384;
+            // Using 12k for models that support high context (DeepSeek/Qwen/Gemini)
+            // Capped at 12k specifically for DeepSeek to avoid 16k stream=true requirement
+            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'gemini-fast') {
+                body.max_tokens = 12024;
+            } else if (model === 'openai' || model === 'sur' || model === 'openai-fast' || model === 'mistral-nemo' || model === 'mistral') {
+                body.max_tokens = 8192; // Safely below context limits
             } else {
                 body.max_tokens = 8192;
             }
         } else if (!targetModelDef && !(options as any)._stripParameters) {
-            // Unknown model? Default to a safe large-ish limit
+            // Unknown model? Default to a safe limit
             body.max_tokens = 8192;
         }
 
@@ -238,14 +246,14 @@ CRITICAL:
                 const hasExtraParams = options.response_format || body.max_tokens;
 
                 if (!alreadyStripped && hasExtraParams) {
-                    console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]. Retrying without advanced parameters (response_format/max_tokens)...`);
+                    console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]: ${errorMessage}. Retrying without advanced parameters (response_format/max_tokens)...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
                         _stripParameters: true // Internal flag to prevent re-adding params
                     });
                 } else if (attempt < 3) {
                     // If stripping parameters didn't help or we already tried, rotate to next model
-                    console.warn(`⚠️ Pollinations 400 persistent error [Model: ${model}]. Rotating to next model (Attempt ${attempt + 1})...`);
+                    console.warn(`⚠️ Pollinations 400 persistent error [Model: ${model}]: ${errorMessage}. Rotating to next model (Attempt ${attempt + 1})...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
                         attempt: attempt + 1, // This will select the NEXT model in selectModel()
@@ -318,8 +326,21 @@ CRITICAL:
                     extracted += '"';
                 }
 
-                // Remove any trailing incomplete content (after last comma or opening bracket/brace)
-                // We want to stop at the last point where a "value" was completed.
+                // --- ROBUST REPAIR LOGIC ---
+                // 1. Close unterminated strings first
+                let totalQuotes = 0;
+                for (let i = 0; i < extracted.length; i++) {
+                    if (extracted[i] === '"' && (i === 0 || extracted[i - 1] !== '\\')) {
+                        totalQuotes++;
+                    }
+                }
+
+                if (totalQuotes % 2 !== 0) {
+                    // Unterminated string detected - close it
+                    extracted += '"';
+                }
+
+                // 2. Remove any trailing incomplete content (after last comma or opening bracket/brace)
                 const lastComma = extracted.lastIndexOf(',');
                 const lastOpenBracket = extracted.lastIndexOf('[');
                 const lastOpenBrace = extracted.lastIndexOf('{');
@@ -330,10 +351,14 @@ CRITICAL:
                 const cutPoint = Math.max(lastComma, lastCloseBracket, lastCloseBrace);
 
                 if (cutPoint > 0 && cutPoint < extracted.length - 1) {
-                    extracted = extracted.substring(0, cutPoint);
+                    // Only cut if we are not immediately after a closing character
+                    const lastChar = extracted[extracted.length - 1];
+                    if (lastChar !== '}' && lastChar !== ']' && lastChar !== '"') {
+                        extracted = extracted.substring(0, cutPoint);
+                    }
                 }
 
-                // Add missing closing brackets and braces
+                // 3. Add missing closing brackets and braces
                 let openBraces = (extracted.match(/{/g) || []).length;
                 let closeBraces = (extracted.match(/}/g) || []).length;
                 let openBrackets = (extracted.match(/\[/g) || []).length;
@@ -349,7 +374,7 @@ CRITICAL:
                     // One final attempt: just keep adding brackets until it works or we hit a limit
                     let salvageRetry = extracted;
                     let success = false;
-                    for (let i = 1; i < 5; i++) {
+                    for (let i = 1; i < 10; i++) {
                         try {
                             salvageRetry += '}';
                             parsedResponse = JSON.parse(salvageRetry);
@@ -357,15 +382,17 @@ CRITICAL:
                             break;
                         } catch {
                             try {
-                                salvageRetry = salvageRetry.substring(0, salvageRetry.length - 1) + ']';
-                                parsedResponse = JSON.parse(salvageRetry);
+                                // Try closing bracket instead
+                                let bracketRetry = salvageRetry.substring(0, salvageRetry.length - 1) + ']';
+                                parsedResponse = JSON.parse(bracketRetry);
                                 success = true;
                                 break;
                             } catch { /* continue */ }
                         }
                     }
                     if (!success) {
-                        throw new Error(`Failed to parse or repair JSON: ${repairError}`);
+                        const { StructuredOutputError } = await import('./client-dispatcher');
+                        throw new StructuredOutputError(`Failed to parse or repair JSON (retryable): ${repairError}`, salvageRetry);
                     }
                 }
             } else {
@@ -373,7 +400,8 @@ CRITICAL:
                 try {
                     parsedResponse = JSON.parse(text.substring(firstBrace, lastValidBrace + 1));
                 } catch (innerE) {
-                    throw new Error(`Failed to parse extracted JSON: ${innerE}`);
+                    const { StructuredOutputError } = await import('./client-dispatcher');
+                    throw new StructuredOutputError(`Failed to parse extracted JSON (retryable): ${innerE}`, text.substring(firstBrace, lastValidBrace + 1));
                 }
             }
         }

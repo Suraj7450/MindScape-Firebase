@@ -159,7 +159,7 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
 {
   "mode": "single",
   "topic": "${topic}",
-  "shortTitle": "(Generate a catchy, short title for the map)",
+  "shortTitle": "(Generate a catchy, short title for the map. DO NOT include the words 'Mind Map')",
   "icon": "brain-circuit",
   "thought": "Deep reasoning about the entire topic structure...",
   "subTopics": [
@@ -206,7 +206,7 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
   // Determine capability based on inputs
   let capability = 'creative';
   if (depth === 'deep' || (depth as any) === 'detailed') { // Cast to any to avoid TS error if 'detailed' is not in strict enum
-    capability = 'coding'; // Qwen-Coder is faster and better at structured JSON than generic reasoning
+    capability = 'reasoning'; // Deep mode requires strong reasoning and JSON discipline
   } else if (persona === 'expert' || persona === 'teacher') {
     capability = 'reasoning'; // Need accuracy
   } else if (prompt.includes('search')) { // Fixed: variable name was systemPrompt

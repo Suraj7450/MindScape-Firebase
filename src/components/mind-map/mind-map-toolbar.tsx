@@ -29,7 +29,8 @@ import {
     Palette,
     Brain,
     BrainCircuit,
-    Sparkles
+    Sparkles,
+    HelpCircle
 } from 'lucide-react';
 import {
     Select,
@@ -388,6 +389,20 @@ export const MindMapToolbar = ({
                             <TooltipContent className="glassmorphism"><p>Regenerate Map</p></TooltipContent>
                         </Tooltip>
                     )}
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => window.open('/guide', '_blank')}
+                                className="h-9 w-9 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-amber-400"
+                            >
+                                <HelpCircle className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="glassmorphism"><p>User Guide</p></TooltipContent>
+                    </Tooltip>
 
 
                 </div>

@@ -39,7 +39,9 @@ async function retry<T>(fn: (attempt: number) => Promise<T>, retries = 3, delayM
             const statusCode = err.status || (err.response && err.response.status);
 
             const isRateLimit = statusCode === 429 || errorMessage.toLowerCase().includes('rate limit');
-            const isTimeout = statusCode === 408 || errorMessage.toLowerCase().includes('timeout');
+            const isTimeout = statusCode === 408 ||
+                errorMessage.toLowerCase().includes('timeout') ||
+                err.code === 'UND_ERR_HEADERS_TIMEOUT';
             const isRetryableServerErr = statusCode >= 500 || [502, 503, 504].includes(statusCode);
 
             // AI-specific retryable errors: syntax errors in JSON and reasoning-only outputs

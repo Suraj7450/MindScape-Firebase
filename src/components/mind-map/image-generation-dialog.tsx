@@ -113,7 +113,7 @@ export function ImageGenerationDialog({
     isEnhancing
 }: ImageGenerationDialogProps) {
     const [prompt, setPrompt] = useState(initialPrompt);
-    const [model, setModel] = useState('klein-large');
+    const [model, setModel] = useState('klein');
     const [aspectRatio, setAspectRatio] = useState<typeof ASPECT_RATIOS[number]>(ASPECT_RATIOS[0]);
     const [selectedStyle, setSelectedStyle] = useState<string>('cinematic');
     const [composition, setComposition] = useState<string>('none');
@@ -125,7 +125,7 @@ export function ImageGenerationDialog({
             setPrompt(initialPrompt);
             setSelectedStyle('cinematic');
             setAspectRatio(ASPECT_RATIOS[0]);
-            setModel('klein-large');
+            setModel('klein');
             setComposition('none');
             setMood('none');
         }
