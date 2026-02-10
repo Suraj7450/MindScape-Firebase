@@ -39,6 +39,8 @@ import { ModelSelector } from '@/components/model-selector';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useUser, useFirestore } from '@/firebase';
+import { getUserImageSettings } from '@/lib/firestore-helpers';
 
 interface ImageGenerationDialogProps {
     isOpen: boolean;
@@ -119,17 +121,32 @@ export function ImageGenerationDialog({
     const [composition, setComposition] = useState<string>('none');
     const [mood, setMood] = useState<string>('none');
 
+    const { user } = useUser();
+    const firestore = useFirestore();
+
     // Sync prompt with initialPrompt when it changes
     React.useEffect(() => {
         if (isOpen) {
             setPrompt(initialPrompt);
             setSelectedStyle('cinematic');
             setAspectRatio(ASPECT_RATIOS[0]);
-            setModel('klein');
             setComposition('none');
             setMood('none');
+
+            // Load user's preferred model
+            if (user && firestore) {
+                getUserImageSettings(firestore, user.uid).then(settings => {
+                    if (settings?.preferredModel) {
+                        setModel(settings.preferredModel);
+                    } else {
+                        setModel('flux');
+                    }
+                });
+            } else {
+                setModel('flux');
+            }
         }
-    }, [initialPrompt, isOpen]);
+    }, [initialPrompt, isOpen, user, firestore]);
 
     const handleEnhance = async () => {
         const enhanced = await onEnhancePrompt(prompt, selectedStyle, composition, mood);

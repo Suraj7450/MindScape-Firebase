@@ -53,7 +53,7 @@ export async function saveUserApiKey(
 
         const settings: UserImageSettings = {
             pollinationsApiKey: apiKey,
-            preferredModel: preferredModel || 'klein-large',
+            preferredModel: preferredModel || 'flux',
             apiKeyCreatedAt: Date.now(),
             apiKeyLastUsed: Date.now()
         };
@@ -89,7 +89,7 @@ export async function getUserImageSettings(firestore: Firestore, userId: string)
                 console.log('✅ Found API key in old location (apiSettings), using it');
                 return {
                     pollinationsApiKey: userData.apiSettings.pollinationsApiKey,
-                    preferredModel: userData.apiSettings.pollinationsModel || 'klein-large',
+                    preferredModel: userData.apiSettings.pollinationsModel || 'flux',
                     apiKeyCreatedAt: Date.now(),
                     apiKeyLastUsed: Date.now()
                 };

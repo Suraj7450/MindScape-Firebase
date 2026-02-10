@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import { mindscapeMap } from '@/lib/mindscape-data';
 
 const ExplainMindMapNodeInputSchema = z.object({
   mainTopic: z.string().describe('The main topic of the mind map.'),
@@ -45,7 +46,41 @@ export async function explainMindMapNode(
 ): Promise<ExplainMindMapNodeOutput> {
   const { provider, apiKey, mainTopic, subCategoryName, subCategoryDescription, explanationMode, strict } = input;
 
-  const systemPrompt = `You are an expert AI assistant providing detailed, multi-faceted explanations for mind map concepts.
+  const isUserGuideMode = mainTopic.toLowerCase() === 'mindscape';
+  let systemPrompt = '';
+
+  if (isUserGuideMode) {
+    systemPrompt = `You are the official **MindScape Product Expert**.
+    
+    The user is asking for an explanation of a feature within the MindScape application itself.
+    Feature Name: "${subCategoryName}"
+    Description: "${subCategoryDescription}"
+    
+    ## 📘 Official MindScape Feature Map (Source of Truth)
+    ${JSON.stringify(mindscapeMap, null, 2)}
+    
+    Your task is to generate 3-7 distinct, high-quality explanation points about this SPECIFIC MindScape feature.
+    
+    The explanation must be:
+    1. **Accurate**: Based strictly on the feature map data above.
+    2. **Actionable**: Explain where to find the feature (e.g., Toolbar, Home Page) and how to use it.
+    3. **Level-Appropriate**: "${explanationMode}" level.
+       - Beginner: Simple "How-to" and basic benefits.
+       - Intermediate: Specific workflows and feature details.
+       - Expert: Technical details, stack info (if technical), and advanced capabilities.
+       
+    The output MUST be a valid JSON object with the following structure:
+    {
+      "explanationPoints": [
+        "First point about where to find this feature...",
+        "Second point explaining exactly what it does...",
+        "Third point giving a usage tip..."
+      ]
+    }
+    
+    IMPORTANT: Do not give generic definitions (e.g., "Mind mapping is..."). Explain "MindScape's Mind Map Engine". Return ONLY the raw JSON object.`;
+  } else {
+    systemPrompt = `You are an expert AI assistant providing detailed, multi-faceted explanations for mind map concepts.
     
     The main topic of the mind map is: "${mainTopic}".
     The specific concept to explain is: "${subCategoryName}".
@@ -72,6 +107,7 @@ export async function explainMindMapNode(
     }
     
     IMPORTANT: Provide 3-7 points depending on the depth of the concept. Return ONLY the raw JSON object. No extra text, no markdown, no apologies, and no internal constraint markers.`;
+  }
 
   const userPrompt = `Generate a "${explanationMode}" level explanation JSON for "${subCategoryName}".`;
 

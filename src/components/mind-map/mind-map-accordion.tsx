@@ -11,7 +11,8 @@ import {
     Lightbulb,
     Info,
     Sparkles,
-    BrainCircuit
+    BrainCircuit,
+    Swords
 } from 'lucide-react';
 import {
     Accordion,
@@ -25,7 +26,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { toPascalCase } from '@/lib/utils';
+import { cn, toPascalCase, cleanCitations } from '@/lib/utils';
 import { LeafNodeCard } from './leaf-node-card';
 import { Icons } from '../icons';
 import {
@@ -55,6 +56,7 @@ interface MindMapAccordionProps {
     onExplainWithExample: (node: ExplainableNode) => void;
     onStartQuiz: (topic: string) => void;
     status: MindMapStatus;
+    onPracticeClick: (topic: string) => void;
 }
 
 const InsightCard = ({ text, title, mode }: { text: string; title: string, mode: 'topic' | 'category' }) => (
@@ -68,7 +70,7 @@ const InsightCard = ({ text, title, mode }: { text: string; title: string, mode:
             <div className="relative z-10">
                 {/* Content: Pure Typography */}
                 <p className="text-base md:text-lg text-zinc-200 leading-relaxed font-serif italic text-balance">
-                    "{text}"
+                    "{cleanCitations(text)}"
                 </p>
             </div>
 
@@ -77,8 +79,6 @@ const InsightCard = ({ text, title, mode }: { text: string; title: string, mode:
         </div>
     </div>
 );
-
-import { cn } from '@/lib/utils';
 
 export const MindMapAccordion = ({
     mindMap,
@@ -96,7 +96,8 @@ export const MindMapAccordion = ({
     mainTopic,
     onExplainWithExample,
     onStartQuiz,
-    status
+    status,
+    onPracticeClick
 }: MindMapAccordionProps) => {
     const [showInsight, setShowInsight] = React.useState<string | null>(null);
 
@@ -185,6 +186,14 @@ export const MindMapAccordion = ({
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-xl" onClick={(e) => { e.stopPropagation(); onPracticeClick(subTopic.name); }}>
+                                                <Swords className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="glassmorphism"><p>Practice Arena</p></TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-10 w-10 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl" onClick={() => onExplainInChat(`Explain "${subTopic.name}" in the context of ${mindMap.topic}.`)}>
                                                 <MessageCircle className="h-5 w-5" />
                                             </Button>
@@ -256,6 +265,14 @@ export const MindMapAccordion = ({
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-orange-400 hover:bg-orange-400/10 transition-all rounded-lg" onClick={(e) => { e.stopPropagation(); onPracticeClick(category.name); }}>
+                                                                    <Swords className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="glassmorphism"><p>Practice Arena</p></TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all rounded-lg" onClick={() => onExplainInChat(`Detail the category "${category.name}" within ${subTopic.name}.`)}>
                                                                     <MessageCircle className="h-4 w-4" />
                                                                 </Button>
@@ -292,6 +309,7 @@ export const MindMapAccordion = ({
                                                                 existingExpansion={nestedExpansions.find(e => e.topic === sub.name)}
                                                                 onOpenMap={onOpenNestedMap}
                                                                 isGlobalBusy={isGlobalBusy}
+                                                                onPracticeClick={onPracticeClick}
                                                             />
                                                         ))}
                                                     </div>

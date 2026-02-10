@@ -133,6 +133,7 @@ import {
   explainNodeAction,
   explainWithExampleAction,
   summarizeTopicAction,
+  generateRelatedQuestionsAction,
 } from '@/app/actions';
 
 import {
@@ -157,6 +158,7 @@ import { MindMapAccordion } from './mind-map/mind-map-accordion';
 import { CompareView } from './mind-map/compare-view';
 import { BreadcrumbNavigation } from './breadcrumb-navigation';
 import { NestedMapsDialog } from './nested-maps-dialog';
+import { PracticeQuestionsDialog } from './practice-questions-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { ScrollArea } from './ui/scroll-area';
@@ -224,6 +226,10 @@ interface MindMapProps {
   status: MindMapStatus;
   aiHealth?: { name: string, status: string }[];
   hasUnsavedChanges?: boolean;
+  onTransform?: () => void;
+  onDeleteNestedMap?: (id: string) => void;
+  onRegenerateNestedMap?: (topic: string, id: string) => void;
+  onPracticeQuestionClick?: (question: string) => void;
 }
 
 /**
@@ -268,6 +274,10 @@ export const MindMap = ({
   status,
   aiHealth,
   hasUnsavedChanges,
+  onTransform,
+  onDeleteNestedMap,
+  onRegenerateNestedMap,
+  onPracticeQuestionClick,
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -344,7 +354,7 @@ export const MindMap = ({
 
   useEffect(() => {
     setPersonaUI(aiPersona);
-  }, [aiPersona]);
+  }, [aiPersona, data]);
 
   // Handle user-initiated changes (only trigger parent callback, don't create loop)
   const handleLanguageChangeInternal = (newLang: string) => {
@@ -379,6 +389,13 @@ export const MindMap = ({
   const [isImageLabOpen, setIsImageLabOpen] = useState(false);
   const [labNode, setLabNode] = useState<SubCategoryInfo | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Practice Mode State
+
+  const [isPracticeDialogOpen, setIsPracticeDialogOpen] = useState(false);
+  const [practiceQuestions, setPracticeQuestions] = useState<string[]>([]);
+  const [isPracticeLoading, setIsPracticeLoading] = useState(false);
+  const [practiceTopic, setPracticeTopic] = useState('');
 
 
   // State for images and expansions is initialized from data prop
@@ -731,6 +748,34 @@ export const MindMap = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExplainableNode, explanationMode, isExampleDialogOpen]);
+
+
+  const handleGeneratePracticeQuestions = async (topic: string) => {
+    setPracticeTopic(topic);
+    setIsPracticeDialogOpen(true);
+    // Clear previous if different topic? Or just always clear
+    setPracticeQuestions([]);
+    setIsPracticeLoading(true);
+
+    try {
+      const { data: qData, error } = await generateRelatedQuestionsAction({
+        topic,
+        mindMapData: toPlainObject(data)
+      }, providerOptions);
+
+      if (error) {
+        toast({ title: "Failed to generate questions", description: error, variant: "destructive" });
+      } else if (qData?.questions) {
+        setPracticeQuestions(qData.questions);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Error", description: "Could not generate practice questions.", variant: "destructive" });
+    } finally {
+      setIsPracticeLoading(false);
+    }
+  };
+
 
 
   const handleSubCategoryClick = (subCategory: SubCategoryInfo) => {
@@ -1131,6 +1176,8 @@ export const MindMap = ({
         isCompare={data.mode === 'compare'}
         onOpenSummary={handleOpenSummary}
         isSummarizing={isSummarizing}
+        onTransform={onTransform}
+
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-12">
@@ -1193,6 +1240,7 @@ export const MindMap = ({
                 onExplainWithExample={handleExplainWithExample}
                 onStartQuiz={onStartQuiz}
                 status={status}
+                onPracticeClick={handleGeneratePracticeQuestions}
               />
             )}
           </>
@@ -1283,10 +1331,19 @@ export const MindMap = ({
           path: item.path || ''
         }))}
         onDelete={(id) => {
-          toast({ description: "Nested map deleted" });
+          if (onDeleteNestedMap) {
+            onDeleteNestedMap(id);
+          } else {
+            toast({ description: "Delete not persisted (Preview Mode)" });
+          }
         }}
         onRegenerate={(parentName, id) => {
-          toast({ description: `Regenerating ${parentName}...` });
+          // Find criteria from nested item if needed, but parentName (which is actually topic in dialog) is sufficient
+          if (onRegenerateNestedMap) {
+            onRegenerateNestedMap(parentName, id);
+          } else {
+            toast({ description: `Regenerating ${parentName}... (Preview)` });
+          }
         }}
         expandingId={null}
         onExplainInChat={onExplainInChat}
@@ -1314,6 +1371,21 @@ export const MindMap = ({
           isEnhancing={isEnhancing}
         />
       )}
+
+      <PracticeQuestionsDialog
+        isOpen={isPracticeDialogOpen}
+        onClose={() => setIsPracticeDialogOpen(false)}
+        topic={practiceTopic}
+        questions={practiceQuestions}
+        isLoading={isPracticeLoading}
+        onQuestionClick={(q) => {
+          // Close dialog can be optional if we want to keep it open
+          // But changing context to chat usually implies moving attention
+          setIsPracticeDialogOpen(false);
+          if (onPracticeQuestionClick) onPracticeQuestionClick(q);
+        }}
+        onRegenerate={() => handleGeneratePracticeQuestions(practiceTopic)}
+      />
     </div>
   );
 };

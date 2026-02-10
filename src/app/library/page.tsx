@@ -39,6 +39,7 @@ import { jsPDF } from 'jspdf';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DepthBadge } from '@/components/mind-map/depth-badge';
 import { ImageGenerationDialog, ImageSettings } from '@/components/mind-map/image-generation-dialog';
+import { ChangelogDialog } from '@/components/changelog-dialog';
 
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -693,6 +694,8 @@ export default function DashboardPage() {
       .map(({ nodes, edges, subTopics, ...meta }: any) => meta);
   }, [savedMaps, searchQuery, sortOption, deletingMapIds]);
 
+  console.log('DEBUG: filteredAndSortedMaps length:', filteredAndSortedMaps.length, filteredAndSortedMaps.map(m => m.id));
+
   const handleMindMapClick = (mapId: string) => {
     router.push(`/canvas?mapId=${mapId}`);
   };
@@ -869,16 +872,17 @@ export default function DashboardPage() {
 
 
         {isMindMapsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[300px]">
             {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-64 rounded-2xl glassmorphism" />
+              <Skeleton key={i} className="h-full rounded-2xl glassmorphism" />
             ))}
           </div>
         ) : filteredAndSortedMaps.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredAndSortedMaps.map((rawMap) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[300px]">
+            {filteredAndSortedMaps.map((rawMap, idx) => {
               // Sanitize map to prevent Firestore Timestamp serialization errors
               const map = sanitizeMapForState(rawMap);
+              const mapId = map.id || `temp-map-${idx}`;
 
               // Robust date parsing for display
               const getDisplayDate = (d: any) => {
@@ -892,14 +896,15 @@ export default function DashboardPage() {
               const updatedAt = getDisplayDate(map.updatedAt) || getDisplayDate(map.createdAt);
 
 
+
               return (
                 <div
-                  key={map.id}
-                  className="group relative cursor-pointer rounded-2xl bg-[#0D0D0E] p-4 flex flex-col h-full overflow-hidden border border-white/5 transition-all duration-500 hover:border-purple-600/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] hover:-translate-y-1"
+                  key={mapId}
+                  className="group relative cursor-pointer rounded-2xl bg-[#0D0D0E] p-4 flex flex-col h-full w-full overflow-hidden border border-white/5 transition-all duration-500 hover:border-purple-600/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] hover:-translate-y-1"
                 >
-                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image" onClick={() => handleMindMapClick(map.id)}>
+                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image shrink-0" onClick={() => handleMindMapClick(mapId)}>
                     <img
-                      src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=klein-large&enhance=true`}
+                      src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
                       alt={map.topic}
                       className={cn(
                         "w-full h-full object-cover transition-all duration-700 group-hover:scale-110",
@@ -1154,7 +1159,7 @@ export default function DashboardPage() {
                 {/* Visual Preview */}
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-[#050505] mb-6">
                   <img
-                    src={selectedMapForPreview.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${selectedMapForPreview.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=klein-large&enhance=true`}
+                    src={selectedMapForPreview.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${selectedMapForPreview.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
                     alt={selectedMapForPreview.topic}
                     className={cn(
                       "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-300",
@@ -1383,6 +1388,7 @@ export default function DashboardPage() {
           isEnhancing={isEnhancingPrompt}
         />
       )}
+      <ChangelogDialog />
     </TooltipProvider >
   );
 }

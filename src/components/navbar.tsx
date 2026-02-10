@@ -66,7 +66,6 @@ export function Navbar() {
     { href: '/', label: 'Home' },
     { href: '/library', label: 'Library' },
     { href: '/community', label: 'Community' },
-    { href: '/guide', label: 'Guide' },
   ];
 
   const handleLogout = async () => {

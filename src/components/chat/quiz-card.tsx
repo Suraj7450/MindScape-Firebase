@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronRight, ChevronLeft, BrainCircuit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Quiz, QuizQuestion } from '@/ai/schemas/quiz-schema';
-import { cn } from '@/lib/utils';
+import { cn, cleanCitations } from '@/lib/utils';
 
 interface QuizCardProps {
     quiz: Quiz;
@@ -73,7 +73,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                         className="space-y-4"
                     >
                         <h4 className="text-sm md:text-base font-semibold text-white leading-relaxed font-sans normal-case">
-                            {currentQuestion.question}
+                            {cleanCitations(currentQuestion.question)}
                         </h4>
 
                         <div className="grid grid-cols-1 gap-2">
@@ -91,7 +91,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                                         )}
                                     >
                                         <div className={cn(
-                                            "w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black border transition-colors",
+                                            "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black border transition-colors flex-shrink-0",
                                             isSelected
                                                 ? "bg-primary border-primary text-white"
                                                 : "bg-zinc-950 border-white/10 text-zinc-500 group-hover:border-white/30"
@@ -102,7 +102,7 @@ export function QuizCard({ quiz, onSubmit, isSubmitting }: QuizCardProps) {
                                             "text-[13px] font-medium transition-colors leading-snug pr-6",
                                             isSelected ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
                                         )}>
-                                            {option.text}
+                                            {cleanCitations(option.text)}
                                         </span>
                                         {isSelected && (
                                             <motion.div

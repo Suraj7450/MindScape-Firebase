@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 
 // Available Pollinations models with pricing
+// Available Pollinations models with pricing
 const POLLINATIONS_MODELS = {
-  'klein-large': { cost: 0.0118, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Cinematic Quality' },
-  'klein': { cost: 0.0067, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Professional Quality' },
-  'kontext': { cost: 0.04, quality: 'contextual', description: 'FLUX.1 Kontext - High Contextual Awareness' },
-  'seedream': { cost: 0.0286, quality: 'creative', description: 'Seedream 4.0 - Artistic & Creative Flair' },
-  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini - Balanced & Logical' },
   'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - High Quality & Rapid Speed' },
   'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Maximum Performance' },
-  'nanobanana': { cost: 0.04, quality: 'niche', description: 'NanoBanana - Niche Specialist' }
+  'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Imagen 4 (alpha) - Advanced Photorealism' },
+  'klein': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Professional Quality' },
+  'klein-large': { cost: 0.012, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Cinematic Quality' },
+  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini - Balanced & Logical' }
 } as const;
 
 type ModelName = keyof typeof POLLINATIONS_MODELS | string;
@@ -107,7 +106,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['klein', 'flux', 'seedream', 'klein-large'];
+const MODEL_ROTATION_ORDER = ['flux', 'klein', 'imagen-4', 'klein-large', 'zimage'];
 
 
 /**

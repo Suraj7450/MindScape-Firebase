@@ -15,6 +15,7 @@ export function useMindMapRouter() {
         topic2: searchParams.get('topic2'),
         sessionId: searchParams.get('sessionId'),
         mapId: searchParams.get('mapId'),
+        studioId: searchParams.get('studioId'),
         lang: searchParams.get('lang') || 'en',
         depth: (searchParams.get('depth') as 'low' | 'medium' | 'deep') || 'low',
         persona: searchParams.get('persona') || 'teacher',
@@ -22,6 +23,7 @@ export function useMindMapRouter() {
         isSelfReference: searchParams.get('selfReference') === 'true',
         isRegenerating: !!searchParams.get('_r'),
         useSearch: searchParams.get('useSearch') || 'false',
+        mode: searchParams.get('mode'),
     }), [searchParams]);
 
     const navigateToMap = useCallback((id: string, topic?: string) => {

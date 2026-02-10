@@ -165,7 +165,7 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'activity'>('overview');
     const [isSyncing, setIsSyncing] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
-    const [preferredModel, setPreferredModel] = useState('klein-large');
+    const [preferredModel, setPreferredModel] = useState('flux');
     const [isSavingKey, setIsSavingKey] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
 
@@ -785,59 +785,7 @@ export default function ProfilePage() {
                                     </div>
                                 </section>
 
-                                {/* Growth Analytics */}
-                                <div className="pt-10 mt-10 border-t border-zinc-900/50">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="p-2 rounded-lg bg-violet-500/10">
-                                            <Flame className="h-4 w-4 text-violet-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-widest">Growth Analytics</h2>
-                                            <p className="text-[10px] text-zinc-500 font-medium">Visualizing your learning velocity</p>
-                                        </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-500">Session Velocity</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="h-20 flex items-end gap-1.5 pt-2">
-                                                    {[40, 70, 45, 90, 65, 30, 85].map((h, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className="flex-1 bg-gradient-to-t from-violet-600/20 to-violet-500/60 rounded-t-sm hover:to-violet-400 transition-all cursor-crosshair"
-                                                            style={{ height: `${h}%` }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-500">Topic Diversity</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-4 pt-2">
-                                                {[
-                                                    { label: 'Technology', val: 85, color: 'bg-blue-400' },
-                                                    { label: 'Creative', val: 65, color: 'bg-violet-400' },
-                                                ].map((cluster, i) => (
-                                                    <div key={i} className="space-y-1.5">
-                                                        <div className="flex justify-between text-[10px] items-center">
-                                                            <span className="font-bold text-zinc-500 uppercase tracking-tighter">{cluster.label}</span>
-                                                            <span className="font-mono text-zinc-400">{cluster.val}%</span>
-                                                        </div>
-                                                        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                                                            <div className={`h-full ${cluster.color} opacity-60 transition-all duration-1000`} style={{ width: `${cluster.val}%` }} />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </div>
                             </div>
                         )}
 

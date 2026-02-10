@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { RelatedQuestionsOutputSchema, RelatedQuestionsOutput } from '@/ai/schemas/related-questions-schema';
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
+import { mindscapeMap } from '@/lib/mindscape-data';
 
 const RelatedQuestionsInputSchema = z.object({
     topic: z.string().describe('The primary topic of the mind map.'),
@@ -27,7 +28,33 @@ export async function generateRelatedQuestions(
         `Mind Map Structure: ${JSON.stringify(mindMapData).substring(0, 2000)}...` :
         'No additional mind map structure provided.';
 
-    const systemPrompt = `You are **MindSpark** ✨, an intelligent assistant focused on deepening user understanding within the **MindScape** application.
+    const isUserGuideMode = topic.toLowerCase() === 'mindscape';
+    let systemPrompt = '';
+
+    if (isUserGuideMode) {
+        systemPrompt = `You are the official **MindScape User Guide Assistant**.
+        The user is exploring the "MindScape" application features via the self-reference map.
+        
+        ## 📘 Official Feature Map (Source of Truth)
+        ${JSON.stringify(mindscapeMap).substring(0, 5000)}
+        
+        ${historyText ? `**Recent conversation**:\n${historyText}` : ''}
+        
+        ## 🎯 Your Task
+        Suggest 3-4 natural follow-up questions that help the user discover MindScape's capabilities.
+        Questions should be about:
+        - Specific features (e.g., "how to use practice mode", "what is knowledge studio")
+        - Workflows (e.g., "how to publish a map", "how to compare topics")
+        - Technical details (e.g., "what AI models are used")
+        
+        The output MUST be a valid JSON object:
+        {
+          "questions": ["Question 1?", "Question 2?", "Question 3?"]
+        }
+        
+        IMPORTANT: Return ONLY the raw JSON object. Questions should be from the user's perspective (e.g. "How do I...?").`;
+    } else {
+        systemPrompt = `You are **MindSpark** ✨, an intelligent assistant focused on deepening user understanding within the **MindScape** application.
 Your goal is to suggest 3-4 natural, engaging, and relevant follow-up questions that a user might want to ask next based on their current mind map and conversation.
 
 🧠 **Main Topic**: ${topic}
@@ -52,6 +79,7 @@ The output MUST be a valid JSON object:
 }
 
 IMPORTANT: Return ONLY the raw JSON object.`;
+    }
 
     const userPrompt = "Generate the related questions.";
 

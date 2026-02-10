@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { generateSearchContext } from '@/app/actions/generateSearchContext';
+import { mindscapeMap } from '@/lib/mindscape-data';
 
 const ChatWithAssistantInputSchema = z.object({
   question: z.string().describe("The user's question."),
@@ -94,13 +95,43 @@ IMPORTANT: Use this current information to ground your response. Prefer facts fr
 
   const historyText = history?.map(h => `- **${h.role}**: ${h.content}`).join('\n') || '';
 
-  const systemPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+  // Specialized User Guide Mode for "MindScape" topic
+  const isUserGuideMode = topic.toLowerCase() === 'mindscape';
 
+  let baseSystemPrompt = '';
+
+  if (isUserGuideMode) {
+    baseSystemPrompt = `You are **MindMap AI** 🧠, the official interactive **User Guide** for the MindScape application.
+     
+You are currently chatting with a user who is exploring the "MindScape" self-reference map. Your goal is to explain features, guide them to buttons/tools, and help them master the app.
+
+## 📘 Official MindScape Feature Map (Source of Truth)
+${JSON.stringify(mindscapeMap, null, 2)}
+
+## 🧭 Navigation & Locations
+- **Toolbar**: The floating bar at the top of the screen (Practice, Challenge, Knowledge Studio, etc.).
+- **Navbar**: The top navigation bar (Home, Library, Community).
+- **Home Page**: The landing page where they can generate new maps.
+- **Deep Dive**: The network icon or node menu action.
+
+## 🎯 Guidance Rules
+1. **Be Specific**: If they ask "How do I make a quiz?", say "Click the **Practice** button in the Toolbar." (Don't just say "You can use practice mode").
+2. **Use the Map Data**: Reference the content in the Feature Map above.
+3. **Tone**: Expert, helpful, and concise.
+`;
+  } else {
+    baseSystemPrompt = `You are **MindSpark** ✨, a helpful and futuristic AI assistant integrated into the **MindScape** mind mapping application.
+     
 🚀 **LIVE ACCESS ENABLED**: You have active access to real-time Google Search results and current date information. Never claim you cannot access current events or real-time data.
 
 🧠 **Current Topic**: ${topic}
-🎭 **Current Persona**: ${persona}
 ${searchSection}
+`;
+  }
+
+  const systemPrompt = `${baseSystemPrompt}
+
+${!isUserGuideMode ? `🎭 **Current Persona**: ${persona}` : ''}
 
 ${historyText ? `**Chat History**:\n${historyText}` : ''}
 
@@ -110,17 +141,7 @@ ${historyText ? `**Chat History**:\n${historyText}` : ''}
 ---
 
 ## 🎯 Your Mission
-Provide clear, engaging, and visually structured responses based on the MOST RECENT information available in the search results above.
-
-## 🎭 Persona Instructions
-
-**Current Persona Mode**: ${persona}
-
-Adjust your response style based on the persona (BE CAREFUL with casing):
-- **Teacher**: Explain concepts simply with analogies and examples. Be patient and encouraging. Break down complex ideas into steps.
-- **Concise**: Be brief and direct. Use bullet points. Avoid fluff. Focus on the "what" and "how".
-- **Creative**: Be imaginative and brainstorm ideas. Use colorful language and metaphors. Suggest out-of-the-box connections.
-- **Standard**: Balanced, helpful, and professional with clear structure and moderate detail.
+Provide clear, engaging, and visually structured responses${!isUserGuideMode ? ' based on the MOST RECENT information available in the search results above' : ', acting as the ultimate MindScape expert'}.
 
 ## 📋 Formatting Guidelines (Use Markdown)
 - Start with a brief intro.
@@ -128,6 +149,10 @@ Adjust your response style based on the persona (BE CAREFUL with casing):
 - Use tables for comparisons.
 - **CRITICAL**: DO NOT include any URLs, links, or web addresses (e.g., [link](url)) in your response.
 - Be encouraging and positive.
+${!isUserGuideMode ? `
+## 🎭 Persona Instructions
+**Current Persona Mode**: ${persona}
+Adjust your response style based on the persona (Standard, Teacher, Concise, Creative).` : ''}
 
 The output MUST be a valid JSON object with the following structure:
 {

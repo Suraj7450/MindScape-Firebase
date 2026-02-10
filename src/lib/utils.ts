@@ -12,6 +12,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Removes citation numbers in brackets (e.g., [1], [2], [1][4]).
+ * @param {string} text - The text to clean.
+ * @returns {string} The cleaned text.
+ */
+export const cleanCitations = (text: string): string => {
+  if (!text) return '';
+  // Match [1], [2], [10] etc. Global flag handles multiple occurrences.
+  return text.replace(/\[\d+\]/g, '').trim();
+};
+
+/**
  * Formats a block of text, converting markdown-style syntax to HTML.
  * Supports: headings, bold, italic, code, lists, tables, and emojis.
  * @param {string} text - The block of text to format.
@@ -20,7 +31,9 @@ export function cn(...inputs: ClassValue[]) {
 export const formatText = (text: string): string => {
   if (!text) return '';
 
-  const lines = text.split('\n');
+  // Clean citations first
+  const cleanedText = cleanCitations(text);
+  const lines = cleanedText.split('\n');
   let html = '';
   let inList = false;
   let listType: 'ul' | 'ol' | null = null;

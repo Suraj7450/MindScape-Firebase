@@ -181,7 +181,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: thumbnailPrompt,
-                            model: userSettings?.preferredModel || 'klein-large',
+                            model: userSettings?.preferredModel || 'flux',
                             width: 512,
                             height: 288,
                             userId: user.uid,
@@ -196,7 +196,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         console.log('✅ Background thumbnail generated:', data.model);
                     } else {
                         // Fallback to direct URL if API fails
-                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=klein-large&width=512&height=288&nologo=true&enhance=true`;
+                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=flux&width=512&height=288&nologo=true&enhance=true`;
                         console.log('⚠️ Using fallback thumbnail URL');
                     }
 
@@ -241,24 +241,33 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             };
 
             // HELPER: Firestore doesn't allow 'undefined' fields anywhere in the document structure.
-            // We recursively strip them while keeping Firestore FieldValues (like serverTimestamp) intact.
-            const clean = (obj: any): any => {
+            // We recursively strip them while keeping Firestore FieldValues intact and handling cycles.
+            const clean = (obj: any, seen = new WeakSet()): any => {
                 if (obj === null || typeof obj !== 'object') return obj;
 
+                // Prevent circular references/infinite recursion
+                if (seen.has(obj)) {
+                    return undefined; // Or return a placeholder if strictly needed, but undefined removes the key
+                }
+
                 // Don't recurse into Firestore FieldValues or Timestamps
-                // These are special objects used by the Firebase SDK
                 if (obj.constructor?.name === 'FieldValue' || obj.constructor?.name === 'Timestamp' || obj._methodName === 'serverTimestamp') {
                     return obj;
                 }
 
+                seen.add(obj);
+
                 if (Array.isArray(obj)) {
-                    return obj.map(item => clean(item));
+                    return obj.map(item => clean(item, seen));
                 }
 
                 const newObj: any = {};
                 Object.keys(obj).forEach(key => {
                     if (obj[key] !== undefined) {
-                        newObj[key] = clean(obj[key]);
+                        const cleaned = clean(obj[key], seen);
+                        if (cleaned !== undefined) {
+                            newObj[key] = cleaned;
+                        }
                     }
                 });
                 return newObj;

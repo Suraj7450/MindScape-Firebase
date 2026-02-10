@@ -22,7 +22,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { cn, toPascalCase } from '@/lib/utils';
+import { cn, toPascalCase, cleanCitations } from '@/lib/utils';
 import { SubCategory, MindMapData } from '@/types/mind-map';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -41,6 +41,7 @@ interface LeafNodeCardProps {
     onOpenMap?: (mapData: MindMapData, id: string) => void;
     onStartQuiz: (topic: string) => void;
     isGlobalBusy?: boolean;
+    onPracticeClick: (topic: string) => void;
 }
 
 export const LeafNodeCard = memo(function LeafNodeCard({
@@ -57,8 +58,9 @@ export const LeafNodeCard = memo(function LeafNodeCard({
     onOpenMap,
     onStartQuiz,
     isGlobalBusy = false,
+    onPracticeClick,
 }: LeafNodeCardProps) {
-    const Icon = (LucideIcons as any)[toPascalCase(node.icon)] || FileText;
+    const Icon = (LucideIcons as any)[toPascalCase(node.icon || 'FileText')] || FileText;
 
     const { toast } = useToast();
     const [isCopied, setIsCopied] = useState(false);
@@ -106,7 +108,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                     </div>
                     <div className="flex-1 min-w-0">
                         <h4 className="text-base font-semibold text-zinc-100 leading-snug group-hover/item:text-white transition-colors">
-                            {node.name}
+                            {cleanCitations(node.name)}
                         </h4>
                         <div className="flex items-center mt-1 gap-2">
                             {existingExpansion && <Badge variant="outline" className="text-[10px] h-4 py-0 px-1.5 border-emerald-500/30 text-emerald-400 font-medium bg-emerald-500/5">Expanded</Badge>}
@@ -115,7 +117,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                 </div>
 
                 <p className="text-sm text-zinc-400 leading-relaxed mb-6 flex-grow group-hover/item:text-zinc-300 transition-colors">
-                    {node.description}
+                    {cleanCitations(node.description)}
                 </p>
 
                 <div className="flex items-center justify-between gap-2 mt-auto pt-4 border-t border-white/5">
@@ -165,6 +167,18 @@ export const LeafNodeCard = memo(function LeafNodeCard({
 
                             <Tooltip>
                                 <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-orange-400 hover:bg-orange-400/10 transition-all" onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPracticeClick(node.name);
+                                    }}>
+                                        <LucideIcons.Swords className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="glassmorphism"><p>Practice Arena</p></TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-zinc-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all" onClick={handleChatClick}>
                                         <MessageCircle className="h-4 w-4" />
                                     </Button>
@@ -191,7 +205,7 @@ export const LeafNodeCard = memo(function LeafNodeCard({
                         variant="ghost"
                         className="h-8 py-0 px-3 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 rounded-full group-hover/item:bg-primary/20 group-hover/item:text-primary transition-all flex items-center gap-1"
                     >
-                        Details <ArrowRight className="w-3 h-3 group-hover/item:translate-x-1 transition-transform" />
+                        More <ArrowRight className="w-3 h-3 group-hover/item:translate-x-1 transition-transform" />
                     </Button>
                 </div>
             </div>

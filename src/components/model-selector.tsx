@@ -4,51 +4,6 @@ import { Sparkles, Zap, Crown, Palette, Monitor, Cloud } from 'lucide-react';
 
 export const POLLINATIONS_MODELS = [
     {
-        value: 'klein-large',
-        label: 'FLUX.2 Klein 9B',
-        cost: 0.0118,
-        badge: 'Ultra',
-        icon: Crown,
-        description: 'Ultra Cinematic Quality - Highest detail and fidelity',
-        isNew: true
-    },
-    {
-        value: 'klein',
-        label: 'FLUX.2 Klein 4B',
-        cost: 0.0067,
-        badge: 'Premium',
-        icon: Sparkles,
-        description: 'Premium Professional - Sharp details and realistic lighting',
-        isNew: true
-    },
-    {
-        value: 'kontext',
-        label: 'FLUX.1 Kontext',
-        cost: 0.04,
-        badge: 'Contextual',
-        icon: Palette,
-        description: 'High Contextual Awareness - Best for complex scene descriptions',
-        isNew: false
-    },
-    {
-        value: 'seedream',
-        label: 'Seedream 4.0',
-        cost: 0.0286,
-        badge: 'Creative',
-        icon: Cloud,
-        description: 'Artistic & Creative Flair - Vivid, imaginative dream-like styles',
-        isNew: true
-    },
-    {
-        value: 'gptimage',
-        label: 'GPT Image 1 Mini',
-        cost: 0.0133,
-        badge: 'Balanced',
-        icon: Monitor,
-        description: 'Balanced & Logical - Consistent and reliable composition',
-        isNew: true
-    },
-    {
         value: 'flux',
         label: 'Flux Schnell',
         cost: 0.0002,
@@ -67,12 +22,39 @@ export const POLLINATIONS_MODELS = [
         isNew: false
     },
     {
-        value: 'nanobanana',
-        label: 'NanoBanana',
-        cost: 0.04,
-        badge: 'Niche',
-        icon: Zap,
-        description: 'Niche Specialist - Specialized creative generation',
+        value: 'imagen-4',
+        label: 'Imagen 4 (alpha)',
+        cost: 0.0025,
+        badge: 'Alpha',
+        icon: Sparkles,
+        description: 'Advanced Photorealism - Experimental alpha release',
+        isNew: true
+    },
+    {
+        value: 'klein',
+        label: 'FLUX.2 Klein 4B',
+        cost: 0.008,
+        badge: 'Premium',
+        icon: Sparkles,
+        description: 'Premium Professional - Sharp details and realistic lighting',
+        isNew: true
+    },
+    {
+        value: 'klein-large',
+        label: 'FLUX.2 Klein 9B',
+        cost: 0.012,
+        badge: 'Ultra',
+        icon: Crown,
+        description: 'Ultra Cinematic Quality - Highest detail and fidelity',
+        isNew: true
+    },
+    {
+        value: 'gptimage',
+        label: 'GPT Image 1 Mini',
+        cost: 0.0133,
+        badge: 'Balanced',
+        icon: Monitor,
+        description: 'Balanced & Logical - Consistent and reliable composition',
         isNew: true
     }
 ] as const;

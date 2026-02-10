@@ -1,5 +1,6 @@
 
 'use server';
+'use server';
 import { AIProvider } from '@/ai/client-dispatcher';
 import { providerMonitor } from '@/ai/provider-monitor';
 import {
@@ -49,11 +50,14 @@ import type {
   ConversationalMindMapInput,
   ConversationalMindMapOutput,
 } from '@/ai/schemas/conversational-mind-map-schema';
+import type { BrainstormOutputType } from '@/ai/schemas/brainstorm-wizard-schema';
 import {
   enhanceImagePrompt,
   EnhanceImagePromptInput,
   EnhanceImagePromptOutput,
 } from '@/ai/flows/enhance-image-prompt';
+import { brainstormWizard } from '@/ai/flows/brainstorm-wizard';
+import { BrainstormWizardInput, BrainstormWizardOutput } from '@/ai/schemas/brainstorm-wizard-schema';
 
 
 import {
@@ -82,7 +86,7 @@ import { generateSearchContext } from './actions/generateSearchContext';
  * Ensures AI-generated data strictly adheres to the frontend MindMapData interface.
  * Fills in default values for required fields like tags and isExpanded.
  */
-function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): MindMapData {
+export async function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep' = 'low'): Promise<MindMapData> {
   if (raw.mode === 'compare' || raw.compareData) {
     // If the data is already in the new nested compareData format, pass it through
     if (raw.compareData) {
@@ -237,7 +241,7 @@ export async function generateMindMapAction(
 
     if (!result) return { data: null, error: 'AI failed to generate content.' };
 
-    const sanitized = mapToMindMapData(result, input.depth || 'low');
+    const sanitized = await mapToMindMapData(result, input.depth || 'low');
 
     // Attach search metadata if search was used
     if (searchContext && searchContext.sources.length > 0) {
@@ -298,7 +302,7 @@ export async function generateMindMapFromImageAction(
     const rawResult = await generateMindMapFromImage({ ...input, depth, ...options, apiKey: effectiveApiKey });
     if (!rawResult) return { data: null, error: 'AI failed to process image.' };
 
-    const sanitized = mapToMindMapData(rawResult, depth);
+    const sanitized = await mapToMindMapData(rawResult, depth);
     return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromImageAction:', error);
@@ -330,7 +334,7 @@ export async function generateMindMapFromTextAction(
     const result = await generateMindMapFromText({ ...input, depth, ...options, apiKey: effectiveApiKey });
     if (!result) return { data: null, error: 'AI failed to process text.' };
 
-    const sanitized = mapToMindMapData(result, depth);
+    const sanitized = await mapToMindMapData(result, depth);
     return { data: sanitized, error: null };
   } catch (error) {
     console.error('Error in generateMindMapFromTextAction:', error);
@@ -407,7 +411,7 @@ export async function translateMindMapAction(
     const effectiveApiKey = await resolveApiKey(options);
     const result = await translateMindMap({ ...input, ...options, apiKey: effectiveApiKey });
     if (!result) return { translation: null, error: 'AI failed to get translation.' };
-    const sanitized = mapToMindMapData(result);
+    const sanitized = await mapToMindMapData(result);
     return { translation: sanitized, error: null };
   } catch (error) {
     console.error(error);
@@ -509,6 +513,140 @@ export async function conversationalMindMapAction(
       response: null,
       error: `Failed to process conversational turn. ${errorMessage}`,
     };
+  }
+}
+
+/**
+ * Server action for the structured brainstorm wizard.
+ */
+export async function brainstormWizardAction(
+  input: BrainstormWizardInput,
+  options: { apiKey?: string; provider?: AIProvider } = {}
+): Promise<{ response: BrainstormWizardOutput | null; error: string | null }> {
+  try {
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await brainstormWizard({ ...input, ...options, apiKey: effectiveApiKey });
+
+    // Sanitize the mind map if it's the final step
+    if (result.step === 'FINALIZE' && result.mindMap) {
+      try {
+        // We cast to any here because mapToMindMapData returns a broader MindMapData type
+        // but we want to keep the response structure consistent for the caller.
+        result.mindMap = (await mapToMindMapData(result.mindMap, input.depth as any || 'low')) as any;
+      } catch (e) {
+        console.error('Failed to sanitize brainstormed mind map:', e);
+      }
+    }
+
+    console.log(`[brainstormWizardAction] Final response shape:`, {
+      step: result.step,
+      hasMindMap: !!(result as any).mindMap,
+      resultKeys: Object.keys(result)
+    });
+    return { response: result, error: null };
+  } catch (error) {
+    console.error('Error in brainstormWizardAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { response: null, error: errorMessage };
+  }
+}
+
+/**
+ * Server action to transform an existing mind map into a different Knowledge Studio format.
+ * @param {MindMapData} sourceMap - The source mind map to transform.
+ * @param {BrainstormOutputType} targetFormat - The target format (dossier, quiz, etc.).
+ * @returns {Promise<{ response: any | null; error: string | null }>} The transformed content or an error.
+ */
+export async function transformMindMapAction(
+  sourceMap: MindMapData,
+  targetFormat: BrainstormOutputType,
+  useSearch: boolean = false,
+  options: { apiKey?: string; provider?: AIProvider } = {}
+): Promise<{ response: any | null; error: string | null }> {
+  try {
+    // Extract structure from the mind map
+    const selections: Record<string, string[]> = {};
+
+    // Convert mind map structure to selections format
+    // Only process single mind maps (not compare mode)
+    if (sourceMap.mode === 'single' && 'subTopics' in sourceMap && sourceMap.subTopics) {
+      sourceMap.subTopics.forEach((subTopic: any) => {
+        const aspectName = subTopic.name;
+        const categories: string[] = [];
+
+        if (subTopic.categories) {
+          subTopic.categories.forEach((cat: any) => {
+            categories.push(cat.name);
+          });
+        }
+        selections[aspectName] = categories;
+      });
+    }
+
+    console.log('[transformMindMapAction] Extracted selections:', selections);
+
+    let searchContext = undefined;
+    if (useSearch) {
+      console.log('[transformMindMapAction] 🔍 Real-time search enabled for topic:', sourceMap.topic);
+      const searchResult = await generateSearchContext({
+        query: sourceMap.topic,
+        depth: 'deep',
+        maxResults: 5,
+        apiKey: options.apiKey,
+        provider: options.provider
+      });
+
+      if (searchResult.data) {
+        console.log(`[transformMindMapAction] ✅ Search context retrieved: ${searchResult.data.sources.length} sources`);
+        searchContext = searchResult.data;
+      } else {
+        console.warn(`[transformMindMapAction] ⚠️ Search failed: ${searchResult.error}`);
+      }
+    }
+
+    // Call brainstormWizard with FINALIZE step
+    const result = await brainstormWizardAction(
+      {
+        step: 'FINALIZE',
+        topic: sourceMap.topic,
+        language: 'en',
+        outputType: targetFormat,
+        selections,
+        depth: 'medium',
+        searchContext: searchContext
+      },
+      options
+    );
+
+    if (result.error || !result.response) {
+      return { response: null, error: result.error || 'Transformation failed' };
+    }
+
+    // Extract the appropriate data field based on format
+    const finalizeResult = result.response as any;
+    let transformedData: any;
+
+    if (targetFormat === 'mindmap' || targetFormat === 'roadmap') {
+      transformedData = finalizeResult.mindMap;
+    } else if (targetFormat === 'dossier' || targetFormat === 'pitch' || targetFormat === 'premortem') {
+      transformedData = finalizeResult.content;
+    } else if (targetFormat === 'quiz') {
+      transformedData = finalizeResult.quiz;
+    } else if (targetFormat === 'social') {
+      transformedData = finalizeResult.social;
+
+
+    }
+
+    if (!transformedData) {
+      return { response: null, error: 'AI did not return data in the expected format' };
+    }
+
+    return { response: transformedData, error: null };
+  } catch (error) {
+    console.error('Error in transformMindMapAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { response: null, error: errorMessage };
   }
 }
 
@@ -665,7 +803,7 @@ export async function generateComparisonMapAction(
 
     if (!result) return { data: null, error: 'AI failed to generate comparison.' };
 
-    const sanitized = mapToMindMapData(result, input.depth || 'low');
+    const sanitized = await mapToMindMapData(result, input.depth || 'low');
 
     // Attach search metadata if search was used
     if (searchContextA || searchContextB) {

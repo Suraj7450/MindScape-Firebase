@@ -19,7 +19,7 @@ export function ImageGenerationSettings() {
     const { toast } = useToast();
 
     const [apiKey, setApiKey] = useState('');
-    const [preferredModel, setPreferredModel] = useState('klein-large');
+    const [preferredModel, setPreferredModel] = useState('flux');
     const [showApiKey, setShowApiKey] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);

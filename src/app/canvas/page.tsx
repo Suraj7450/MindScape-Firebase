@@ -16,6 +16,8 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
 
 import { SearchReferencesPanel } from '@/components/canvas/SearchReferencesPanel';
 import { QueryIntel } from '@/components/query-intel';
+import { StudioRenderer } from '@/components/studio-renderer';
+import { TransformStudioDialog } from '@/components/transform-studio-dialog';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +52,7 @@ import {
   generateMindMapFromImageAction,
   generateMindMapFromTextAction,
   generateComparisonMapAction,
+  mapToMindMapData,
 } from '@/app/actions';
 import { toPlainObject } from '@/lib/serialize';
 import { mindscapeMap } from '@/lib/mindscape-data';
@@ -76,12 +79,18 @@ function MindMapPageContent() {
   const [mode, setMode] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
-  const [chatMode, setChatMode] = useState<'chat' | 'quiz'>('chat');
+  const [chatMode, setChatMode] = useState<'chat' | 'quiz' | 'brainstorm'>('chat');
   const [chatTopic, setChatTopic] = useState<string | undefined>(undefined);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isRegenDialogOpen, setIsRegenDialogOpen] = useState(false);
   const [tempPersona, setTempPersona] = useState<string>('Standard');
   const [tempDepth, setTempDepth] = useState<'low' | 'medium' | 'deep'>('low');
+  const [isTransformDialogOpen, setIsTransformDialogOpen] = useState(false);
+  const [transformedStudioData, setTransformedStudioData] = useState<any | null>(null);
+  const [transformedStudioType, setTransformedStudioType] = useState<string | null>(null);
+  const [showReferences, setShowReferences] = useState(false);
+  const [studioData, setStudioData] = useState<any | null>(null);
+  const [studioType, setStudioType] = useState<string | null>(null);
 
   const aiHealth = useAIHealth();
   const handleUpdateRef = useRef<(data: Partial<MindMapData>) => void>(() => { });
@@ -254,7 +263,23 @@ function MindMapPageContent() {
           }
         } else if (params.mapId) {
           currentMode = 'saved';
-          if (user) {
+
+          // Check if this is a fresh brainstorm result in session storage
+          const brainstormData = sessionStorage.getItem(`brainstorm-map-${params.mapId}`);
+          if (brainstormData) {
+            try {
+              const rawData = JSON.parse(brainstormData);
+              // SANITIZE!
+              result.data = await mapToMindMapData(rawData, params.depth as any || 'low') as MindMapWithId;
+              result.data.id = params.mapId;
+              // We'll keep it in session storage for a bit, OR we can remove it now
+              // sessionStorage.removeItem(`brainstorm-map-${params.mapId}`);
+            } catch (e) {
+              console.error('Failed to parse brainstorm map from session storage', e);
+            }
+          }
+
+          if (!result.data && user) {
             // Fetch from user's collection (Metadata + Conditional Content)
             const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
             const docSnap = await getDoc(docRef);
@@ -290,27 +315,36 @@ function MindMapPageContent() {
                   const subMapsSnap = await getDocs(subMapsQuery);
 
                   if (!subMapsSnap.empty) {
-                    const nestedExpansions: NestedExpansionItem[] = subMapsSnap.docs.map(doc => {
+                    const existingExpansions = result.data.nestedExpansions || [];
+                    const existingIds = new Set(existingExpansions.map(e => e.id));
+
+                    const newNestedExpansions: NestedExpansionItem[] = [];
+
+                    subMapsSnap.docs.forEach(doc => {
+                      if (existingIds.has(doc.id)) return;
+
                       const subMapData = { ...doc.data(), id: doc.id } as MindMapWithId;
-                      return {
+                      newNestedExpansions.push({
                         id: doc.id,
                         topic: subMapData.topic,
                         parentName: result.data!.topic,
                         icon: subMapData.icon || 'network',
                         status: 'completed' as const,
-                        timestamp: subMapData.createdAt ? (typeof subMapData.createdAt === 'number' ? subMapData.createdAt : subMapData.createdAt.toMillis()) : Date.now(),
+
                         fullData: subMapData,
                         createdAt: subMapData.createdAt ? (typeof subMapData.createdAt === 'number' ? subMapData.createdAt : subMapData.createdAt.toMillis()) : Date.now(),
                         depth: (subMapData as any).depth || 1,
                         subCategories: []
-                      };
+                      });
                     });
 
-                    // Add nested expansions to the loaded map data
-                    result.data = {
-                      ...result.data,
-                      nestedExpansions: [...(result.data.nestedExpansions || []), ...nestedExpansions]
-                    };
+                    // Add unique nested expansions to the loaded map data
+                    if (newNestedExpansions.length > 0) {
+                      result.data = {
+                        ...result.data,
+                        nestedExpansions: [...existingExpansions, ...newNestedExpansions]
+                      };
+                    }
                   }
                 } catch (err) {
                   console.error('Failed to load nested expansions:', err);
@@ -338,6 +372,14 @@ function MindMapPageContent() {
           if (!result.data && !result.error) {
             result.error = "Mind map not found or you don't have permission to view it.";
           }
+        } else if (params.mode === 'brainstorm') {
+          currentMode = 'brainstorm';
+          setIsLoading(false);
+          setIsChatOpen(true);
+          setChatMode('brainstorm');
+          setChatTopic(params.topic || 'New Discovery');
+          setChatInitialMessage(params.topic || undefined);
+          return;
         } else if (params.topic1 && params.topic2) {
           if (params.topic1.trim().toLowerCase() === params.topic2.trim().toLowerCase()) {
             throw new Error('Comparison requires two different topics.');
@@ -475,6 +517,26 @@ function MindMapPageContent() {
               }
             });
           }
+        } else if (params.studioId) {
+          // Handle studio content from brainstorm wizard
+          const rawStudioData = sessionStorage.getItem(`studio-data-${params.studioId}`);
+          if (rawStudioData) {
+            try {
+              const parsed = JSON.parse(rawStudioData);
+              setStudioData(parsed);
+              setStudioType(parsed.type);
+              // If it's map-related, also load into the mind map view
+              if (parsed.type === 'mindmap' || parsed.type === 'roadmap') {
+                result.data = await mapToMindMapData(parsed.data, params.depth as any || 'low') as MindMapWithId;
+                result.data.id = params.studioId;
+              }
+            } catch (e) {
+              console.error('Failed to parse studio data', e);
+            }
+          }
+        } else {
+          setIsLoading(false);
+          return;
         }
       } catch (e: any) {
         const errorMessage = e.message || 'An unknown error occurred.';
@@ -623,6 +685,57 @@ function MindMapPageContent() {
     }
   }, [user, firestore, expandNode, mindMaps.length, setMindMaps, setActiveMindMapIndex, toast]);
 
+  const handleDeleteNestedMap = useCallback(async (id: string) => {
+    if (!mindMap) return;
+    const updatedExpansions = (mindMap.nestedExpansions || []).filter(e => e.id !== id);
+
+    // Create the updated map object
+    const updatedMap = { ...mindMap, nestedExpansions: updatedExpansions };
+
+    // Update local state
+    handleUpdateCurrentMap({ nestedExpansions: updatedExpansions });
+
+    // Directly persist the updated map to avoid race condition
+    // where handleSaveMapFromHook might save the old state
+    if (mindMap.id) {
+      try {
+        await handleSaveMap(updatedMap, mindMap.id, true);
+      } catch (err) {
+        console.error("Failed to persist nested map deletion:", err);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save the deletion." });
+        return;
+      }
+    }
+
+    // Unlink the sub-map in Firestore (remove parentMapId)
+    if (user && firestore) {
+      try {
+        const subMapRef = doc(firestore, 'users', user.uid, 'mindmaps', id);
+        await updateDoc(subMapRef, { parentMapId: null } as any);
+      } catch (err) {
+        console.error("Failed to unlink sub-map:", err);
+      }
+    }
+
+    toast({ title: "Nested Map Deleted", description: "The link has been removed." });
+  }, [mindMap, handleUpdateCurrentMap, handleSaveMap, toast, user, firestore]);
+
+  const handleRegenerateNestedMap = useCallback(async (topic: string, id: string) => {
+    if (!mindMap) return;
+
+    // 1. Remove the old nested map reference first so expandNode allows adding it back
+    const updatedExpansions = (mindMap.nestedExpansions || []).filter(e => e.id !== id);
+    handleUpdateCurrentMap({ nestedExpansions: updatedExpansions });
+
+    // 2. Generate new map (background)
+    toast({ title: "Regenerating Sub-map", description: `Creating fresh insights for "${topic}"...` });
+    try {
+      await expandNode(topic, `regen-${Date.now()}`, { mode: 'background' });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Regeneration Failed", description: "Could not create new map." });
+    }
+  }, [mindMap, handleUpdateCurrentMap, expandNode, toast]);
+
   const handleBreadcrumbSelect = useCallback((index: number) => {
     setActiveMindMapIndex(index);
     const activeMap = mindMaps[index];
@@ -632,19 +745,30 @@ function MindMapPageContent() {
   }, [mindMaps, navigateToMap, setActiveMindMapIndex]);
 
   const handleOpenNestedMap = useCallback(async (mapData: any, expansionId: string) => {
-    if (!mapData) {
+    // If neither mapData nor expansionId is provided, we can't proceed
+    if (!mapData && !expansionId) {
       toast({ variant: "destructive", title: "Cannot Open Map", description: "This map data is not available." });
       return;
     }
 
-    let finalMapData = mapData;
-    const mapIdToFetch = mapData.id || expansionId;
+    let finalMapData = mapData || { id: expansionId };
+    const mapIdToFetch = mapData?.id || expansionId;
     if (mapIdToFetch && user && firestore) {
       try {
         const snap = await getDoc(doc(firestore, 'users', user.uid, 'mindmaps', mapIdToFetch));
-        if (snap.exists()) finalMapData = { ...snap.data(), id: snap.id };
+        if (snap.exists()) {
+          finalMapData = { ...snap.data(), id: snap.id };
+        } else if (!mapData) {
+          // If we couldn't fetch and have no fallback data, show error
+          toast({ variant: "destructive", title: "Cannot Open Map", description: "This map could not be found." });
+          return;
+        }
       } catch (e) {
-        console.warn("Using cached sub-map data.", e);
+        console.warn("Error fetching sub-map data.", e);
+        if (!mapData) {
+          toast({ variant: "destructive", title: "Cannot Open Map", description: "Failed to load map data." });
+          return;
+        }
       }
     }
 
@@ -733,6 +857,10 @@ function MindMapPageContent() {
             onUpdate={onMapUpdate}
             status={hookStatus}
             aiHealth={aiHealth}
+            onTransform={() => setIsTransformDialogOpen(true)}
+            onDeleteNestedMap={handleDeleteNestedMap}
+            onRegenerateNestedMap={handleRegenerateNestedMap}
+            onPracticeQuestionClick={handleExplainInChat}
           />
 
           {/* Search References Panel */}
@@ -848,18 +976,97 @@ function MindMapPageContent() {
       >
         <Sparkles className="h-6 w-6" />
       </button>
+      {/* TODO: SearchReferencesPanel component needs to be created */}
+      {/* {showReferences && <SearchReferencesPanel onClose={() => setShowReferences(false)} />} */}
+
+      {studioData && (
+        <StudioRenderer
+          data={studioData.data}
+          type={studioData.type}
+          topic={studioData.topic || 'Brainstorm Output'}
+          onClose={() => setStudioData(null)}
+        />
+      )}
+
+      {/* Transformed Studio Content */}
+      {transformedStudioData && transformedStudioType && (
+        <StudioRenderer
+          data={transformedStudioData}
+          type={transformedStudioType}
+          topic={mindMap?.topic || 'Transformed Content'}
+          onClose={() => {
+            setTransformedStudioData(null);
+            setTransformedStudioType(null);
+          }}
+        />
+      )}
+
+      {/* Transform Studio Dialog */}
+      <TransformStudioDialog
+        isOpen={isTransformDialogOpen}
+        onClose={() => setIsTransformDialogOpen(false)}
+        sourceMap={mindMap}
+        onTransformComplete={(data, type) => {
+          if (type === 'mindmap' || type === 'roadmap') {
+            const newMapId = data.id || `transform-${Date.now()}`;
+            // Mark as sub-map and link to parent
+            const newMap: MindMapData = {
+              ...data,
+              id: newMapId,
+              isSubMap: true,
+              parentMapId: mindMap?.id,
+              createdAt: Date.now()
+            };
+
+            // Persist the new map first
+            handleSaveMap(newMap, newMapId);
+
+            // Construct nested item reference
+            const nestedItem: NestedExpansionItem = {
+              id: newMapId,
+              topic: newMap.topic || 'Untitled',
+              parentName: mindMap?.topic || 'Parent',
+              icon: type === 'roadmap' ? 'calendar' : 'network',
+              status: 'completed',
+              fullData: newMap as any,
+              createdAt: Date.now(),
+              depth: (newMap as any).depth || 1,
+              subCategories: []
+            };
+
+            // Update parent map's nested expansions list locally and persist
+            if (mindMap) {
+              const updatedExpansions = [...(mindMap.nestedExpansions || []), nestedItem];
+              handleUpdateCurrentMap({ nestedExpansions: updatedExpansions });
+              // We don't necessarily need to blocking-save the parent for the UI to update, but good for consistency
+              handleSaveMap({ ...mindMap, nestedExpansions: updatedExpansions }, mindMap.id, true);
+            }
+
+            // Provide immediate feedback
+            toast({
+              title: type === 'roadmap' ? 'Roadmap Created' : 'Mind Map Transformed',
+              description: 'Opening as a nested map...'
+            });
+
+            // Use the standard handler to open/switch to nested map
+            handleOpenNestedMap(newMap, newMapId);
+          }
+
+          setTransformedStudioData(data);
+          setTransformedStudioType(type);
+        }}
+      />
+
       <ChatPanel
         isOpen={isChatOpen}
         onClose={() => {
           setIsChatOpen(false);
-          setChatInitialMessage(undefined);
-          setChatTopic(undefined);
-          setChatMode('chat');
+          setChatInitialMessage(undefined); // Clear initial message to prevent auto-resend on reopen
         }}
-        topic={chatTopic || mindMap?.shortTitle || mindMap?.topic || 'Mind Map Details'}
-        mindMapData={mindMap ? toPlainObject(mindMap) : undefined}
-        initialMessage={chatInitialMessage}
+        topic={chatTopic || (mindMap?.topic) || 'General Conversation'}
         initialMode={chatMode}
+        initialMessage={chatInitialMessage}
+        mindMapData={mindMap || undefined}
       />
     </>
   );

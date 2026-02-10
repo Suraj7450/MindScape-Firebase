@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Trophy, Target, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Quiz, QuizQuestion, QuizResult } from '@/ai/schemas/quiz-schema';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, cleanCitations } from '@/lib/utils';
 import {
     Accordion,
     AccordionContent,
@@ -123,17 +123,17 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                                                 <div key={q.id} className="p-2.5 rounded-lg bg-red-400/5 border border-red-400/10 space-y-2">
                                                     <p className="text-[10px] font-bold text-white leading-relaxed">
                                                         <span className="text-red-400 mr-1.5">Q:</span>
-                                                        {q.question}
+                                                        {cleanCitations(q.question)}
                                                     </p>
                                                     <div className="flex items-center gap-2 p-1.5 rounded-md bg-emerald-400/10 border border-emerald-400/20">
                                                         <span className="text-emerald-400 text-[10px] font-black">{q.correctOptionId}</span>
                                                         <span className="text-[10px] text-zinc-300 font-medium">
-                                                            {q.options.find((o: any) => o.id === q.correctOptionId)?.text}
+                                                            {cleanCitations(q.options.find((o: any) => o.id === q.correctOptionId)?.text || '')}
                                                         </span>
                                                     </div>
                                                     <p className="text-[9px] text-zinc-500 leading-relaxed pl-1 border-l border-white/10">
                                                         <span className="font-bold text-zinc-400 uppercase mr-1 text-[8px]">Explanation:</span>
-                                                        {q.explanation}
+                                                        {cleanCitations(q.explanation)}
                                                     </p>
                                                 </div>
                                             ))}
@@ -143,7 +143,8 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                         ))}
                     </Accordion>
                 </motion.div>
-            )}
+            )
+            }
 
             {/* Action CTA - Streamlined */}
             <div className="space-y-2 pt-2">
@@ -163,6 +164,6 @@ export function QuizResultCard({ result, quiz, onRegenerate, isRegenerating }: Q
                     Adaptive Engine Active
                 </p>
             </div>
-        </div>
+        </div >
     );
 }

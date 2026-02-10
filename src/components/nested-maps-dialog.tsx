@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, cleanCitations } from '@/lib/utils';
 import {
     Tooltip,
     TooltipContent,
@@ -66,6 +66,16 @@ export function NestedMapsDialog({
     isGlobalBusy = false,
 }: NestedMapsDialogProps) {
 
+    // Deduplicate expansions based on ID to prevent React key errors
+    const uniqueExpansions = React.useMemo(() => {
+        const seen = new Set();
+        return expansions.filter(e => {
+            const duplicate = seen.has(e.id);
+            seen.add(e.id);
+            return !duplicate;
+        });
+    }, [expansions]);
+
     const handleOpenMap = (expansion: NestedExpansionItem) => {
         if (!isGlobalBusy && (expansion.fullData || expansion.id)) {
             onOpenMap(expansion.fullData, expansion.id);
@@ -82,16 +92,16 @@ export function NestedMapsDialog({
                             <Network className="h-6 w-6 text-purple-400" />
                         </div>
                         Nested Maps
-                        {expansions.length > 0 && (
+                        {uniqueExpansions.length > 0 && (
                             <Badge variant="secondary" className="ml-2">
-                                {expansions.length}
+                                {uniqueExpansions.length}
                             </Badge>
                         )}
                     </DialogTitle>
                 </DialogHeader>
 
                 <ScrollArea className="max-h-[60vh] p-6 pt-4">
-                    {expansions.length === 0 ? (
+                    {uniqueExpansions.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
                                 <Network className="h-8 w-8 text-purple-400/50" />
@@ -100,12 +110,12 @@ export function NestedMapsDialog({
                                 No Nested Maps Yet
                             </h3>
                             <p className="text-sm text-muted-foreground/70 max-w-sm mx-auto">
-                                Click the <Network className="inline h-4 w-4 mx-1" /> "Generate Sub-Map" button on any sub-category card to generate deeper insights.
+                                Click the <Network className="inline h-4 w-4 mx-1" /> "Generate Sub-Map" button on any node to generate deeper insights.
                             </p>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {expansions.map((expansion) => {
+                            {uniqueExpansions.map((expansion) => {
                                 const TopicIcon = (LucideIcons as any)[toPascalCase(expansion.icon)] || Network;
                                 const isExpanding = expandingId === expansion.id;
                                 const isGenerating = expansion.status === 'generating';
@@ -159,7 +169,7 @@ export function NestedMapsDialog({
                                                                         className="h-8 w-8 hover:bg-purple-500/10"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            onRegenerate(expansion.parentName, expansion.id);
+                                                                            onRegenerate(expansion.topic, expansion.id);
                                                                         }}
                                                                         disabled={isExpanding || isGlobalBusy}
                                                                     >
