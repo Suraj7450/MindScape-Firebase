@@ -153,6 +153,10 @@ export async function brainstormWizard(
       - Use the selected structure for sections: ${selectedStructure}.
       - Output MUST be valid GitHub Flavored Markdown.
       - Use headers, bullet points, charts (via mermaid if appropriate), and bold text.
+      - ICON USAGE: To include an icon for a section or point, use the following syntax: ":icon-name:" (e.g., ":user-plus:"). Use Lucide icon names.
+      - SEMANTIC LABELS: Instead of using "Description:", use context-aware bold labels followed by a colon for key points.
+        Example: "**🏷️ Layer**: Foundational layer...", "**🚀 Impact**: High scalability..."
+      - Visually separate sections clearly.
       
       Mandatory JSON Format:
       { "content": "# Markdown text here..." }

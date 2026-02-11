@@ -41,6 +41,8 @@ interface NestedMapsDialogProps {
     mainTopic: string;
     onOpenMap: (mapData: any, id: string) => void;
     isGlobalBusy?: boolean;
+    rootMap?: { id: string; topic: string; icon?: string } | null; // NEW
+    currentMapId?: string; // NEW - to highlight active map
 }
 
 const toPascalCase = (str: string) => {
@@ -64,6 +66,8 @@ export function NestedMapsDialog({
     mainTopic,
     onOpenMap,
     isGlobalBusy = false,
+    rootMap,
+    currentMapId,
 }: NestedMapsDialogProps) {
 
     // Deduplicate expansions based on ID to prevent React key errors
@@ -101,7 +105,48 @@ export function NestedMapsDialog({
                 </DialogHeader>
 
                 <ScrollArea className="max-h-[60vh] p-6 pt-4">
-                    {uniqueExpansions.length === 0 ? (
+                    {/* Root Map Section */}
+                    {rootMap && rootMap.id !== currentMapId && (
+                        <div className="mb-6">
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <ArrowRight className="h-3 w-3" />
+                                Parent Map
+                            </h3>
+                            <div
+                                className={cn(
+                                    'group relative overflow-hidden rounded-xl border border-white/5',
+                                    'bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl',
+                                    'ring-2 ring-purple-400/30',
+                                    'transition-all duration-300 cursor-pointer',
+                                    'hover:ring-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20'
+                                )}
+                                onClick={() => onOpenMap(null, rootMap.id)}
+                            >
+                                <div className="flex items-center justify-between p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-purple-500/30 group-hover:bg-purple-500/40 transition-colors">
+                                            {(() => {
+                                                const RootIcon = (LucideIcons as any)[toPascalCase(rootMap.icon || 'file-text')] || Network;
+                                                return <RootIcon className="h-5 w-5 text-purple-300" />;
+                                            })()}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base font-semibold text-foreground group-hover:text-purple-300 transition-colors">
+                                                {rootMap.topic}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Root Mind Map
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="h-5 w-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sub-Maps Section */}
+                    {uniqueExpansions.length === 0 && !rootMap ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
                                 <Network className="h-8 w-8 text-purple-400/50" />
@@ -113,23 +158,32 @@ export function NestedMapsDialog({
                                 Click the <Network className="inline h-4 w-4 mx-1" /> "Generate Sub-Map" button on any node to generate deeper insights.
                             </p>
                         </div>
+                    ) : uniqueExpansions.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-sm text-muted-foreground">
+                                No sub-maps yet. Generate one from the parent map!
+                            </p>
+                        </div>
                     ) : (
                         <div className="space-y-3">
                             {uniqueExpansions.map((expansion) => {
                                 const TopicIcon = (LucideIcons as any)[toPascalCase(expansion.icon)] || Network;
                                 const isExpanding = expandingId === expansion.id;
                                 const isGenerating = expansion.status === 'generating';
+                                const isCurrentMap = currentMapId === expansion.id;
 
                                 return (
                                     <div
                                         key={expansion.id}
                                         className={cn(
-                                            'group relative overflow-hidden rounded-xl border border-white/5',
-                                            'bg-zinc-900/50 backdrop-blur-xl',
-                                            'ring-1 ring-purple-400/20',
+                                            'group relative overflow-hidden rounded-xl border',
+                                            isCurrentMap
+                                                ? 'border-purple-400/50 bg-gradient-to-br from-purple-500/20 to-blue-500/20 ring-2 ring-purple-400/40'
+                                                : 'border-white/5 bg-zinc-900/50 ring-1 ring-purple-400/20',
+                                            'backdrop-blur-xl',
                                             'transition-all duration-300',
-                                            'transition-all duration-300',
-                                            (expansion.fullData || expansion.id) ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
+                                            (expansion.fullData || expansion.id) ? 'cursor-pointer' : 'cursor-not-allowed opacity-70',
+                                            !isCurrentMap && 'hover:ring-purple-400/30'
                                         )}
                                         onClick={() => handleOpenMap(expansion)}
                                     >

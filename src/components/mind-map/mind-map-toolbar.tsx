@@ -85,6 +85,7 @@ interface MindMapToolbarProps {
     onOpenSummary?: () => void;
     isSummarizing?: boolean;
     onTransform?: () => void;
+    isSharing?: boolean;
 
 }
 
@@ -121,6 +122,7 @@ export const MindMapToolbar = ({
     onOpenSummary,
     isSummarizing,
     onTransform,
+    isSharing = false,
 
 }: MindMapToolbarProps) => {
     // Helper to determine if interaction should be disabled
@@ -320,7 +322,7 @@ export const MindMapToolbar = ({
                                     onClick={onCopyPath}
                                     className="h-9 w-9 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-emerald-400"
                                 >
-                                    {isCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                                    {isCopied ? <Check className="h-4 w-4" /> : (isSharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />)}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent className="glassmorphism"><p>Share Link</p></TooltipContent>

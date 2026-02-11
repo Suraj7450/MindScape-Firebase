@@ -37,7 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { useUser } from '@/firebase';
 import { useAIConfig } from '@/contexts/ai-config-context';
 import { OnboardingWizard, TRIGGER_ONBOARDING_EVENT } from '@/components/onboarding-wizard';
-import { BrainstormWizard } from '@/components/brainstorm-wizard';
+
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 
@@ -61,7 +61,7 @@ function Hero({
   setDepth,
   persona,
   setPersona,
-  onBrainstorm,
+
 }: {
   onGenerate: (
     topic: string,
@@ -77,16 +77,16 @@ function Hero({
   setDepth: (depth: string) => void;
   persona: string;
   setPersona: (persona: string) => void;
-  onBrainstorm: (topic: string) => void;
+
 }) {
   // Web search is always enabled for real-time information
   const useSearch = true;
   const router = useRouter();
   const [topic, setTopic] = useState('');
   const [topic2, setTopic2] = useState('');
-  const [activeMode, setActiveMode] = useState<'single' | 'compare' | 'brainstorm'>('single');
+  const [activeMode, setActiveMode] = useState<'single' | 'compare'>('single');
   const isCompareMode = activeMode === 'compare';
-  const isBrainstormMode = activeMode === 'brainstorm';
+
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
@@ -133,16 +133,6 @@ function Hero({
         return;
       }
       onCompare(topic, topic2);
-    } else if (isBrainstormMode) {
-      if (!topic.trim()) {
-        toast({
-          variant: 'destructive',
-          title: 'Topic Required',
-          description: 'Please enter a topic to brainstorm.',
-        });
-        return;
-      }
-      onBrainstorm(topic);
     } else {
       if (!topic && !uploadedFile) return;
       // For file uploads, generation is triggered by the useEffect
@@ -240,8 +230,7 @@ function Hero({
                 <div className="flex items-center gap-1 p-1 bg-black/40 rounded-full border border-white/5 backdrop-blur-md">
                   {[
                     { id: 'single', label: 'Single' },
-                    { id: 'compare', label: 'Compare' },
-                    { id: 'brainstorm', label: 'Brainstorm' }
+                    { id: 'compare', label: 'Compare' }
                   ].map((mode) => (
                     <Button
                       key={mode.id}
@@ -333,12 +322,12 @@ function Hero({
                   )}>
                     <div className="relative flex-1">
                       <input
-                        placeholder={isBrainstormMode ? 'What would you like to brainstorm?' : isCompareMode ? 'First topic...' : uploadedFile ? 'Add context for the file...' : 'What sparks your curiosity today?'}
+                        placeholder={isCompareMode ? 'First topic...' : uploadedFile ? 'Add context for the file...' : 'What sparks your curiosity today?'}
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
                         className={cn(
                           "w-full h-16 rounded-3xl bg-black/40 px-8 text-zinc-100 outline-none placeholder:text-zinc-600 border border-white/5 focus:border-primary/50 focus:bg-black/60 transition-all text-lg font-medium",
-                          !isCompareMode && !isBrainstormMode ? "pr-32" : "pr-8" // Add space for icons if needed
+                          !isCompareMode ? "pr-32" : "pr-8" // Add space for icons if needed
                         )}
                         disabled={isGenerating}
                         onKeyDown={(e) => {
@@ -347,7 +336,7 @@ function Hero({
                       />
 
                       {/* Integrated File Upload Badge for Single Mode */}
-                      {!isCompareMode && !isBrainstormMode && (
+                      {!isCompareMode && (
                         <div className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <AnimatePresence>
                             {uploadedFile && (
@@ -401,7 +390,7 @@ function Hero({
                   {/* Main Submit Button - Integrated on the Right */}
                   <Button
                     onClick={handleInternalSubmit}
-                    disabled={isGenerating || (!!uploadedFile && !topic && !isBrainstormMode)}
+                    disabled={isGenerating || (!!uploadedFile && !topic)}
                     className={cn(
                       "h-16 w-16 rounded-3xl bg-primary text-white hover:brightness-110 hover:scale-105 active:scale-95 transition-all font-bold shadow-lg shadow-primary/30 flex items-center justify-center p-0",
                       isGenerating ? "animate-pulse" : ""
@@ -477,8 +466,7 @@ export default function Home() {
   const languageSelectRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isBrainstormWizardOpen, setIsBrainstormWizardOpen] = useState(false);
-  const [pendingTopic, setPendingTopic] = useState('');
+
 
   useEffect(() => {
     const welcomeFlag = sessionStorage.getItem('welcome_back');
@@ -589,27 +577,11 @@ export default function Home() {
       <AnimatePresence>
         {isGenerating && <GenerationLoadingOverlay />}
       </AnimatePresence>
-      <BrainstormWizard
-        isOpen={isBrainstormWizardOpen}
-        onClose={() => {
-          setIsBrainstormWizardOpen(false);
-          setIsGenerating(false);
-        }}
-        onLoadingComplete={() => setIsGenerating(false)}
-        topic={pendingTopic}
-        language={lang}
-        depth={depth}
-        persona={persona}
-      />
+
       <Hero
         onGenerate={handleGenerate}
         onCompare={handleCompare}
-        onBrainstorm={(topic) => {
-          setPendingTopic(topic);
-          setIsBrainstormWizardOpen(true);
-          // Don't set isGenerating(true) here - let BrainstormWizard handle its own loading UI
-          // This allows "Initializing Architect" to show immediately
-        }}
+
         lang={lang}
         setLang={setLang}
         depth={depth}

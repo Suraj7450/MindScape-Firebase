@@ -92,6 +92,12 @@ function MindMapPageContent() {
   const [studioData, setStudioData] = useState<any | null>(null);
   const [studioType, setStudioType] = useState<string | null>(null);
 
+  // Universal Nested Maps Dialog state
+  const [mapHierarchy, setMapHierarchy] = useState<{
+    rootMap: { id: string; topic: string; icon?: string } | null;
+    allSubMaps: NestedExpansionItem[];
+  }>({ rootMap: null, allSubMaps: [] });
+
   const aiHealth = useAIHealth();
   const handleUpdateRef = useRef<(data: Partial<MindMapData>) => void>(() => { });
 
@@ -357,6 +363,13 @@ function MindMapPageContent() {
               const publicSnap = await getDoc(publicDocRef);
               if (publicSnap.exists()) {
                 result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
+              } else {
+                // Check shared collection (unlisted maps)
+                const sharedDocRef = doc(firestore, 'sharedMindmaps', params.mapId);
+                const sharedSnap = await getDoc(sharedDocRef);
+                if (sharedSnap.exists()) {
+                  result.data = { ...sharedSnap.data(), id: sharedSnap.id } as any;
+                }
               }
             }
           } else {
@@ -365,6 +378,13 @@ function MindMapPageContent() {
             const publicSnap = await getDoc(publicDocRef);
             if (publicSnap.exists()) {
               result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
+            } else {
+              // Check shared collection (unlisted maps)
+              const sharedDocRef = doc(firestore, 'sharedMindmaps', params.mapId);
+              const sharedSnap = await getDoc(sharedDocRef);
+              if (sharedSnap.exists()) {
+                result.data = { ...sharedSnap.data(), id: sharedSnap.id } as any;
+              }
             }
           }
 
@@ -519,21 +539,40 @@ function MindMapPageContent() {
           }
         } else if (params.studioId) {
           // Handle studio content from brainstorm wizard
+          console.log(`Canvas: Loading Studio content for ID: ${params.studioId}`);
           const rawStudioData = sessionStorage.getItem(`studio-data-${params.studioId}`);
+
           if (rawStudioData) {
             try {
               const parsed = JSON.parse(rawStudioData);
+              console.log('Canvas: Studio data parsed:', { type: parsed.type, topic: parsed.topic });
+
               setStudioData(parsed);
               setStudioType(parsed.type);
+
               // If it's map-related, also load into the mind map view
               if (parsed.type === 'mindmap' || parsed.type === 'roadmap') {
-                result.data = await mapToMindMapData(parsed.data, params.depth as any || 'low') as MindMapWithId;
-                result.data.id = params.studioId;
+                if (parsed.data) {
+                  result.data = await mapToMindMapData(parsed.data, params.depth as any || 'low') as MindMapWithId;
+                  result.data.id = params.studioId;
+                } else {
+                  console.error('Canvas: Studio data missing "data" field for map type');
+                }
               }
             } catch (e) {
               console.error('Failed to parse studio data', e);
+              setError('Failed to load generated content.');
             }
+          } else {
+            console.error('Canvas: No studio data found in session storage for ID:', params.studioId);
+            // If data is missing (e.g. refreshed tab), we can't do much. 
+            // Maybe user pasted a URL?
+            setError('Content session expired or not found. Please try generating again.');
           }
+
+          // CRITICAL: Ensure loading is turned off after processing studio data
+          setIsLoading(false);
+
         } else {
           setIsLoading(false);
           return;
@@ -590,6 +629,104 @@ function MindMapPageContent() {
   // Ref to track mindMap for stable callbacks
   const mindMapRef = useRef(mindMap);
   useEffect(() => { mindMapRef.current = mindMap; }, [mindMap]);
+
+  // Fetch complete map hierarchy (root + all sub-maps)
+  const fetchMapHierarchy = useCallback(async (currentMapData: MindMapData) => {
+    if (!user || !firestore) return;
+
+    try {
+      const currentMapId = (currentMapData as any).id;
+      if (!currentMapId) return;
+
+      let rootMapId = currentMapId;
+      let rootMapData: { id: string; topic: string; icon?: string } | null = null;
+
+      // Step 1: Find the root parent by traversing up
+      if (currentMapData.parentMapId) {
+        let parentId = currentMapData.parentMapId;
+        let iterations = 0;
+        const maxIterations = 10; // Prevent infinite loops
+
+        while (parentId && iterations < maxIterations) {
+          const parentRef = doc(firestore, 'users', user.uid, 'mindmaps', parentId);
+          const parentSnap = await getDoc(parentRef);
+
+          if (parentSnap.exists()) {
+            const parentData = parentSnap.data();
+            rootMapId = parentId;
+            rootMapData = {
+              id: parentId,
+              topic: parentData.topic || 'Untitled',
+              icon: parentData.icon
+            };
+
+            // Check if this parent also has a parent
+            parentId = parentData.parentMapId;
+          } else {
+            break;
+          }
+          iterations++;
+        }
+      } else {
+        // Current map is the root
+        rootMapData = {
+          id: currentMapId,
+          topic: currentMapData.topic,
+          icon: currentMapData.icon
+        };
+      }
+
+      // Step 2: Fetch all sub-maps that belong to this family tree recursively
+      const allSubMaps: NestedExpansionItem[] = [];
+      const visitedIds = new Set<string>();
+
+      const fetchDescendants = async (parentId: string, parentName: string) => {
+        const subMapsQuery = query(
+          collection(firestore, 'users', user.uid, 'mindmaps'),
+          where('parentMapId', '==', parentId)
+        );
+        const subMapsSnap = await getDocs(subMapsQuery);
+
+        const childPromises = subMapsSnap.docs.map(async (d) => {
+          if (visitedIds.has(d.id)) return;
+          visitedIds.add(d.id);
+
+          const subMapData = { ...d.data(), id: d.id } as MindMapWithId;
+          allSubMaps.push({
+            id: d.id,
+            topic: subMapData.topic,
+            parentName: parentName,
+            icon: subMapData.icon || 'file-text',
+            subCategories: [],
+            createdAt: typeof subMapData.createdAt === 'number' ? subMapData.createdAt : Date.now(),
+            depth: 1,
+            fullData: subMapData,
+            status: 'completed'
+          });
+
+          // Recursively fetch children of this map
+          await fetchDescendants(d.id, subMapData.topic);
+        });
+
+        await Promise.all(childPromises);
+      };
+
+      if (rootMapId) {
+        await fetchDescendants(rootMapId, rootMapData?.topic || 'Parent');
+      }
+
+      setMapHierarchy({ rootMap: rootMapData, allSubMaps });
+    } catch (error) {
+      console.error('Error fetching map hierarchy:', error);
+    }
+  }, [user, firestore]);
+
+  // Update hierarchy when mindMap changes
+  useEffect(() => {
+    if (mindMap && (mindMap as any).id) {
+      fetchMapHierarchy(mindMap);
+    }
+  }, [mindMap, fetchMapHierarchy]);
 
   const onMapUpdate = useCallback((updatedData: Partial<MindMapData>) => {
     const currentMap = mindMapRef.current;
@@ -861,6 +998,8 @@ function MindMapPageContent() {
             onDeleteNestedMap={handleDeleteNestedMap}
             onRegenerateNestedMap={handleRegenerateNestedMap}
             onPracticeQuestionClick={handleExplainInChat}
+            rootMap={mapHierarchy.rootMap}
+            allSubMaps={mapHierarchy.allSubMaps}
           />
 
           {/* Search References Panel */}

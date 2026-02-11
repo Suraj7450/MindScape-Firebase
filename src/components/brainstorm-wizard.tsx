@@ -128,14 +128,46 @@ export function BrainstormWizard({ isOpen, onClose, topic, language = 'en', dept
         );
     };
 
+    const handleSelectAllAspects = () => {
+        if (selectedAspects.length === aspects.length) {
+            setSelectedAspects([]);
+        } else {
+            setSelectedAspects(aspects.map(a => a.name));
+        }
+    };
+
     const handleNextFromAspects = async () => {
-        if (selectedAspects.length === 0) {
+        // Defensive: Filter out any selected aspects that are no longer in the aspects list
+        // This prevents stale state from causing issues
+        const validSelections = selectedAspects.filter(s => aspects.some(a => a.name === s));
+
+        if (validSelections.length === 0) {
             toast({ title: 'Selection Required', description: 'Please select at least one aspect.' });
             return;
         }
+
+        if (validSelections.length !== selectedAspects.length) {
+            console.warn('BrainstormWizard: Filtered out invalid selections', {
+                original: selectedAspects,
+                valid: validSelections
+            });
+            setSelectedAspects(validSelections);
+        }
+
+        console.log('BrainstormWizard: Starting category selection. Selected aspects:', validSelections);
         setCurrentAspectIndex(0);
-        fetchCategoriesForAspect(selectedAspects[0]);
+        fetchCategoriesForAspect(validSelections[0]);
     };
+
+    // ... (keep intermediate code) ...
+
+    <Button
+        onClick={handleNextFromAspects}
+        disabled={selectedAspects.length === 0}
+        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl group font-black text-lg shadow-2xl transition-all"
+    >
+        Continue with {selectedAspects.length} Aspect{selectedAspects.length !== 1 ? 's' : ''} <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+    </Button>
 
     const fetchCategoriesForAspect = async (aspectName: string) => {
         setIsLoading(true);
@@ -150,6 +182,7 @@ export function BrainstormWizard({ isOpen, onClose, topic, language = 'en', dept
         if (error || !response || response.step !== 'GET_CATEGORIES') {
             toast({ variant: 'destructive', title: 'Error', description: error || 'Failed to get categories' });
         } else {
+            console.log(`BrainstormWizard: Categories fetched for ${aspectName}:`, response.categories.length);
             setCategories(response.categories);
             setStep('SELECT_CATEGORIES');
         }
@@ -167,8 +200,27 @@ export function BrainstormWizard({ isOpen, onClose, topic, language = 'en', dept
         });
     };
 
+    const handleSelectAllCategories = () => {
+        const currentAspect = selectedAspects[currentAspectIndex];
+        const currentSelected = selectedCategoriesMap[currentAspect] || [];
+
+        // If all are selected, deselect all. Otherwise, select all.
+        if (currentSelected.length === categories.length) {
+            setSelectedCategoriesMap(prev => ({
+                ...prev,
+                [currentAspect]: []
+            }));
+        } else {
+            setSelectedCategoriesMap(prev => ({
+                ...prev,
+                [currentAspect]: categories.map(c => c.name)
+            }));
+        }
+    };
+
     const handleNextCategoryStep = () => {
         const nextIndex = currentAspectIndex + 1;
+        console.log(`BrainstormWizard: Moving to next step. Current Index: ${currentAspectIndex}, Next Index: ${nextIndex}, Total Selected: ${selectedAspects.length}`);
         if (nextIndex < selectedAspects.length) {
             setCurrentAspectIndex(nextIndex);
             fetchCategoriesForAspect(selectedAspects[nextIndex]);
@@ -347,11 +399,21 @@ export function BrainstormWizard({ isOpen, onClose, topic, language = 'en', dept
                                     exit={{ opacity: 0, x: -20 }}
                                     className="space-y-6 flex flex-col h-full overflow-hidden"
                                 >
-                                    <div className="space-y-2">
-                                        <DialogTitle className="text-3xl font-black text-white tracking-tight">Explore the Terrain</DialogTitle>
-                                        <DialogDescription className="text-zinc-400">
-                                            Pick the core aspects you want to investigate for <span className="text-primary font-bold">"{topic}"</span>.
-                                        </DialogDescription>
+                                    <div className="flex items-end justify-between gap-4">
+                                        <div className="space-y-2">
+                                            <DialogTitle className="text-3xl font-black text-white tracking-tight">Explore the Terrain</DialogTitle>
+                                            <DialogDescription className="text-zinc-400">
+                                                Pick the core aspects you want to investigate for <span className="text-primary font-bold">"{topic}"</span>.
+                                            </DialogDescription>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleSelectAllAspects}
+                                            className="text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-white shrink-0"
+                                        >
+                                            {selectedAspects.length === aspects.length ? 'Deselect All' : 'Select All'}
+                                        </Button>
                                     </div>
 
                                     <ScrollArea className="flex-grow pr-4">
@@ -398,18 +460,28 @@ export function BrainstormWizard({ isOpen, onClose, topic, language = 'en', dept
                                     exit={{ opacity: 0, x: -20 }}
                                     className="space-y-6 flex flex-col h-full overflow-hidden"
                                 >
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-[10px] font-bold text-primary uppercase">
-                                                Step {currentAspectIndex + 1} of {selectedAspects.length}
+                                    <div className="flex items-end justify-between gap-4">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-[10px] font-bold text-primary uppercase">
+                                                    Step {currentAspectIndex + 1} of {selectedAspects.length}
+                                                </div>
                                             </div>
+                                            <DialogTitle className="text-3xl font-black text-white tracking-tight">
+                                                Defining: {selectedAspects[currentAspectIndex]}
+                                            </DialogTitle>
+                                            <DialogDescription className="text-zinc-400">
+                                                Select the specific sub-categories you want to include in this section.
+                                            </DialogDescription>
                                         </div>
-                                        <DialogTitle className="text-3xl font-black text-white tracking-tight">
-                                            Defining: {selectedAspects[currentAspectIndex]}
-                                        </DialogTitle>
-                                        <DialogDescription className="text-zinc-400">
-                                            Select the specific sub-categories you want to include in this section.
-                                        </DialogDescription>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleSelectAllCategories}
+                                            className="text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-white shrink-0"
+                                        >
+                                            {(selectedCategoriesMap[selectedAspects[currentAspectIndex]] || []).length === categories.length ? 'Deselect All' : 'Select All'}
+                                        </Button>
                                     </div>
 
                                     <ScrollArea className="flex-grow pr-4">

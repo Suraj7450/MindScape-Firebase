@@ -230,6 +230,8 @@ interface MindMapProps {
   onDeleteNestedMap?: (id: string) => void;
   onRegenerateNestedMap?: (topic: string, id: string) => void;
   onPracticeQuestionClick?: (question: string) => void;
+  rootMap?: { id: string; topic: string; icon?: string } | null;
+  allSubMaps?: NestedExpansionItem[];
 }
 
 /**
@@ -278,6 +280,8 @@ export const MindMap = ({
   onDeleteNestedMap,
   onRegenerateNestedMap,
   onPracticeQuestionClick,
+  rootMap,
+  allSubMaps,
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -380,6 +384,7 @@ export const MindMap = ({
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Nested expansion state - load from saved data if available
   const [isNestedMapsDialogOpen, setIsNestedMapsDialogOpen] = useState(false);
@@ -984,18 +989,12 @@ export const MindMap = ({
     }
   };
 
-  const copyToClipboard = () => {
-    // Aggressively hunt for an ID: 1. data.id, 2. data.id, 3. URL search params
-    const sParams = new URLSearchParams(window.location.search);
-    const effectiveId = data.id || data.id || sParams.get('mapId');
-
+  const copyLinkToClipboard = (id: string, isPublicOrShared: boolean) => {
     let url = window.location.href;
-
-    // If we have any form of map ID, construct a stable ID-based link
-    if (effectiveId) {
+    if (id) {
       const baseUrl = `${window.location.origin}${window.location.pathname}`;
       const params = new URLSearchParams();
-      params.set('mapId', effectiveId);
+      params.set('mapId', id);
 
       // Transfer relevant status flags but drop 'topic'
       if (selectedLanguage && selectedLanguage !== 'en') {
@@ -1008,11 +1007,66 @@ export const MindMap = ({
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
     toast({
-      title: effectiveId ? "Map ID-Link Copied" : "Link Copied",
-      description: effectiveId
-        ? "Stable link with map ID is now in your clipboard."
-        : "Direct link copied. Note: ID not yet available.",
+      title: "Link Copied",
+      description: isPublicOrShared
+        ? "Link copied to clipboard. Anyone with this link can view."
+        : "Private link copied. Only you can view this.",
     });
+  };
+
+  const handleShareLink = async () => {
+    const sParams = new URLSearchParams(window.location.search);
+    const effectiveId = data.id || sParams.get('mapId');
+
+    if (!effectiveId) {
+      toast({ title: "Save Required", description: "Please save the map before sharing.", variant: "destructive" });
+      return;
+    }
+
+    if (data.isPublic || data.isShared) {
+      copyLinkToClipboard(effectiveId, true);
+      return;
+    }
+
+    if (!user || !firestore) {
+      // Fallback for non-logged in users (shouldn't happen for saved maps usually)
+      copyLinkToClipboard(effectiveId, false);
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      // 1. Create shared entry (Unlisted)
+      const sharedData = {
+        ...toPlainObject(data),
+        id: effectiveId,
+        isShared: true, // Mark as shared
+        isPublic: false, // Explicitly not public in community
+        sharedAt: serverTimestamp(),
+        originalAuthorId: user.uid,
+        authorName: user.displayName || 'Explorer'
+      };
+
+      // Save to 'sharedMindmaps' collection
+      await setDoc(doc(firestore, 'sharedMindmaps', effectiveId), sharedData);
+
+      // 2. Update user doc to reflect shared status
+      await updateDoc(doc(firestore, 'users', user.uid, 'mindmaps', effectiveId), {
+        isShared: true
+      });
+
+      // 3. Update local state
+      if (onUpdate) onUpdate({ isShared: true });
+
+      copyLinkToClipboard(effectiveId, true);
+      toast({ title: "Sharing Enabled", description: "Unlisted link generated. Share it with anyone!" });
+
+    } catch (e: any) {
+      console.error("Share failed:", e);
+      toast({ title: "Sharing Failed", description: e.message, variant: "destructive" });
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const expandAll = () => {
@@ -1152,7 +1206,8 @@ export const MindMap = ({
         isAllExpanded={isAllExpanded}
         onToggleExpandAll={isAllExpanded ? collapseAll : expandAll}
         isCopied={isCopied}
-        onCopyPath={copyToClipboard}
+        onCopyPath={handleShareLink}
+        isSharing={isSharing}
         isSaved={isSaved}
         onSave={onSaveMap}
         onOpenAiContent={() => setIsAiContentDialogOpen(true)}
@@ -1164,7 +1219,7 @@ export const MindMap = ({
         onStartGlobalQuiz={() => onStartQuiz(data.topic)}
         isRegenerating={isRegenerating}
         canRegenerate={canRegenerate}
-        nestedExpansionsCount={nestedExpansions.length}
+        nestedExpansionsCount={(allSubMaps?.length || 0) + (rootMap ? 1 : 0)}
         imagesCount={generatedImages.length}
         status={status}
         aiHealth={aiHealth}
@@ -1326,10 +1381,12 @@ export const MindMap = ({
       <NestedMapsDialog
         isOpen={isNestedMapsDialogOpen}
         onClose={() => setIsNestedMapsDialogOpen(false)}
-        expansions={nestedExpansions.map(item => ({
+        expansions={(allSubMaps || nestedExpansions || []).map(item => ({
           ...item,
           path: item.path || ''
         }))}
+        rootMap={rootMap}
+        currentMapId={(data as any).id}
         onDelete={(id) => {
           if (onDeleteNestedMap) {
             onDeleteNestedMap(id);

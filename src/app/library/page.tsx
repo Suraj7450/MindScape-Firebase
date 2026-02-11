@@ -694,7 +694,7 @@ export default function DashboardPage() {
       .map(({ nodes, edges, subTopics, ...meta }: any) => meta);
   }, [savedMaps, searchQuery, sortOption, deletingMapIds]);
 
-  console.log('DEBUG: filteredAndSortedMaps length:', filteredAndSortedMaps.length, filteredAndSortedMaps.map(m => m.id));
+
 
   const handleMindMapClick = (mapId: string) => {
     router.push(`/canvas?mapId=${mapId}`);

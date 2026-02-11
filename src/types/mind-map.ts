@@ -90,7 +90,7 @@ export interface GeneratedImage {
     mood?: string;
   };
 }
-   
+
 export interface NestedExpansionItem {
   id: string;
   parentName: string;
@@ -121,6 +121,7 @@ export interface BaseMindMapData {
   nestedExpansions?: NestedExpansionItem[];
   savedImages?: GeneratedImage[];
   isPublic?: boolean;
+  isShared?: boolean;
   publicCategories?: string[];
   views?: number;
   originalAuthorId?: string;

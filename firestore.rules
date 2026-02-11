@@ -66,5 +66,26 @@ service cloud.firestore {
         || isAdmin()  // Admin user
       );
     }
+
+    /* =========================
+       SHARED MIND MAPS (UNLISTED)
+    ========================== */
+    match /sharedMindmaps/{mindmapId} {
+      // Anyone can read shared maps (unlisted but accessible via link)
+      allow read: if true;
+
+      // Create: signed-in users only, must set themselves as author
+      allow create: if isSignedIn()
+        && request.resource.data.originalAuthorId == request.auth.uid;
+
+      // Update: Only the original author can update
+      allow update: if isSignedIn() && resource.data.originalAuthorId == request.auth.uid;
+
+      // Delete: author or admin
+      allow delete: if isSignedIn() && (
+        resource.data.originalAuthorId == request.auth.uid
+        || isAdmin()
+      );
+    }
   }
 }

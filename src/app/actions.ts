@@ -528,13 +528,24 @@ export async function brainstormWizardAction(
     const result = await brainstormWizard({ ...input, ...options, apiKey: effectiveApiKey });
 
     // Sanitize the mind map if it's the final step
-    if (result.step === 'FINALIZE' && result.mindMap) {
-      try {
-        // We cast to any here because mapToMindMapData returns a broader MindMapData type
-        // but we want to keep the response structure consistent for the caller.
-        result.mindMap = (await mapToMindMapData(result.mindMap, input.depth as any || 'low')) as any;
-      } catch (e) {
-        console.error('Failed to sanitize brainstormed mind map:', e);
+    if (result.step === 'FINALIZE') {
+      // Handle unwrapped mind map response (common AI behavior)
+      if (!result.mindMap && (result as any).subTopics && (result as any).mode) {
+        console.log('[brainstormWizardAction] ⚠️ Detected unwrapped mind map in response. Wrapping it.');
+        (result as any).mindMap = { ...result };
+        // Cleanup top-level keys that are now in mindMap to avoid confusion, though not strictly necessary
+        delete (result as any).subTopics;
+        delete (result as any).categories;
+      }
+
+      if (result.mindMap) {
+        try {
+          // We cast to any here because mapToMindMapData returns a broader MindMapData type
+          // but we want to keep the response structure consistent for the caller.
+          result.mindMap = (await mapToMindMapData(result.mindMap, input.depth as any || 'low')) as any;
+        } catch (e) {
+          console.error('Failed to sanitize brainstormed mind map:', e);
+        }
       }
     }
 
@@ -640,6 +651,13 @@ export async function transformMindMapAction(
 
     if (!transformedData) {
       return { response: null, error: 'AI did not return data in the expected format' };
+    }
+
+    // Attach search metadata to mind map transformations
+    if ((targetFormat === 'mindmap' || targetFormat === 'roadmap') && searchContext && searchContext.sources.length > 0) {
+      transformedData.searchSources = searchContext.sources;
+      transformedData.searchTimestamp = searchContext.timestamp;
+      console.log(`[transformMindMapAction] ✅ Attached ${searchContext.sources.length} search sources to transformed mind map`);
     }
 
     return { response: transformedData, error: null };

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as LucideIcons from 'lucide-react';
 import {
     Brain,
     Calendar,
@@ -29,9 +30,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { cn, cleanCitations } from '@/lib/utils';
+import { cn, cleanCitations, toPascalCase } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { QuizRenderer } from './quiz-renderer';
+
+const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
+    const iconName = toPascalCase(name.trim().toLowerCase());
+    const LucideIcon = (LucideIcons as any)[iconName] || LucideIcons.Sparkles;
+    return <LucideIcon className={cn("inline-block w-5 h-5 mr-2 text-primary align-text-bottom", className)} />;
+};
 
 interface StudioRendererProps {
     data: any;
@@ -49,12 +56,69 @@ export function StudioRenderer({ data, type, topic, onClose }: StudioRendererPro
     };
 
     const renderMarkdown = (content: string) => {
-        // Remove citation markers like [1], [2], [12], etc.
-        const cleanContent = cleanCitations(content);
+        // Pre-process content to handle various icon formats
+        // 1. Convert standalone "Icon: name" lines to ":[name]:"
+        let processedContent = content.replace(/^Icon:\s*([a-z0-9-]+)\s*$/gim, ':[ $1 ]:');
+
+        // 2. Remove citation markers
+        processedContent = cleanCitations(processedContent);
+
+        const renderTextWithIcons = (text: string) => {
+            if (!text || typeof text !== 'string') return text;
+            // Match both :[icon-name]: and :icon-name: (emoji style)
+            const parts = text.split(/(:(?:\[)?[a-z0-9-]+(?:\])?:)/gi);
+            return parts.map((part, i) => {
+                // Check for :[name]:
+                const structuredMatch = part.match(/:\[([a-z0-9-]+)\]:/i);
+                if (structuredMatch) {
+                    return <DynamicIcon key={i} name={structuredMatch[1]} />;
+                }
+                // Check for :name: (emoji style fallback)
+                const emojiMatch = part.match(/:([a-z0-9-]+):/i);
+                if (emojiMatch) {
+                    return <DynamicIcon key={i} name={emojiMatch[1]} />;
+                }
+                return part;
+            });
+        };
+
+        const recursiveMap = (children: React.ReactNode): React.ReactNode => {
+            return React.Children.map(children, child => {
+                if (typeof child === 'string') {
+                    return renderTextWithIcons(child);
+                }
+                if (React.isValidElement(child) && child.props.children) {
+                    return React.cloneElement(child, {
+                        ...child.props,
+                        children: recursiveMap(child.props.children)
+                    });
+                }
+                return child;
+            });
+        };
 
         return (
             <div className="prose prose-invert max-w-none prose-p:text-zinc-400 prose-headings:text-white prose-a:text-primary prose-strong:text-white prose-code:text-emerald-400">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
+                <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                        p: ({ children }) => <p>{recursiveMap(children)}</p>,
+                        h1: ({ children }) => <h1>{recursiveMap(children)}</h1>,
+                        h2: ({ children }) => <h2>{recursiveMap(children)}</h2>,
+                        h3: ({ children }) => <h3>{recursiveMap(children)}</h3>,
+                        h4: ({ children }) => <h4>{recursiveMap(children)}</h4>,
+                        li: ({ children }) => <li>{recursiveMap(children)}</li>,
+                        strong: ({ children }) => {
+                            const content = React.Children.toArray(children).join('');
+                            if (content.endsWith(':')) {
+                                return <span className="text-primary font-bold">{children}</span>;
+                            }
+                            return <strong className="text-white font-bold">{children}</strong>;
+                        }
+                    }}
+                >
+                    {processedContent}
+                </ReactMarkdown>
             </div>
         );
     };
