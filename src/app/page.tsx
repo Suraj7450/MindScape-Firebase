@@ -23,6 +23,12 @@ import {
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 import {
   Select,
   SelectContent,
@@ -65,7 +71,7 @@ function Hero({
 }: {
   onGenerate: (
     topic: string,
-    fileInfo?: { name: string; type: string }
+    fileInfo?: { name: string; type: string; content: string }
   ) => void;
   onCompare: (topic1: string, topic2: string) => void;
   lang: string;
@@ -90,7 +96,8 @@ function Hero({
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;
-    type: string;
+    type: 'text' | 'pdf' | 'image';
+    content: string;
   } | null>(null);
 
   const [openSelect, setOpenSelect] = useState<string | null>(null);
@@ -138,6 +145,12 @@ function Hero({
       // For file uploads, generation is triggered by the useEffect
       if (!uploadedFile) {
         onGenerate(topic);
+      } else {
+        onGenerate(topic, {
+          name: uploadedFile.name,
+          type: uploadedFile.type,
+          content: uploadedFile.content
+        });
       }
     }
   };
@@ -152,8 +165,39 @@ function Hero({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Set file info to state and let useEffect trigger generation
-    setUploadedFile({ name: file.name, type: file.type });
+    try {
+      let content = '';
+      let type: 'text' | 'pdf' | 'image' = 'text';
+
+      if (file.type.startsWith('image/')) {
+        type = 'image';
+        content = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      } else if (file.type === 'application/pdf') {
+        type = 'pdf';
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          content += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+        }
+      } else {
+        content = await file.text();
+      }
+
+      setUploadedFile({
+        name: file.name,
+        type: type,
+        content: content
+      });
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      toast({ title: "Upload Failed", description: "Could not process file.", variant: "destructive" });
+    }
   };
 
   const handleRemoveFile = (e: React.MouseEvent) => {
@@ -327,7 +371,7 @@ function Hero({
                         onChange={(e) => setTopic(e.target.value)}
                         className={cn(
                           "w-full h-16 rounded-3xl bg-black/40 px-8 text-zinc-100 outline-none placeholder:text-zinc-600 border border-white/5 focus:border-primary/50 focus:bg-black/60 transition-all text-lg font-medium",
-                          !isCompareMode ? "pr-32" : "pr-8" // Add space for icons if needed
+                          !isCompareMode ? "pr-40" : "pr-8" // Add space for icons if needed
                         )}
                         disabled={isGenerating}
                         onKeyDown={(e) => {
@@ -337,12 +381,12 @@ function Hero({
 
                       {/* Integrated File Upload Badge for Single Mode */}
                       {!isCompareMode && (
-                        <div className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <AnimatePresence>
                             {uploadedFile && (
                               <motion.div
                                 initial={{ opacity: 0, scale: 0.8, x: 10 }}
-                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.8, x: 10 }}
                               >
                                 <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30 h-9 px-3 rounded-xl backdrop-blur-sm">
@@ -359,7 +403,7 @@ function Hero({
                             size="icon"
                             onClick={handleFileIconClick}
                             disabled={isGenerating}
-                            className="rounded-xl text-zinc-500 hover:text-primary hover:bg-primary/10 transition-all duration-300 h-10 w-10 flex items-center justify-center p-0"
+                            className="rounded-xl text-zinc-500 hover:text-zinc-100 hover:bg-white/10 transition-all duration-300 h-10 w-10 flex items-center justify-center p-0"
                           >
                             <Paperclip className="h-5 w-5" />
                           </Button>
@@ -503,44 +547,12 @@ export default function Home() {
     }
 
     if (fileInfo) {
-      const file = fileInputRef.current?.files?.[0];
-
-      if (!file) {
-        toast({
-          variant: 'destructive',
-          title: 'File Error',
-          description: 'Could not find the uploaded file. Please try again.',
-        });
-        setIsGenerating(false);
-        return;
-      }
-
       try {
-        let sessionType: 'image' | 'text' | 'pdf';
-        let sessionContent: string;
-
-        if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name) || file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
-          sessionType = file.type === 'application/pdf' || /\.pdf$/i.test(file.name) ? 'pdf' : 'image';
-          sessionContent = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.onerror = (e) => reject(e);
-            reader.readAsDataURL(file);
-          });
-        } else if (file.type.startsWith('text/') || /\.(txt|md|js|ts|json)$/i.test(file.name)) {
-          sessionType = 'text';
-          sessionContent = await file.text();
-        } else {
-          throw new Error(
-            'Unsupported file type. Please upload an image, PDF, or text file.'
-          );
-        }
-
         const timestamp = Date.now();
         const sessionId = `vision-${timestamp}`;
-        const finalSessionType = sessionType; // Keep 'pdf'
+        const finalSessionType = fileInfo.type;
         const contentToStore = JSON.stringify({
-          file: sessionContent,
+          file: fileInfo.content,
           text: topic, // User-typed context
         });
 

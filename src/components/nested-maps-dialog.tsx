@@ -106,21 +106,26 @@ export function NestedMapsDialog({
 
                 <ScrollArea className="max-h-[60vh] p-6 pt-4">
                     {/* Root Map Section */}
-                    {rootMap && rootMap.id !== currentMapId && (
+                    {rootMap && (
                         <div className="mb-6">
                             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <ArrowRight className="h-3 w-3" />
-                                Parent Map
+                                Root Mind Map
                             </h3>
                             <div
                                 className={cn(
-                                    'group relative overflow-hidden rounded-xl border border-white/5',
-                                    'bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl',
-                                    'ring-2 ring-purple-400/30',
+                                    'group relative overflow-hidden rounded-xl border',
+                                    rootMap.id === currentMapId
+                                        ? 'border-purple-400/50 bg-gradient-to-br from-purple-500/20 to-blue-500/20 ring-2 ring-purple-400/40'
+                                        : 'border-white/5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl ring-2 ring-purple-400/30',
                                     'transition-all duration-300 cursor-pointer',
                                     'hover:ring-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20'
                                 )}
-                                onClick={() => onOpenMap(null, rootMap.id)}
+                                onClick={() => {
+                                    if (rootMap.id !== currentMapId) {
+                                        onOpenMap(null, rootMap.id);
+                                    }
+                                }}
                             >
                                 <div className="flex items-center justify-between p-4">
                                     <div className="flex items-center gap-3">
@@ -135,11 +140,13 @@ export function NestedMapsDialog({
                                                 {rootMap.topic}
                                             </h4>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                Root Mind Map
+                                                {rootMap.id === currentMapId ? 'Current Active Map' : 'Return to Root'}
                                             </p>
                                         </div>
                                     </div>
-                                    <ChevronRight className="h-5 w-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                                    {rootMap.id !== currentMapId && (
+                                        <ChevronRight className="h-5 w-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                                    )}
                                 </div>
                             </div>
                         </div>

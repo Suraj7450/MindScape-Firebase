@@ -34,6 +34,16 @@ const ChatWithAssistantInputSchema = z.object({
     .optional()
     .default('Standard')
     .describe('The personality/style of the AI assistant.'),
+  attachments: z
+    .array(
+      z.object({
+        type: z.enum(['text', 'pdf', 'image']),
+        name: z.string(),
+        content: z.string(), // Text content for txt/pdf, base64 for image
+      })
+    )
+    .optional()
+    .describe('Optional file attachments (PDF/TXT text or Image base64).'),
 });
 export type ChatWithAssistantInput = z.infer<
   typeof ChatWithAssistantInputSchema
@@ -51,7 +61,7 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function chatWithAssistant(
   input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ChatWithAssistantOutput> {
-  const { provider, apiKey, topic, persona, history, question } = input;
+  const { provider, apiKey, topic, persona, history, question, attachments } = input;
 
   // Generate search context for real-time information
   // ALWAYS inject current date, search sources are optional
@@ -126,6 +136,16 @@ ${JSON.stringify(mindscapeMap, null, 2)}
 
 🧠 **Current Topic**: ${topic}
 ${searchSection}
+
+${attachments && attachments.length > 0 ? `
+📎 **Attached Files**:
+${attachments
+          .filter(a => a.type !== 'image')
+          .map(a => `--- File: ${a.name} (${a.type}) ---\n${a.content}\n--- End of File ---`)
+          .join('\n\n')}
+
+IMPORTANT: Reference the content of the attached files to provide a contextually relevant response. If an image is attached, it has been sent directly to your vision module (if available).
+` : ''}
 `;
   }
 

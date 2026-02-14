@@ -42,8 +42,18 @@ import {
   Eraser,
   Github,
   ChevronRight,
-  BrainCircuit
+  BrainCircuit,
+  Paperclip,
+  Image as ImageIcon,
+  FileDigit,
+  FileText
 } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction, regenerateQuizAction, conversationalMindMapAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText, cleanCitations } from '@/lib/utils';
@@ -99,6 +109,12 @@ interface ChatSession {
   topic: string;
   messages: Message[];
   timestamp: number;
+}
+
+export interface Attachment {
+  type: 'text' | 'pdf' | 'image';
+  name: string;
+  content: string; // Text content for txt/pdf, base64 for image
 }
 
 type Persona = 'Standard' | 'Teacher' | 'Concise' | 'Creative';
@@ -181,6 +197,11 @@ export function ChatPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
   const [isFinalizing, setIsFinalizing] = useState(false);
+
+  // ATTACHMENTS STATE
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // RESIZE STATE
   const [panelWidth, setPanelWidth] = useLocalStorage('mindscape-chat-panel-width', 500);
@@ -278,6 +299,8 @@ export function ChatPanel({
     if (!content || !activeSessionId) return;
 
     const newMessage: Message = { role: 'user', content };
+    const currentAttachments = [...attachments];
+    setAttachments([]); // Clear UI immediately
     setRelatedQuestions([]); // Clear previous questions when a new one is sent
 
     // Update the state optimistically
@@ -351,7 +374,8 @@ export function ChatPanel({
       question: content,
       topic,
       history,
-      persona
+      persona,
+      attachments: currentAttachments
     }, providerOptions);
     setIsLoading(false);
 
@@ -396,7 +420,57 @@ export function ChatPanel({
       }
       setIsGeneratingRelated(false);
     }
-  }, [input, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions, mindMapData]);
+  }, [input, attachments, activeSessionId, activeSession?.messages, setSessions, topic, persona, providerOptions, mindMapData]);
+
+  /**
+   * Handles file selection and processing (PDF, TXT, Images)
+   */
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    setIsProcessingFiles(true);
+    const newAttachments: Attachment[] = [];
+
+    for (const file of Array.from(files)) {
+      try {
+        if (file.type.startsWith('image/')) {
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          newAttachments.push({ type: 'image', name: file.name, content: base64 });
+        } else if (file.type === 'application/pdf') {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map((item: any) => item.str).join(' ') + '\n';
+          }
+          newAttachments.push({ type: 'pdf', name: file.name, content: text });
+        } else if (file.type === 'text/plain') {
+          const text = await file.text();
+          newAttachments.push({ type: 'text', name: file.name, content: text });
+        } else {
+          toast({ title: "Unsupported file type", description: `${file.name} cannot be attached.`, variant: "destructive" });
+        }
+      } catch (err) {
+        console.error(`Error processing file ${file.name}:`, err);
+        toast({ title: "File Error", description: `Could not process ${file.name}`, variant: "destructive" });
+      }
+    }
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+    setIsProcessingFiles(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   /**
    * Generates a quiz based on the current topic.
@@ -1538,36 +1612,113 @@ export function ChatPanel({
           </div>
         </ScrollArea>
         <div className="px-4 pb-4">
+          {/* Attachment Previews */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              <AnimatePresence>
+                {attachments.map((file, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, x: -10 }}
+                    className="group relative flex items-center gap-2 p-1.5 pr-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-lg"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center text-primary shadow-inner">
+                      {file.type === 'image' ? (
+                        <ImageIcon className="w-3.5 h-3.5" />
+                      ) : file.type === 'pdf' ? (
+                        <FileDigit className="w-3.5 h-3.5" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-zinc-300 max-w-[80px] truncate leading-none">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(idx)}
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-md"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex gap-2"
+            className="flex items-end gap-2"
           >
             <div className="relative flex-grow">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                multiple
+                className="hidden"
+                accept=".pdf,.txt,image/*"
+              />
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={isListening ? "Listening..." : "Ask a question..."}
                 disabled={isLoading}
-                className={cn("glassmorphism pr-10", isListening && "border-primary ring-1 ring-primary")}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
                 className={cn(
-                  "absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full transition-all hover:-translate-y-1/2 shadow-none",
-                  isListening ? "text-red-500 animate-pulse bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                  "glassmorphism pr-24 min-h-[44px] rounded-2xl",
+                  isListening && "border-primary ring-1 ring-primary"
                 )}
-                onClick={handleVoiceInput}
-                disabled={isLoading}
-              >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </Button>
+              />
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-8 w-8 rounded-full transition-all text-muted-foreground hover:text-foreground hover:bg-white/10 shadow-none",
+                          isProcessingFiles && "animate-pulse"
+                        )}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading || isProcessingFiles}
+                      >
+                        {isProcessingFiles ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Paperclip className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Attach File</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full transition-all shadow-none",
+                    isListening ? "text-red-500 animate-pulse bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                  )}
+                  onClick={handleVoiceInput}
+                  disabled={isLoading}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-            <Button type="submit" disabled={isLoading || !input.trim()}>
+            <Button
+              type="submit"
+              disabled={isLoading || (input.trim() === '' && attachments.length === 0)}
+              className="h-11 w-11 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 bg-primary text-white"
+            >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
