@@ -72,9 +72,6 @@ interface MindMapToolbarProps {
     canRegenerate: boolean;
     nestedExpansionsCount: number;
     imagesCount: number;
-    status: MindMapStatus;
-    aiHealth?: { name: string, status: string }[];
-
     viewMode: 'accordion' | 'map' | 'roadmap';
     onViewModeChange: (mode: 'accordion' | 'map' | 'roadmap') => void;
     onPublish: () => void;
@@ -86,6 +83,7 @@ interface MindMapToolbarProps {
     isSummarizing?: boolean;
     onTransform?: () => void;
     isSharing?: boolean;
+    status?: MindMapStatus;
 
 }
 
@@ -110,8 +108,6 @@ export const MindMapToolbar = ({
     canRegenerate,
     nestedExpansionsCount,
     imagesCount,
-    status,
-    aiHealth = [],
     viewMode,
     onViewModeChange,
     onPublish,
@@ -123,6 +119,7 @@ export const MindMapToolbar = ({
     isSummarizing,
     onTransform,
     isSharing = false,
+    status = 'idle',
 
 }: MindMapToolbarProps) => {
     // Helper to determine if interaction should be disabled
@@ -388,32 +385,6 @@ export const MindMapToolbar = ({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="glassmorphism"><p>Regenerate Map</p></TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {(status !== 'idle' || aiHealth.some(h => h.status !== 'healthy')) && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className={cn(
-                                        "h-2 w-2 rounded-full ml-1",
-                                        status === 'idle'
-                                            ? (aiHealth.every(h => h.status === 'healthy') ? "bg-emerald-500/50" : "bg-red-500 animate-pulse")
-                                            : "bg-amber-400 animate-bounce"
-                                    )} />
-                                </TooltipTrigger>
-                                <TooltipContent className="glassmorphism">
-                                    <div className="space-y-2">
-                                        <p className="font-bold text-xs">{status === 'idle' ? 'System Status' : 'Processing...'}</p>
-                                        <div className="pt-2 border-t border-white/10">
-                                            {aiHealth.map(h => (
-                                                <div key={h.name} className="flex justify-between text-[10px] uppercase font-mono gap-4">
-                                                    <span>{h.name}</span>
-                                                    <span className={h.status === 'healthy' ? 'text-emerald-400' : 'text-red-400'}>{h.status}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </TooltipContent>
                             </Tooltip>
                         )}
                     </div>

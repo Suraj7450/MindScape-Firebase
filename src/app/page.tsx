@@ -437,7 +437,6 @@ function Hero({
                     disabled={isGenerating || (!!uploadedFile && !topic)}
                     className={cn(
                       "h-16 w-16 rounded-3xl bg-primary text-white hover:brightness-110 hover:scale-105 active:scale-95 transition-all font-bold shadow-lg shadow-primary/30 flex items-center justify-center p-0",
-                      isGenerating ? "animate-pulse" : ""
                     )}
                   >
                     {isGenerating ? (
@@ -463,38 +462,7 @@ function Hero({
   );
 }
 
-function GenerationLoadingOverlay() {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl"
-    >
-      <div className="flex flex-col items-center gap-8">
-        <div className="relative h-24 w-24">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 rounded-full border-b-2 border-t-2 border-primary"
-          />
-          <motion.div
-            animate={{ rotate: -360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-2 rounded-full border-l-2 border-r-2 border-purple-500/50"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className="h-8 w-8 text-white animate-pulse" />
-          </div>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <h2 className="text-2xl font-bold tracking-tight text-white italic text-center">Quantum Materializing...</h2>
-          <p className="text-zinc-400 text-sm font-medium tracking-widest uppercase opacity-50">Structuring infinite possibilities</p>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+// Loading state is now handled by target page skeletons (canvas/loading.tsx, etc.)
 
 // ---------- ROOT COMPONENT ----------
 export default function Home() {
@@ -537,6 +505,7 @@ export default function Home() {
     topic: string,
     fileInfo?: { name: string; type: string }
   ) => {
+    // Navigate immediately. The target page (Canvas) will show the radial skeleton.
     setIsGenerating(true);
 
     // Check if user is searching for "MindScape" itself
@@ -586,9 +555,6 @@ export default function Home() {
 
   return (
     <div className="h-[calc(100dvh-5rem)] overflow-hidden flex flex-col">
-      <AnimatePresence>
-        {isGenerating && <GenerationLoadingOverlay />}
-      </AnimatePresence>
 
       <Hero
         onGenerate={handleGenerate}

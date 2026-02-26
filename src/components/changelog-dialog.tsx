@@ -12,42 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Zap, Palette, PartyPopper, ArrowRight } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming this exists
-
-// --- Changelog Data ---
-// In a real app, this could come from a JSON file or API.
-const CHANGELOG_DATA = [
-    {
-        version: '1.2.0',
-        date: 'February 2026', // Contextual date
-        title: 'Visual Polish & Stability',
-        highlights: [
-            {
-                icon: Palette,
-                color: 'text-pink-400 bg-pink-500/10',
-                title: 'New Toolbar Colors',
-                description: 'Fresh look for the MindMap toolbar with distinct colors for Challenge, Transform, and Summary.',
-            },
-            {
-                icon: Zap,
-                color: 'text-purple-400 bg-purple-500/10',
-                title: 'Transform Stability',
-                description: 'Enhanced reliability for generating dossiers and quizzes, with better error handling for large maps.',
-            },
-            {
-                icon: Sparkles,
-                color: 'text-amber-400 bg-amber-500/10',
-                title: 'Library Grid Fix',
-                description: 'Improved layout for saved mind maps to ensure all your creations are visible.',
-            },
-        ],
-    },
-    // Add older versions here if needed
-];
-
-const CURRENT_VERSION = CHANGELOG_DATA[0].version;
-const STORAGE_KEY = 'mindscape_changelog_version';
+import { PartyPopper, ArrowRight } from 'lucide-react';
+import { CHANGELOG_DATA, CURRENT_VERSION, STORAGE_KEY } from '@/lib/changelog-data';
+import { cn } from '@/lib/utils';
 
 export function ChangelogDialog() {
     const [isOpen, setIsOpen] = useState(false);

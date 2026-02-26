@@ -39,7 +39,8 @@ import { jsPDF } from 'jspdf';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DepthBadge } from '@/components/mind-map/depth-badge';
 import { ImageGenerationDialog, ImageSettings } from '@/components/mind-map/image-generation-dialog';
-import { ChangelogDialog } from '@/components/changelog-dialog';
+// ChangelogDialog removed from here, now in root layout
+
 
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -700,6 +701,75 @@ export default function DashboardPage() {
     router.push(`/canvas?mapId=${mapId}`);
   };
 
+  const handleGenerateThumbnail = async (mapToUpdate: SavedMindMap) => {
+    if (!user || regeneratingMapIds.has(mapToUpdate.id)) return;
+
+    const mapId = mapToUpdate.id;
+    setRegeneratingMapIds(prev => new Set(prev).add(mapId));
+    setImageErrorMapIds(prev => {
+      const next = new Set(prev);
+      next.delete(mapId);
+      return next;
+    });
+
+    const prompt = `${mapToUpdate.topic}, professional photography, high quality, detailed, 8k`;
+
+    toast({
+      title: 'Generating Thumbnail...',
+      description: `Creating silent thumbnail for ${mapToUpdate.topic}`,
+    });
+
+    try {
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          model: 'flux',
+          width: 512,
+          height: 288,
+          userId: user.uid,
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Image generation failed');
+      }
+
+      const data = await response.json();
+      const finalImageUrl = data.imageUrl;
+
+      const mapRef = doc(firestore, 'users', user.uid, 'mindmaps', mapId);
+      await updateDoc(mapRef, {
+        thumbnailUrl: finalImageUrl,
+        updatedAt: Date.now()
+      });
+
+      if (selectedMapForPreview?.id === mapId) {
+        setSelectedMapForPreview(prev => prev ? ({ ...prev, thumbnailUrl: finalImageUrl }) : null);
+      }
+      // setSavedMaps(prev => prev.map(m => m.id === mapId ? { ...m, thumbnailUrl: finalImageUrl } : m)); // This line is commented out in the provided snippet, so I'll keep it commented.
+
+      toast({
+        title: "Thumbnail Updated!",
+        description: "Your new AI-crafted thumbnail is ready.",
+      });
+    } catch (err: any) {
+      setImageErrorMapIds(prev => new Set(prev).add(mapId));
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: err.message || "Failed to generate thumbnail."
+      });
+    } finally {
+      setRegeneratingMapIds(prev => {
+        const next = new Set(prev);
+        next.delete(mapId);
+        return next;
+      });
+    }
+  };
+
   const handleDeleteMap = async () => {
     if (!user || !mapToDelete) return;
 
@@ -1186,8 +1256,7 @@ export default function DashboardPage() {
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setMapForImageLab(selectedMapForPreview);
-                          setIsImageLabOpen(true);
+                          handleGenerateThumbnail(selectedMapForPreview);
                         }}
                         className="rounded-full h-9 w-9 bg-purple-600/50 backdrop-blur-xl border border-purple-500/60 hover:bg-purple-600 text-white transition-all duration-300 hover:scale-110 active:scale-90"
                       >
@@ -1388,7 +1457,7 @@ export default function DashboardPage() {
           isEnhancing={isEnhancingPrompt}
         />
       )}
-      <ChangelogDialog />
     </TooltipProvider >
+
   );
 }

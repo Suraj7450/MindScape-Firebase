@@ -31,7 +31,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
             getDoc(userRef).then(snap => {
                 if (snap.exists()) {
                     const pref = snap.data().preferences?.defaultAIPersona;
-                    if (pref) setAiPersona(pref);
+                    setAiPersona(pref || 'Concise');
                 }
             });
         }

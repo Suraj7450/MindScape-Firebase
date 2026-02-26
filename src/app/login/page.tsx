@@ -13,16 +13,6 @@ type LoginShowcase = {
 
 const LOGIN_SHOWCASES: LoginShowcase[] = [
   {
-    badge: 'Guided Brainstorming',
-    title: <>Let AI ask the <span className="text-purple-400">right questions</span>.</>,
-    description:
-      "Don't just take notes. Build mind maps through conversation, curiosity, and intelligent guidance.",
-    examples: [
-      'Help me understand Quantum Physics',
-      'Map out the history of Rome',
-    ],
-  },
-  {
     badge: 'AI-Powered Generation',
     title: <>Turn thoughts into <span className="text-purple-400">structure</span>.</>,
     description:

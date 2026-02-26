@@ -22,15 +22,6 @@ export const POLLINATIONS_MODELS = [
         isNew: false
     },
     {
-        value: 'imagen-4',
-        label: 'Imagen 4 (alpha)',
-        cost: 0.0025,
-        badge: 'Alpha',
-        icon: Sparkles,
-        description: 'Advanced Photorealism - Experimental alpha release',
-        isNew: true
-    },
-    {
         value: 'klein',
         label: 'FLUX.2 Klein 4B',
         cost: 0.008,

@@ -410,7 +410,7 @@ export async function initializeUserProfile(
         preferences: {
             defaultExplanationMode: 'Intermediate',
             preferredLanguage: 'en',
-            defaultAIPersona: 'Standard',
+            defaultAIPersona: 'Concise',
             autoGenerateImages: false,
             defaultMapView: 'collapsed',
             autoSaveFrequency: 5,

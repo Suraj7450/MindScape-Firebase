@@ -283,7 +283,7 @@ export const MindMap = ({
   rootMap,
   allSubMaps,
 }: MindMapProps) => {
-  const [viewMode, setViewMode] = useState<'accordion' | 'map'>('accordion');
+  const [viewMode, setViewMode] = useState<'accordion' | 'map' | 'roadmap'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -337,6 +337,9 @@ export const MindMap = ({
   const [openCompareNodes, setOpenCompareNodes] = useState<string[]>([]);
   const [isAllExpanded, setIsAllExpanded] = useState(false);
   const [isAiContentDialogOpen, setIsAiContentDialogOpen] = useState(false);
+
+  const [nestedGeneratingImageId, setNestedGeneratingImageId] = useState<string | null>(null);
+  const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string>>({});
 
   const [isExampleDialogOpen, setIsExampleDialogOpen] = useState(false);
   const [exampleContent, setExampleContent] = useState('');
@@ -394,6 +397,11 @@ export const MindMap = ({
   const [isImageLabOpen, setIsImageLabOpen] = useState(false);
   const [labNode, setLabNode] = useState<SubCategoryInfo | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Advanced Image Generation for Nested Maps
+  const [isNestedImageLabOpen, setIsNestedImageLabOpen] = useState(false);
+  const [nestedLabNode, setNestedLabNode] = useState<NestedExpansionItem | null>(null);
+  const [isEnhancingNested, setIsEnhancingNested] = useState(false);
 
   // Practice Mode State
 
@@ -1217,12 +1225,9 @@ export const MindMap = ({
         isDuplicating={isDuplicating}
         onRegenerate={onRegenerate}
         onStartGlobalQuiz={() => onStartQuiz(data.topic)}
-        isRegenerating={isRegenerating}
         canRegenerate={canRegenerate}
-        nestedExpansionsCount={(allSubMaps?.length || 0) + (rootMap ? 1 : 0)}
+        nestedExpansionsCount={(allSubMaps?.length || 0)}
         imagesCount={generatedImages.length}
-        status={status}
-        aiHealth={aiHealth}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onPublish={handlePublish}
@@ -1232,6 +1237,7 @@ export const MindMap = ({
         onOpenSummary={handleOpenSummary}
         isSummarizing={isSummarizing}
         onTransform={onTransform}
+        status={status}
 
       />
 
@@ -1267,6 +1273,8 @@ export const MindMap = ({
               badgeText="Focused Intelligence"
               persona={aiPersona}
               depth={data.depth}
+              rootMap={rootMap}
+              allSubMaps={allSubMaps}
             />
 
             {(!data.subTopics || data.subTopics.length === 0) ? (
@@ -1312,6 +1320,11 @@ export const MindMap = ({
                   onGenerateNewMap(topic, id || '', `${data.topic} > ${topic}`, 'background');
                 }}
                 generatingNode={generatingNode}
+                onExplainInChat={onExplainInChat}
+                onExplainWithExample={(topic) => handleExplainWithExample({ name: topic, type: 'subTopic' })}
+                onStartQuiz={onStartQuiz}
+                onPracticeClick={handleGeneratePracticeQuestions}
+                onGenerateImage={(topic) => handleGenerateImageClick({ name: topic, description: '' })}
               />
             </div>,
             mountNode
@@ -1383,6 +1396,7 @@ export const MindMap = ({
         onClose={() => setIsNestedMapsDialogOpen(false)}
         expansions={(allSubMaps || nestedExpansions || []).map(item => ({
           ...item,
+          thumbnailUrl: thumbnailOverrides[item.id] || (item.fullData as any)?.thumbnailUrl || item.thumbnailUrl,
           path: item.path || ''
         }))}
         rootMap={rootMap}
@@ -1405,6 +1419,10 @@ export const MindMap = ({
         expandingId={null}
         onExplainInChat={onExplainInChat}
         mainTopic={data.topic}
+        onGenerateImage={(expansion) => {
+          setNestedLabNode(expansion);
+          setIsNestedImageLabOpen(true);
+        }}
         onOpenMap={(mapData, id) => {
           setIsNestedMapsDialogOpen(false);
           if (onOpenNestedMap) onOpenNestedMap(mapData, id);
@@ -1414,6 +1432,7 @@ export const MindMap = ({
           onGenerateNewMap(name, desc, parentId);
         }}
         isGlobalBusy={status !== 'idle'}
+        generatingImageId={nestedGeneratingImageId}
       />
 
       {isImageLabOpen && labNode && (
@@ -1426,6 +1445,118 @@ export const MindMap = ({
           initialPrompt={`${labNode.name} in the context of "${data.topic}": ${labNode.description}`}
           onEnhancePrompt={handleEnhancePrompt}
           isEnhancing={isEnhancing}
+        />
+      )}
+
+      {/* Visual Insight Lab for Nested Maps */}
+      {isNestedImageLabOpen && nestedLabNode && (
+        <ImageGenerationDialog
+          isOpen={isNestedImageLabOpen}
+          onClose={() => {
+            setIsNestedImageLabOpen(false);
+            setNestedLabNode(null);
+          }}
+          onGenerate={async (settings) => {
+            setNestedGeneratingImageId(nestedLabNode.id);
+            toast({
+              title: 'Generating Thumbnail...',
+              description: `Creating thumbnail for ${nestedLabNode.topic}`,
+            });
+
+            try {
+              // Try to get user API key for nested generation too
+              let userSettings = null;
+              try {
+                const { getUserImageSettings } = await import('@/lib/firestore-helpers');
+                userSettings = user ? await getUserImageSettings(firestore, user.uid) : null;
+              } catch (firestoreError: any) {
+                console.warn('⚠️ Could not load user settings for nested generation:', firestoreError.message);
+              }
+
+              const response = await fetch('/api/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  prompt: settings.enhancedPrompt || settings.initialPrompt,
+                  model: settings.model || 'flux',
+                  width: settings.width || 512,
+                  height: settings.height || 288,
+                  userId: user?.uid,
+                  userApiKey: userSettings?.pollinationsApiKey
+                })
+              });
+
+              if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Image generation failed');
+              }
+
+              const imageData = await response.json();
+
+              // Update LOCAL nestedExpansions state
+              setNestedExpansions(prev => prev.map(exp =>
+                exp.id === nestedLabNode.id
+                  ? { ...exp, thumbnailUrl: imageData.imageUrl, fullData: { ...exp.fullData, thumbnailUrl: imageData.imageUrl } }
+                  : exp
+              ));
+
+              // Immediate UI feedback via overrides
+              if (nestedLabNode.id) {
+                setThumbnailOverrides(prev => ({
+                  ...prev,
+                  [nestedLabNode.id]: imageData.imageUrl
+                }));
+              }
+
+              // If allSubMaps is being used by the dialog, we need to ensure it's also updated locally
+              // Since allSubMaps is a prop, we can't update it directly, BUT we can update the Firestore doc
+              // and let the parent re-fetch, OR manage a local override map in MindMap.
+              toast({
+                title: 'Thumbnail Generated!',
+                description: `Successfully created thumbnail for ${nestedLabNode.topic}`,
+              });
+
+              // Persist the new thumbnail URL to Firestore
+              if (user && firestore && nestedLabNode.id) {
+                try {
+                  const docRef = doc(firestore, 'users', user.uid, 'mindmaps', nestedLabNode.id);
+                  await updateDoc(docRef, { thumbnailUrl: imageData.imageUrl });
+                } catch (dbError) {
+                  console.error('Failed to save nested map thumbnail to db:', dbError);
+                }
+              }
+            } catch (err: any) {
+              toast({
+                variant: 'destructive',
+                title: 'Generation Failed',
+                description: err.message || 'Failed to generate thumbnail.',
+              });
+            } finally {
+              setNestedGeneratingImageId(null);
+            }
+          }}
+          nodeName={nestedLabNode.topic}
+          nodeDescription={`Updating thumbnail for ${nestedLabNode.topic}`}
+          initialPrompt={`${nestedLabNode.topic}, professional photography, high quality, detailed, 8k`}
+          onEnhancePrompt={async (prompt, style, composition, mood) => {
+            setIsEnhancingNested(true);
+            try {
+              const { enhancedPrompt, error } = await enhanceImagePromptAction({
+                prompt,
+                style,
+                composition,
+                mood
+              }, providerOptions);
+              if (error) throw new Error(error);
+              return enhancedPrompt?.enhancedPrompt || prompt;
+            } catch (err: any) {
+              toast({ variant: 'destructive', title: 'Enhancement failed', description: err.message });
+              return prompt;
+            } finally {
+              setIsEnhancingNested(false);
+            }
+          }}
+          isEnhancing={isEnhancingNested}
         />
       )}
 

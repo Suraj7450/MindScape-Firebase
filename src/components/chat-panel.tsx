@@ -54,7 +54,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
-import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction, regenerateQuizAction, conversationalMindMapAction } from '@/app/actions';
+import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction, regenerateQuizAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText, cleanCitations } from '@/lib/utils';
 import { Separator } from './ui/separator';
@@ -134,7 +134,7 @@ interface ChatPanelProps {
   onClose: () => void;
   topic: string;
   initialMessage?: string;
-  initialMode?: 'chat' | 'quiz' | 'brainstorm';
+  initialMode?: 'chat' | 'quiz';
   mindMapData?: MindMapData;
 }
 
@@ -195,8 +195,6 @@ export function ChatPanel({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [displayedPrompts, setDisplayedPrompts] = useState<any[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
-  const [isFinalizing, setIsFinalizing] = useState(false);
 
   // ATTACHMENTS STATE
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -317,52 +315,6 @@ export function ChatPanel({
       setInput('');
     }
     setIsLoading(true);
-
-    if (initialMode === 'brainstorm') {
-      const history = updatedMessages.slice(0, -1).map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      }));
-
-      const { response, error } = await conversationalMindMapAction({
-        message: content,
-        history,
-      }, providerOptions);
-
-      setIsLoading(false);
-
-      if (error || !response) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: error || "Sorry, I couldn't process your brainstorming request.",
-        };
-        setSessions(prev => prev.map(s =>
-          s.id === activeSessionId ? { ...s, messages: [...updatedMessages, assistantMessage] } : s
-        ));
-        return;
-      }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.response,
-        suggestions: response.suggestions,
-        isFinal: response.isFinal
-      };
-
-      if (response.suggestions) {
-        setBrainstormSuggestions(response.suggestions);
-      } else {
-        setBrainstormSuggestions([]);
-      }
-
-      setSessions(prev => prev.map(s =>
-        s.id === activeSessionId
-          ? { ...s, messages: [...updatedMessages, assistantMessage] }
-          : s
-      ));
-
-      return;
-    }
 
     // Prepare history (last 10 messages) for standard chat
     const history = updatedMessages.slice(-10).map(msg => ({
@@ -703,20 +655,6 @@ export function ChatPanel({
     if (isOpen && initialMessage && !hasSentInitialMessage.current && activeSession) {
       handleSend(initialMessage);
       hasSentInitialMessage.current = true;
-    } else if (isOpen && initialMode === 'quiz' && !hasSentInitialMessage.current && activeSession) {
-      // Add a specialized selector message
-      const selectorMessage: Message = {
-        role: 'assistant',
-        content: `I'm ready to prepare a comprehensive quiz for you on **${topic}**. Which level of challenge should I architect for you?`,
-        type: 'quiz-selector'
-      };
-
-      setSessions(prev => prev.map(s =>
-        s.id === activeSession.id
-          ? { ...s, messages: [selectorMessage] }
-          : s
-      ));
-
       hasSentInitialMessage.current = true;
     }
   }, [isOpen, initialMessage, initialMode, activeSession, handleSend, handleStartQuiz]);
@@ -873,44 +811,6 @@ export function ChatPanel({
     }
   };
 
-
-  /**
-   * Finalizes the brainstorming session into a mind map.
-   */
-  const handleFinalize = useCallback(async () => {
-    if (!activeSessionId) return;
-    setIsFinalizing(true);
-
-    const history = activeSession?.messages.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content
-    })) || [];
-
-    const { response, error } = await conversationalMindMapAction({
-      message: "FINALIZE_MIND_MAP",
-      history,
-    }, providerOptions);
-
-    setIsFinalizing(false);
-
-    if (error || !response || !response.mindMap) {
-      toast({
-        title: "Finalization Failed",
-        description: error || "Could not generate the mind map from this session.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Navigate to canvas with the new mind map data
-    // We can't pass the whole JSON in URL easily, so we might want to store it in session storage
-    const timestamp = Date.now();
-    const mapId = `brainstorm-${timestamp}`;
-    sessionStorage.setItem(`brainstorm-map-${mapId}`, JSON.stringify(response.mindMap));
-
-    // Redirect to canvas with the brainstorm map ID
-    window.location.href = `/canvas?mapId=${mapId}&fromBrainstorm=true`;
-  }, [activeSessionId, activeSession?.messages, providerOptions, toast]);
 
   /**
    * Copies a message to clipboard.
@@ -1421,65 +1321,8 @@ export function ChatPanel({
                         </div>
                       </div>
 
-                      {/* Brainstorm Suggestions Section */}
-                      {initialMode === 'brainstorm' && message.role === 'assistant' && index === messages.length - 1 && brainstormSuggestions.length > 0 && !message.isFinal && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="ml-11 flex flex-wrap gap-2 mt-2"
-                        >
-                          {brainstormSuggestions.map((suggestion, sIndex) => (
-                            <Button
-                              key={sIndex}
-                              variant="outline"
-                              size="sm"
-                              className="text-[10px] h-8 font-bold uppercase tracking-wider rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all"
-                              onClick={() => handleSend(suggestion)}
-                              disabled={isLoading}
-                            >
-                              {suggestion}
-                            </Button>
-                          ))}
-                        </motion.div>
-                      )}
-
-                      {/* Finalize Brainstorm Button */}
-                      {initialMode === 'brainstorm' && message.role === 'assistant' && index === messages.length - 1 && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="ml-11 mt-4"
-                        >
-                          <Button
-                            onClick={handleFinalize}
-                            disabled={isFinalizing || isLoading}
-                            className={cn(
-                              "w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 hover:scale-[1.02] transition-all shadow-lg shadow-purple-500/20 font-bold uppercase tracking-widest text-xs rounded-2xl",
-                              message.isFinal ? "animate-pulse ring-2 ring-purple-400 ring-offset-2 ring-offset-zinc-950" : ""
-                            )}
-                          >
-                            {isFinalizing ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                Architecting Your Map...
-                              </>
-                            ) : (
-                              <>
-                                <BrainCircuit className="h-4 w-4 mr-2" />
-                                {message.isFinal ? "Generate Mind Map Now" : "Finalize Brainstorm"}
-                              </>
-                            )}
-                          </Button>
-                          {message.isFinal && (
-                            <p className="text-[10px] text-zinc-500 text-center mt-2 font-medium animate-pulse">
-                              The AI has gathered enough information! Click above to visualize.
-                            </p>
-                          )}
-                        </motion.div>
-                      )}
-
                       {/* Related Questions Section */}
-                      {message.role === 'assistant' && index === messages.length - 1 && initialMode !== 'brainstorm' && (
+                      {message.role === 'assistant' && index === messages.length - 1 && (
                         <div className="ml-11 flex flex-col gap-3">
                           {/* Toggle Header */}
                           {(isGeneratingRelated || relatedQuestions.length > 0) && (

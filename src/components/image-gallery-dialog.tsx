@@ -13,7 +13,7 @@ import {
 import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Download, Expand, X, Loader2, AlertTriangle, RefreshCw, Info, Sparkles, MessageCircle, Settings } from 'lucide-react';
+import { Download, Expand, X, Loader2, AlertTriangle, RefreshCw, Info, Sparkles, MessageCircle, Settings, ImageIcon } from 'lucide-react';
 import { GeneratedImage } from '@/types/mind-map';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
@@ -314,8 +314,22 @@ export function ImageGalleryDialog({
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No images generated yet.
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-6 animate-in fade-in zoom-in-95 duration-700">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-purple-500/20 blur-3xl rounded-full" />
+                  <div className="relative w-28 h-28 rounded-[2rem] bg-gradient-to-br from-zinc-900/90 to-black flex items-center justify-center shadow-2xl border border-white/5 ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all duration-500">
+                    <Sparkles className="h-10 w-10 text-zinc-600 absolute top-4 right-4 opacity-50" />
+                    <ImageIcon className="h-12 w-12 text-zinc-400/80 drop-shadow-2xl" />
+                  </div>
+                </div>
+                <div className="space-y-3 max-w-sm relative z-10 px-4">
+                  <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-500 tracking-tight font-orbitron uppercase">
+                    Void Canvas
+                  </h3>
+                  <p className="text-[13px] text-zinc-400 leading-relaxed font-medium">
+                    No visual artifacts discovered. Use the <strong className="text-purple-400 font-bold">Visual Insight Lab</strong> on any knowledge node to materialize your concepts into stunning AI-generated imagery.
+                  </p>
+                </div>
               </div>
             )}
           </ScrollArea>

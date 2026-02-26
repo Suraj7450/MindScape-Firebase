@@ -27,6 +27,8 @@ interface TopicHeaderProps {
     persona?: string;
     depth?: 'low' | 'medium' | 'deep';
     isMinimal?: boolean;
+    rootMap?: { id: string; topic: string; icon?: string } | null;
+    allSubMaps?: any[];
 }
 
 /**
@@ -42,8 +44,76 @@ export const TopicHeader = ({
     badgeText,
     persona,
     depth,
-    isMinimal = false
+    isMinimal = false,
+    rootMap,
+    allSubMaps
 }: TopicHeaderProps) => {
+    // Compute true hierarchical path based on rootMap and allSubMaps
+    const hierarchicalPath = React.useMemo(() => {
+        if (!rootMap || !allSubMaps) {
+            return mindMapStack.slice(0, activeStackIndex + 1).map((m, idx) => ({
+                id: m.id,
+                topic: m.shortTitle || m.topic,
+                depth: idx,
+                isStackFallback: true,
+                stackIndex: idx
+            }));
+        }
+
+        const path = [];
+        let currentId: string | undefined = mindMap.id;
+        let safeCount = 0;
+
+        while (currentId && safeCount < 10) {
+            safeCount++;
+            if (currentId === rootMap.id) {
+                path.unshift({
+                    id: rootMap.id,
+                    topic: rootMap.topic,
+                    depth: 0
+                });
+                break;
+            }
+
+            const subMap = allSubMaps.find(m => m.id === currentId);
+            if (subMap) {
+                path.unshift({
+                    id: subMap.id,
+                    topic: subMap.topic || subMap.fullData?.shortTitle,
+                    depth: subMap.depth
+                });
+                currentId = subMap.fullData?.parentMapId;
+            } else {
+                if (currentId === mindMap.id) {
+                    const parentId = (mindMap as any).parentMapId;
+                    const parentDepth = parentId ? (allSubMaps.find(m => m.id === parentId)?.depth || 0) : 0;
+                    path.unshift({
+                        id: mindMap.id,
+                        topic: mindMap.shortTitle || mindMap.topic,
+                        depth: parentDepth + 1
+                    });
+                    currentId = parentId;
+                } else {
+                    break;
+                }
+            }
+        }
+        return path;
+    }, [mindMap, rootMap, allSubMaps, mindMapStack, activeStackIndex]);
+
+    const handlePathClick = (item: any) => {
+        if (item.isStackFallback && item.stackIndex !== undefined) {
+            onStackSelect?.(item.stackIndex);
+            return;
+        }
+        if (item.id) {
+            const stackIdx = mindMapStack.findIndex(m => m.id === item.id);
+            if (stackIdx !== -1) {
+                onStackSelect?.(stackIdx);
+            }
+        }
+    };
+
     return (
         <div className={cn(
             "relative animate-in fade-in slide-in-from-top-4 duration-1000 mt-8",
@@ -92,26 +162,32 @@ export const TopicHeader = ({
                     )}
 
                     {/* Breadcrumbs / Navigation Stack */}
-                    {mindMapStack.length > 1 && (
+                    {hierarchicalPath.length > 1 && (
                         <div className="flex flex-wrap items-center gap-2 mb-6">
-                            {mindMapStack.slice(0, activeStackIndex + 1).map((stackItem, idx) => (
-                                <React.Fragment key={idx}>
-                                    <button
-                                        onClick={() => onStackSelect?.(idx)}
-                                        className={cn(
-                                            "text-[10px] font-black uppercase tracking-widest transition-all",
-                                            idx === activeStackIndex
-                                                ? "text-primary/90"
-                                                : "text-zinc-500 hover:text-zinc-300"
+                            {hierarchicalPath.map((pathItem, idx) => {
+                                const isCurrentMap = idx === hierarchicalPath.length - 1;
+                                const levelLabel = `L${pathItem.depth}`;
+
+                                return (
+                                    <React.Fragment key={idx}>
+                                        <button
+                                            onClick={() => handlePathClick(pathItem)}
+                                            className={cn(
+                                                "text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5",
+                                                isCurrentMap
+                                                    ? "text-primary/90 cursor-default pointer-events-none"
+                                                    : "text-zinc-500 hover:text-zinc-300"
+                                            )}
+                                        >
+                                            <span className="opacity-50">{levelLabel}</span>
+                                            <span>{pathItem.topic}</span>
+                                        </button>
+                                        {!isCurrentMap && (
+                                            <ChevronRight className="w-3 h-3 text-zinc-700" />
                                         )}
-                                    >
-                                        {stackItem.shortTitle || stackItem.topic}
-                                    </button>
-                                    {idx < activeStackIndex && (
-                                        <ChevronRight className="w-3 h-3 text-zinc-700" />
-                                    )}
-                                </React.Fragment>
-                            ))}
+                                    </React.Fragment>
+                                );
+                            })}
                         </div>
                     )}
 

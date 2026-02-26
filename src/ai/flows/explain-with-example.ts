@@ -81,5 +81,5 @@ export async function explainWithExample(
     }
   }
 
-  return result;
+  throw new Error("Explanation generation failed after all attempts.");
 }

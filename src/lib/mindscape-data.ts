@@ -1,11 +1,5 @@
+import { SingleMindMapData } from "@/types/mind-map";
 
-
-import type { SingleMindMapData } from '@/types/mind-map';
-
-/**
- * Static mind map data for MindScape itself, based on the PRD.
- * This is shown when users search for "MindScape" to showcase the product's features.
- */
 export const mindscapeMap = {
     mode: "single",
     topic: "MindScape",
@@ -13,7 +7,7 @@ export const mindscapeMap = {
     icon: "brain-circuit",
     subTopics: [
         {
-            name: "Core Experience",
+            name: "Core Intelligence",
             icon: "sparkles",
             categories: [
                 {
@@ -22,71 +16,50 @@ export const mindscapeMap = {
                     subCategories: [
                         {
                             name: "Instant Generation",
-                            description: "Create comprehensive maps instantly from the Home page (Single Mode). Enter any topic (text) or upload a PDF/Image.",
+                            description: "Create comprehensive maps instantly from the Home page. Enter any topic or upload a PDF/Image for automated structuring.",
                             icon: "zap",
-                            tags: ["Home Page", "Single Mode", "Creation"],
-                            isExpanded: false
-                        },
-                        {
-                            name: "Brainstorm Wizard",
-                            description: "Select 'Brainstorm' mode on the Home page for a guided, step-by-step wizard to refine your idea before mapping.",
-                            icon: "wand-sparkles",
-                            tags: ["Home Page", "Brainstorm Mode", "Guided"],
+                            tags: ["Single Mode", "OCR", "Vision"],
                             isExpanded: false
                         },
                         {
                             name: "Compare Concepts",
-                            description: "Select 'Compare' mode on the Home page to visualize differences and similarities between two topics side-by-side.",
+                            description: "Visualize differences and similarities between two topics side-by-side with automated cross-analysis nodes.",
                             icon: "git-compare-arrows",
-                            tags: ["Home Page", "Compare Mode", "Analysis"],
+                            tags: ["Compare Mode", "Analysis"],
                             isExpanded: false
                         },
                         {
-                            name: "Nested Deep Dive",
-                            description: "Click the 'Network' icon on the Toolbar or 'Deep Dive' on any node to generate recursive sub-maps.",
-                            icon: "git-branch",
-                            tags: ["Toolbar", "Recursive", "Exploration"],
-                            isExpanded: false
-                        },
-                        {
-                            name: "Multi-language Support",
-                            description: "Switch languages instantly using the Language Selector in the Toolbar (top-left). Supports 14+ languages.",
-                            icon: "languages",
-                            tags: ["Toolbar", "Global", "Accessibility"],
+                            name: "Knowledge Navigator",
+                            description: "Deep dive through infinite hierarchies using Miller Columns. Smooth lateral navigation across nested sub-maps.",
+                            icon: "layout-columns",
+                            tags: ["Miller Columns", "Hierarchy"],
                             isExpanded: false
                         }
                     ]
                 },
                 {
-                    name: "Interactive Learning",
-                    icon: "graduation-cap",
+                    name: "Vision & Documents",
+                    icon: "file-text",
                     subCategories: [
                         {
-                            name: "Global Assistant",
-                            description: "Click the Sparkle icon (bottom-right) or 'AI Chat' in Toolbar to chat with MindSpark AI anytime.",
-                            icon: "bot",
-                            tags: ["Global", "Chat", "Help"],
+                            name: "Document Analysis",
+                            description: "Upload PDFs to extract insights and structure them into interactive mind maps with cited references.",
+                            icon: "file-up",
+                            tags: ["PDF", "Extraction"],
                             isExpanded: false
                         },
                         {
-                            name: "Practice Mode",
-                            description: "Toggle 'Practice' in the Toolbar to overlay interactive questions on nodes. Test your knowledge actively.",
-                            icon: "swords",
-                            tags: ["Toolbar", "Active Recall", "Testing"],
+                            name: "Vision Engine",
+                            description: "Analyze images and diagrams to generate related concept structures and visual breakdowns.",
+                            icon: "eye",
+                            tags: ["Image-to-Map", "OCR"],
                             isExpanded: false
                         },
                         {
-                            name: "AI Explanations",
-                            description: "Click any node to open the Chat Panel with a context-aware explanation. Ask follow-up questions for deep understanding.",
-                            icon: "lightbulb",
-                            tags: ["Click Interaction", "Chat Panel", "Deep Dive"],
-                            isExpanded: false
-                        },
-                        {
-                            name: "Global Challenge",
-                            description: "Click 'Challenge' in the Toolbar to start a gamified quiz covering the entire mind map topic.",
-                            icon: "brain-circuit",
-                            tags: ["Toolbar", "Gamification", "Quiz"],
+                            name: "Quantum Navigation",
+                            description: "Experience zero-delay page transitions with instant Materializing architecture, removing all navigation friction.",
+                            icon: "zap",
+                            tags: ["Performance", "UX"],
                             isExpanded: false
                         }
                     ]
@@ -94,7 +67,67 @@ export const mindscapeMap = {
             ]
         },
         {
-            name: "Creative Studio",
+            name: "Interactive Growth",
+            icon: "graduation-cap",
+            categories: [
+                {
+                    name: "AI Assistance",
+                    icon: "bot",
+                    subCategories: [
+                        {
+                            name: "MindSpark AI",
+                            description: "The global assistant (Sparkle icon) available 24/7 for context-aware chat, explanations, and quiz generation.",
+                            icon: "sparkles",
+                            tags: ["Chat", "Helper"],
+                            isExpanded: false
+                        },
+                        {
+                            name: "Practice Arena",
+                            description: "Engage in active recall. Click the Swords icon on any node to generate interactive testing sessions.",
+                            icon: "swords",
+                            tags: ["Active Recall", "Testing"],
+                            isExpanded: false
+                        },
+                        {
+                            name: "Global Challenge",
+                            description: "Gamified quizzes covering entire map sections or the whole board to validate your systemic knowledge.",
+                            icon: "brain-circuit",
+                            tags: ["Gamification", "Quiz"],
+                            isExpanded: false
+                        }
+                    ]
+                },
+                {
+                    name: "Visual Feedback",
+                    icon: "activity",
+                    subCategories: [
+                        {
+                            name: "MindFlow Skeletons",
+                            description: "Branded radial skeletons and premium layout placeholders ensuring visual continuity during AI operations.",
+                            icon: "network",
+                            tags: ["Skeletons", "UX"],
+                            isExpanded: false
+                        },
+                        {
+                            name: "Notification Center",
+                            description: "Integrated 'Activities' and 'What's New' tabs to keep you updated on progress and platform innovations.",
+                            icon: "bell",
+                            tags: ["Alerts", "Changelog"],
+                            isExpanded: false
+                        },
+                        {
+                            name: "AI Explanations",
+                            description: "Click any node for context-aware deep dives. Ask follow-up questions for nuanced understanding.",
+                            icon: "message-square-text",
+                            tags: ["Context", "Depth"],
+                            isExpanded: false
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            name: "Creative Ecosystem",
             icon: "palette",
             categories: [
                 {
@@ -102,104 +135,51 @@ export const mindscapeMap = {
                     icon: "wand-2",
                     subCategories: [
                         {
-                            name: "Transform Content",
-                            description: "Click 'Knowledge Studio' in the Toolbar to transform maps into likely blog posts, essays, or scripts.",
+                            name: "Creative Transformation",
+                            description: "Transform maps into blog posts, essays, scripts, or roadmap dossiers via the Knowledge Studio.",
                             icon: "file-pen",
-                            tags: ["Toolbar", "Creation", "Writing"],
+                            tags: ["Creation", "Writing"],
                             isExpanded: false
                         },
                         {
-                            name: "Visual Generation",
-                            description: "Generate cinematic images for topics via the 'Image Gallery' in the Toolbar or within Knowledge Studio.",
-                            icon: "image",
-                            tags: ["Pollinations AI", "Visuals", "Art"],
+                            name: "Visual Insight Lab",
+                            description: "The premier AI art laboratory. Generate cinematic thumbnails or enhance prompts for ultra-high-fidelity imagery.",
+                            icon: "sparkles",
+                            tags: ["Imaging", "Studio"],
                             isExpanded: false
                         },
                         {
-                            name: "Thumbnail Magic",
-                            description: "MindScape automatically generates beautiful thumbnails for your maps, visible in your Personal Library.",
-                            icon: "image-plus",
-                            tags: ["Library", "Automation", "Aesthetics"],
+                            name: "Multi-language UI",
+                            description: "Full platform localization supporting 14+ languages with instant on-the-fly translation of all data.",
+                            icon: "languages",
+                            tags: ["Global", "Translation"],
                             isExpanded: false
                         }
                     ]
                 },
                 {
-                    name: "Vision & Documents",
-                    icon: "eye",
+                    name: "Social Learning",
+                    icon: "users",
                     subCategories: [
-                        {
-                            name: "Document Analysis",
-                            description: "Upload PDFs on the Home page to extract insights and structure them into interactive mind maps.",
-                            icon: "file-search",
-                            tags: ["Home Page", "OCR", "Analysis"],
-                            isExpanded: false
-                        },
-                        {
-                            name: "Vision Mode",
-                            description: "Upload images on the Home page to analyze visuals and generate related concept structures.",
-                            icon: "view",
-                            tags: ["Home Page", "Multimodal", "Computer Vision"],
-                            isExpanded: false
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            name: "Ecosystem",
-            icon: "globe",
-            categories: [
-                {
-                    name: "Community & Library",
-                    icon: "library",
-                    subCategories: [
-                        {
-                            name: "Personal Library",
-                            description: "Access your saved maps via 'Library' in the Navbar. Manage, search, and delete your creations.",
-                            icon: "folder-open",
-                            tags: ["Navbar", "Organization", "Management"],
-                            isExpanded: false
-                        },
                         {
                             name: "Community Gallery",
-                            description: "Explore maps by other users via 'Community' in the Navbar. Duplicate them to your library to remix.",
-                            icon: "users",
-                            tags: ["Navbar", "Sharing", "Inspiration"],
+                            description: "Explore the collective intelligence. Duplicate, remix, and learn from thousands of shared maps.",
+                            icon: "globus",
+                            tags: ["Social", "Sharing"],
                             isExpanded: false
                         },
                         {
-                            name: "Publishing",
-                            description: "Click the Rocket icon in the Toolbar to publish your current map to the global Community Gallery.",
-                            icon: "share-2",
-                            tags: ["Toolbar", "Publishing", "Social"],
-                            isExpanded: false
-                        }
-                    ]
-                },
-                {
-                    name: "Technical Architecture",
-                    icon: "server",
-                    subCategories: [
-                        {
-                            name: "Modern Stack",
-                            description: "Built with Next.js 15, TypeScript, and Tailwind CSS. Validated for performance and SEO.",
-                            icon: "code-2",
-                            tags: ["Next.js", "React", "Tech"],
+                            name: "One-Click Publishing",
+                            description: "Securely publish your maps to the gallery. Categorized by AI for maximum reach and discovery.",
+                            icon: "rocket",
+                            tags: ["Publish", "Impact"],
                             isExpanded: false
                         },
                         {
-                            name: "Hybrid AI Engine",
-                            description: "Orchestrates multiple models (Pollinations, Mistral, Perplexity) for specialized tasks like chat, imagery, and logic.",
-                            icon: "cpu",
-                            tags: ["Multi-Model", "Agile", "Intelligence"],
-                            isExpanded: false
-                        },
-                        {
-                            name: "Secure Backend",
-                            description: "Powered by Firebase for secure Authentication, Firestore Database, and real-time synchronization.",
-                            icon: "database",
-                            tags: ["Firebase", "Security", "Real-time"],
+                            name: "Personal Cloud Vault",
+                            description: "Secure real-time synchronization via Firebase. Access your library from any device, anywhere.",
+                            icon: "cloud",
+                            tags: ["Backup", "Security"],
                             isExpanded: false
                         }
                     ]
@@ -208,4 +188,5 @@ export const mindscapeMap = {
         }
     ]
 } as SingleMindMapData;
+
 

@@ -45,11 +45,6 @@ import type {
   SummarizeChatInput,
   SummarizeChatOutput,
 } from '@/ai/schemas/summarize-chat-schema';
-import { conversationalMindMap } from '@/ai/flows/conversational-mind-map';
-import type {
-  ConversationalMindMapInput,
-  ConversationalMindMapOutput,
-} from '@/ai/schemas/conversational-mind-map-schema';
 import type { BrainstormOutputType } from '@/ai/schemas/brainstorm-wizard-schema';
 import {
   enhanceImagePrompt,
@@ -492,29 +487,6 @@ export async function summarizeTopicAction(
   }
 }
 
-/**
- * Server action for the conversational mind map builder.
- * @param {ConversationalMindMapInput} input - The current state of the conversation.
- * @returns {Promise<{ response: ConversationalMindMapOutput | null; error: string | null }>} The AI's next turn or an error.
- */
-export async function conversationalMindMapAction(
-  input: ConversationalMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ response: ConversationalMindMapOutput | null; error: string | null }> {
-  try {
-    const effectiveApiKey = await resolveApiKey(options);
-    const result = await conversationalMindMap({ ...input, ...options, apiKey: effectiveApiKey });
-    return { response: result, error: null };
-  } catch (error) {
-    console.error(error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      response: null,
-      error: `Failed to process conversational turn. ${errorMessage}`,
-    };
-  }
-}
 
 /**
  * Server action for the structured brainstorm wizard.

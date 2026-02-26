@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 
 // Available Pollinations models with pricing
-// Available Pollinations models with pricing
 const POLLINATIONS_MODELS = {
   'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - High Quality & Rapid Speed' },
   'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Maximum Performance' },
-  'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Imagen 4 (alpha) - Advanced Photorealism' },
   'klein': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Professional Quality' },
   'klein-large': { cost: 0.012, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Cinematic Quality' },
   'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini - Balanced & Logical' }
@@ -106,7 +104,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['flux', 'klein', 'imagen-4', 'klein-large', 'zimage'];
+const MODEL_ROTATION_ORDER = ['flux', 'klein', 'klein-large', 'zimage', 'gptimage'];
 
 
 /**

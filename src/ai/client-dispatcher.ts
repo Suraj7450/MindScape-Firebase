@@ -45,7 +45,7 @@ async function retry<T>(fn: (attempt: number) => Promise<T>, retries = 3, delayM
             const isRetryableServerErr = statusCode >= 500 || [502, 503, 504].includes(statusCode);
 
             // AI-specific retryable errors: syntax errors in JSON and reasoning-only outputs
-            const isAISyntaxError = err instanceof StructuredOutputError && !err.zodError;
+            const isAISyntaxError = (err instanceof StructuredOutputError || err.name === 'StructuredOutputError') && !err.zodError;
             const isReasoningOnlyErr = errorMessage.includes('reasoning-only') || errorMessage.includes('empty content');
 
             const shouldRetry = isRateLimit || isTimeout || isRetryableServerErr || isAISyntaxError || isReasoningOnlyErr;

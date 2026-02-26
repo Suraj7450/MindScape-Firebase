@@ -195,7 +195,7 @@ export default function ProfilePage() {
                             activeBadgeId: data.activeBadgeId,
                             preferences: {
                                 preferredLanguage: data.preferences?.preferredLanguage || 'en',
-                                defaultAIPersona: data.preferences?.defaultAIPersona || 'Standard',
+                                defaultAIPersona: data.preferences?.defaultAIPersona || 'Concise',
                                 defaultExplanationMode: data.preferences?.defaultExplanationMode,
                                 autoGenerateImages: data.preferences?.autoGenerateImages,
                                 defaultMapView: data.preferences?.defaultMapView,
@@ -233,7 +233,7 @@ export default function ProfilePage() {
                             photoURL: user.photoURL || undefined,
                             preferences: {
                                 preferredLanguage: 'en',
-                                defaultAIPersona: 'Standard',
+                                defaultAIPersona: 'Concise',
                                 autoGenerateImages: false,
                             },
                             apiSettings: {
@@ -828,7 +828,7 @@ export default function ProfilePage() {
                                                     <p className="text-xs text-zinc-500">Choice of AI interaction style</p>
                                                 </div>
                                             </div>
-                                            <Select value={profile.preferences.defaultAIPersona} onValueChange={(v) => savePreference('defaultAIPersona', v)}>
+                                            <Select value={profile.preferences.defaultAIPersona || 'Concise'} onValueChange={(v) => savePreference('defaultAIPersona', v)}>
                                                 <SelectTrigger className="w-36 h-9 bg-zinc-900/50 border-zinc-800">
                                                     <SelectValue />
                                                 </SelectTrigger>

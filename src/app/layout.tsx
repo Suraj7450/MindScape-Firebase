@@ -9,9 +9,12 @@ import { Icons } from '@/components/icons';
 import { Space_Grotesk, Orbitron } from 'next/font/google';
 import { AIConfigProvider } from '@/contexts/ai-config-context';
 import { NotificationProvider } from '@/contexts/notification-context';
+import { ActivityProvider } from '@/contexts/activity-context';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { PollinationsAuthHandler } from '@/components/pollinations-auth-handler';
 import { OnboardingWizard } from '@/components/onboarding-wizard';
+import { ChangelogDialog } from '@/components/changelog-dialog';
+
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -67,12 +70,16 @@ export default function RootLayout({
             <PollinationsAuthHandler />
             <OnboardingWizard />
             <NotificationProvider>
-              <TooltipProvider delayDuration={400}>
-                <BackgroundGlow />
-                <Navbar />
-                <main className="h-full">{children}</main>
-                <Toaster />
-              </TooltipProvider>
+              <ActivityProvider>
+                <TooltipProvider delayDuration={400}>
+                  <BackgroundGlow />
+                  <Navbar />
+                  <main className="h-full">{children}</main>
+                  <Toaster />
+                  <ChangelogDialog />
+                </TooltipProvider>
+
+              </ActivityProvider>
             </NotificationProvider>
           </AIConfigProvider>
         </FirebaseClientProvider>

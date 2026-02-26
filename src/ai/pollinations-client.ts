@@ -101,6 +101,7 @@ CRITICAL SAFETY & OUTPUT RULES:
 - If you cannot complete the task, return a minimal valid JSON response instead of an empty output.
 - Keep the response concise, factual, and strictly schema-compliant.
 - Think minimally. Output ONLY the raw JSON string.
+- NEVER include comments (// or /* ... */) in the JSON.
 - Start with '{' and end with '}'.
 `
             }
@@ -280,12 +281,15 @@ CRITICAL SAFETY & OUTPUT RULES:
         console.log(`✅ Pollinations Response Success [Model: ${model}]`);
         console.log('📦 Response data length:', JSON.stringify(data).length);
 
-        const text = data.choices?.[0]?.message?.content || "";
+        let text = data.choices?.[0]?.message?.content || "";
 
         if (!text || text.trim() === '') {
             console.error('❌ Pollinations returned empty content. Full response:', JSON.stringify(data, null, 2));
             throw new Error('Pollinations returned empty content (reasoning-heavy or token-limited)');
         }
+
+        // Basic sanitization: remove markdown formatting if the model included it
+        text = text.replace(/```json\n?|\n?```/g, '').trim();
 
         let parsedResponse;
         try {
@@ -301,13 +305,31 @@ CRITICAL SAFETY & OUTPUT RULES:
             // Try to find the last valid closing brace by counting braces
             let braceCount = 0;
             let lastValidBrace = -1;
+            let inString = false;
+            let isEscaped = false;
+
             for (let i = firstBrace; i < text.length; i++) {
-                if (text[i] === '{') braceCount++;
-                if (text[i] === '}') {
-                    braceCount--;
-                    if (braceCount === 0) {
-                        lastValidBrace = i;
-                        break;
+                const char = text[i];
+                if (isEscaped) {
+                    isEscaped = false;
+                    continue;
+                }
+                if (char === '\\') {
+                    isEscaped = true;
+                    continue;
+                }
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+                if (!inString) {
+                    if (char === '{') braceCount++;
+                    else if (char === '}') {
+                        braceCount--;
+                        if (braceCount === 0) {
+                            lastValidBrace = i;
+                            break;
+                        }
                     }
                 }
             }

@@ -95,11 +95,11 @@ export function TransformStudioDialog({ isOpen, onClose, sourceMap, onTransformC
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] p-0 bg-black/95 border-white/10">
+            <DialogContent className="max-w-2xl max-h-[90vh] p-0 bg-black/95 border-white/10">
                 <div className="relative flex flex-col max-h-[90vh]">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 pointer-events-none" />
 
-                    <div className="relative z-10 p-8 md:p-10 flex flex-col overflow-hidden">
+                    <div className="relative z-10 p-6 flex flex-col overflow-hidden">
                         <AnimatePresence mode="wait">
                             {isTransforming ? (
                                 <motion.div
@@ -136,7 +136,7 @@ export function TransformStudioDialog({ isOpen, onClose, sourceMap, onTransformC
                                                 animate={{ rotate: 360 }}
                                                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                                             >
-                                                <Sparkles className="w-12 h-12 text-primary" />
+                                                <Sparkles className="w-8 h-8 text-primary" />
                                             </motion.div>
                                         </motion.div>
 
@@ -221,14 +221,14 @@ export function TransformStudioDialog({ isOpen, onClose, sourceMap, onTransformC
                                     exit={{ opacity: 0, x: -20 }}
                                     className="flex flex-col"
                                 >
-                                    <div className="mb-6">
-                                        <DialogTitle className="text-3xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                                    <DialogHeader className="mb-4">
+                                        <DialogTitle className="text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
                                             Knowledge Studio
                                         </DialogTitle>
-                                        <DialogDescription className="text-zinc-500">
-                                            Convert "{sourceMap?.topic || 'this map'}" into a different knowledge format.
+                                        <DialogDescription className="text-zinc-500 text-xs">
+                                            Convert "{sourceMap?.topic || 'this map'}" into a different format.
                                         </DialogDescription>
-                                    </div>
+                                    </DialogHeader>
 
                                     <div className="overflow-y-auto max-h-[50vh] pr-2 mb-6">
                                         <div className="grid grid-cols-2 gap-3">
@@ -238,26 +238,26 @@ export function TransformStudioDialog({ isOpen, onClose, sourceMap, onTransformC
                                                     type="button"
                                                     onClick={() => setSelectedFormat(format.id as BrainstormOutputType)}
                                                     className={cn(
-                                                        "group flex flex-col items-start p-4 rounded-2xl border transition-all relative overflow-hidden text-left",
+                                                        "group flex flex-col items-start p-3 rounded-xl border transition-all relative overflow-hidden text-left",
                                                         selectedFormat === format.id
-                                                            ? "bg-white/10 border-white/20 ring-1 ring-white/20"
+                                                            ? "bg-white/10 border-white/20 ring-1 ring-white/10"
                                                             : "bg-white/5 border-white/5 hover:bg-white/[0.07] hover:border-white/10"
                                                     )}
                                                 >
                                                     <div className={cn(
-                                                        "w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
+                                                        "w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:scale-110",
                                                         "bg-gradient-to-br shadow-lg",
                                                         format.color
                                                     )}>
-                                                        <format.icon className="w-5 h-5 text-white" />
+                                                        <format.icon className="w-4 h-4 text-white" />
                                                     </div>
                                                     <div className="space-y-0.5">
-                                                        <h3 className="font-bold text-white text-base">{format.name}</h3>
-                                                        <p className="text-zinc-500 text-xs leading-tight">{format.description}</p>
+                                                        <h3 className="font-bold text-white text-sm">{format.name}</h3>
+                                                        <p className="text-zinc-500 text-[10px] leading-tight">{format.description}</p>
                                                     </div>
                                                     {selectedFormat === format.id && (
-                                                        <div className="absolute top-3 right-3 bg-white text-black rounded-full p-1">
-                                                            <Sparkles className="w-3 h-3" />
+                                                        <div className="absolute top-2 right-2 bg-white text-black rounded-full p-0.5">
+                                                            <Sparkles className="w-2.5 h-2.5" />
                                                         </div>
                                                     )}
                                                 </button>

@@ -264,12 +264,20 @@ export function ImageGenerationSettings() {
                             <Badge variant="outline">0.0002/img</Badge>
                         </div>
                         <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Z-Image Turbo</span>
+                            <Badge variant="outline">0.0002/img</Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">FLUX.2 Klein 4B</span>
-                            <Badge variant="outline">0.0067/img</Badge>
+                            <Badge variant="outline">0.008/img</Badge>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">FLUX.2 Klein 9B</span>
-                            <Badge variant="outline">0.0118/img</Badge>
+                            <Badge variant="outline">0.012/img</Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">GPT Image 1 Mini</span>
+                            <Badge variant="outline">0.0133/img</Badge>
                         </div>
                     </div>
                 </div>

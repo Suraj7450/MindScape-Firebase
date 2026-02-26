@@ -21,6 +21,7 @@ export function useMindMapStack(options: {
     const [status, setStatus] = useState<MindMapStatus>('idle');
     const [error, setError] = useState<string | null>(null);
     const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
+    const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
     const [generationScope, setGenerationScope] = useState<'foreground' | 'background' | null>(null);
 
     const currentMap = useMemo(() => stack[activeIndex], [stack, activeIndex]);
@@ -51,7 +52,7 @@ export function useMindMapStack(options: {
         });
     }, [activeIndex]);
 
-    const push = useCallback(async (topic: string, nodeId: string, navOptions: { mode: 'foreground' | 'background' } = { mode: 'background' }) => {
+    const push = useCallback(async (topic: string, nodeId: string, navOptions: { mode: 'foreground' | 'background', parentDepth?: number } = { mode: 'background' }) => {
         if (status !== 'idle') return;
 
         // CRITICAL: Ensure parent map is saved before creating sub-map
@@ -78,6 +79,7 @@ export function useMindMapStack(options: {
         setStatus('generating');
         setGenerationScope(navOptions.mode);
         setGeneratingNodeId(nodeId);
+        setGeneratingTopic(topic);
         setError(null);
 
         try {
@@ -129,7 +131,7 @@ export function useMindMapStack(options: {
                     timestamp: Date.now(),
                     fullData: mapWithId,
                     createdAt: Date.now(),
-                    depth: (currentMap as any)?.depth || 1,
+                    depth: (navOptions.parentDepth !== undefined ? navOptions.parentDepth : ((currentMap as any)?.depth || 0)) + 1,
                     subCategories: [] // Not strictly needed for list view but good for type safety
                 } as any;
 
@@ -163,6 +165,7 @@ export function useMindMapStack(options: {
         } finally {
             setStatus('idle');
             setGeneratingNodeId(null);
+            setGeneratingTopic(null);
             setGenerationScope(null);
         }
     }, [status, currentMap, options.expansionAdapter, options.persistenceAdapter, activeIndex]);
@@ -187,6 +190,7 @@ export function useMindMapStack(options: {
         status,
         error,
         generatingNodeId,
+        generatingTopic,
         generationScope,
         push,
         navigate,
