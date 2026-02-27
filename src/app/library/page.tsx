@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe, BarChart3, Binary, Layers } from 'lucide-react';
+import { LogIn, Search, Share2, Trash2, Eye, Loader2, Clock, FileText, Rocket, Info, ExternalLink, Download, ChevronRight, Sparkles, Copy, Check, Database, Plus, LayoutGrid, Globe, BarChart3, Binary, Layers, Image as ImageIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1115,12 +1115,12 @@ export default function DashboardPage() {
                             {regeneratingMapIds.has(map.id) ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Sparkles className="h-4 w-4" />
+                              <ImageIcon className="h-4 w-4" />
                             )}
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p>AI Re-Imagine (Labs)</p>
+                          <p>New Thumbnail</p>
                         </TooltipContent>
                       </Tooltip>
 

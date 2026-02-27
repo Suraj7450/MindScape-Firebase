@@ -43,7 +43,7 @@ export async function generateRelatedQuestions(
         ## 🎯 Your Task
         Suggest 3-4 natural follow-up questions that help the user discover MindScape's capabilities.
         Questions should be about:
-        - Specific features (e.g., "how to use practice mode", "what is knowledge studio")
+        - Specific features (e.g., "how to use practice mode", "how to share a map")
         - Workflows (e.g., "how to publish a map", "how to compare topics")
         - Technical details (e.g., "what AI models are used")
         

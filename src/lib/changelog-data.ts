@@ -71,7 +71,7 @@ export const CHANGELOG_DATA: ChangelogVersion[] = [
                 icon: Palette,
                 color: 'text-pink-400 bg-pink-500/10',
                 title: 'Redesigned Toolbar',
-                description: 'Fresh look for the MindMap toolbar with distinct colors for Knowledge Studio, Challenge, and Summary.',
+                description: 'Fresh look for the MindMap toolbar with distinct colors for Imaging, Challenge, and Summary.',
             },
             {
                 icon: Zap,

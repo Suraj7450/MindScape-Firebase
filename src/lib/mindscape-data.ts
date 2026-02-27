@@ -131,16 +131,9 @@ export const mindscapeMap = {
             icon: "palette",
             categories: [
                 {
-                    name: "Knowledge Studio",
+                    name: "Vision & Imaging",
                     icon: "wand-2",
                     subCategories: [
-                        {
-                            name: "Creative Transformation",
-                            description: "Transform maps into blog posts, essays, scripts, or roadmap dossiers via the Knowledge Studio.",
-                            icon: "file-pen",
-                            tags: ["Creation", "Writing"],
-                            isExpanded: false
-                        },
                         {
                             name: "Visual Insight Lab",
                             description: "The premier AI art laboratory. Generate cinematic thumbnails or enhance prompts for ultra-high-fidelity imagery.",

@@ -226,7 +226,6 @@ interface MindMapProps {
   status: MindMapStatus;
   aiHealth?: { name: string, status: string }[];
   hasUnsavedChanges?: boolean;
-  onTransform?: () => void;
   onDeleteNestedMap?: (id: string) => void;
   onRegenerateNestedMap?: (topic: string, id: string) => void;
   onPracticeQuestionClick?: (question: string) => void;
@@ -276,7 +275,6 @@ export const MindMap = ({
   status,
   aiHealth,
   hasUnsavedChanges,
-  onTransform,
   onDeleteNestedMap,
   onRegenerateNestedMap,
   onPracticeQuestionClick,
@@ -1236,7 +1234,6 @@ export const MindMap = ({
         isCompare={data.mode === 'compare'}
         onOpenSummary={handleOpenSummary}
         isSummarizing={isSummarizing}
-        onTransform={onTransform}
         status={status}
 
       />

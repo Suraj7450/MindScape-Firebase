@@ -45,14 +45,11 @@ import type {
   SummarizeChatInput,
   SummarizeChatOutput,
 } from '@/ai/schemas/summarize-chat-schema';
-import type { BrainstormOutputType } from '@/ai/schemas/brainstorm-wizard-schema';
 import {
   enhanceImagePrompt,
   EnhanceImagePromptInput,
   EnhanceImagePromptOutput,
 } from '@/ai/flows/enhance-image-prompt';
-import { brainstormWizard } from '@/ai/flows/brainstorm-wizard';
-import { BrainstormWizardInput, BrainstormWizardOutput } from '@/ai/schemas/brainstorm-wizard-schema';
 
 
 import {
@@ -488,157 +485,7 @@ export async function summarizeTopicAction(
 }
 
 
-/**
- * Server action for the structured brainstorm wizard.
- */
-export async function brainstormWizardAction(
-  input: BrainstormWizardInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ response: BrainstormWizardOutput | null; error: string | null }> {
-  try {
-    const effectiveApiKey = await resolveApiKey(options);
-    const result = await brainstormWizard({ ...input, ...options, apiKey: effectiveApiKey });
 
-    // Sanitize the mind map if it's the final step
-    if (result.step === 'FINALIZE') {
-      // Handle unwrapped mind map response (common AI behavior)
-      if (!result.mindMap && (result as any).subTopics && (result as any).mode) {
-        console.log('[brainstormWizardAction] ⚠️ Detected unwrapped mind map in response. Wrapping it.');
-        (result as any).mindMap = { ...result };
-        // Cleanup top-level keys that are now in mindMap to avoid confusion, though not strictly necessary
-        delete (result as any).subTopics;
-        delete (result as any).categories;
-      }
-
-      if (result.mindMap) {
-        try {
-          // We cast to any here because mapToMindMapData returns a broader MindMapData type
-          // but we want to keep the response structure consistent for the caller.
-          result.mindMap = (await mapToMindMapData(result.mindMap, input.depth as any || 'low')) as any;
-        } catch (e) {
-          console.error('Failed to sanitize brainstormed mind map:', e);
-        }
-      }
-    }
-
-    console.log(`[brainstormWizardAction] Final response shape:`, {
-      step: result.step,
-      hasMindMap: !!(result as any).mindMap,
-      resultKeys: Object.keys(result)
-    });
-    return { response: result, error: null };
-  } catch (error) {
-    console.error('Error in brainstormWizardAction:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return { response: null, error: errorMessage };
-  }
-}
-
-/**
- * Server action to transform an existing mind map into a different Knowledge Studio format.
- * @param {MindMapData} sourceMap - The source mind map to transform.
- * @param {BrainstormOutputType} targetFormat - The target format (dossier, quiz, etc.).
- * @returns {Promise<{ response: any | null; error: string | null }>} The transformed content or an error.
- */
-export async function transformMindMapAction(
-  sourceMap: MindMapData,
-  targetFormat: BrainstormOutputType,
-  useSearch: boolean = false,
-  options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ response: any | null; error: string | null }> {
-  try {
-    // Extract structure from the mind map
-    const selections: Record<string, string[]> = {};
-
-    // Convert mind map structure to selections format
-    // Only process single mind maps (not compare mode)
-    if (sourceMap.mode === 'single' && 'subTopics' in sourceMap && sourceMap.subTopics) {
-      sourceMap.subTopics.forEach((subTopic: any) => {
-        const aspectName = subTopic.name;
-        const categories: string[] = [];
-
-        if (subTopic.categories) {
-          subTopic.categories.forEach((cat: any) => {
-            categories.push(cat.name);
-          });
-        }
-        selections[aspectName] = categories;
-      });
-    }
-
-    console.log('[transformMindMapAction] Extracted selections:', selections);
-
-    let searchContext = undefined;
-    if (useSearch) {
-      console.log('[transformMindMapAction] 🔍 Real-time search enabled for topic:', sourceMap.topic);
-      const searchResult = await generateSearchContext({
-        query: sourceMap.topic,
-        depth: 'deep',
-        maxResults: 5,
-        apiKey: options.apiKey,
-        provider: options.provider
-      });
-
-      if (searchResult.data) {
-        console.log(`[transformMindMapAction] ✅ Search context retrieved: ${searchResult.data.sources.length} sources`);
-        searchContext = searchResult.data;
-      } else {
-        console.warn(`[transformMindMapAction] ⚠️ Search failed: ${searchResult.error}`);
-      }
-    }
-
-    // Call brainstormWizard with FINALIZE step
-    const result = await brainstormWizardAction(
-      {
-        step: 'FINALIZE',
-        topic: sourceMap.topic,
-        language: 'en',
-        outputType: targetFormat,
-        selections,
-        depth: 'medium',
-        searchContext: searchContext
-      },
-      options
-    );
-
-    if (result.error || !result.response) {
-      return { response: null, error: result.error || 'Transformation failed' };
-    }
-
-    // Extract the appropriate data field based on format
-    const finalizeResult = result.response as any;
-    let transformedData: any;
-
-    if (targetFormat === 'mindmap' || targetFormat === 'roadmap') {
-      transformedData = finalizeResult.mindMap;
-    } else if (targetFormat === 'dossier' || targetFormat === 'pitch' || targetFormat === 'premortem') {
-      transformedData = finalizeResult.content;
-    } else if (targetFormat === 'quiz') {
-      transformedData = finalizeResult.quiz;
-    } else if (targetFormat === 'social') {
-      transformedData = finalizeResult.social;
-
-
-    }
-
-    if (!transformedData) {
-      return { response: null, error: 'AI did not return data in the expected format' };
-    }
-
-    // Attach search metadata to mind map transformations
-    if ((targetFormat === 'mindmap' || targetFormat === 'roadmap') && searchContext && searchContext.sources.length > 0) {
-      transformedData.searchSources = searchContext.sources;
-      transformedData.searchTimestamp = searchContext.timestamp;
-      console.log(`[transformMindMapAction] ✅ Attached ${searchContext.sources.length} search sources to transformed mind map`);
-    }
-
-    return { response: transformedData, error: null };
-  } catch (error) {
-    console.error('Error in transformMindMapAction:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return { response: null, error: errorMessage };
-  }
-}
 
 /**
  * Server action to enhance a user's prompt for image generation.

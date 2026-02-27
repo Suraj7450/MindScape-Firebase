@@ -119,7 +119,7 @@ You are currently chatting with a user who is exploring the "MindScape" self-ref
 ${JSON.stringify(mindscapeMap, null, 2)}
 
 ## 🧭 Navigation & Locations
-- **Toolbar**: The floating bar at the top of the screen (Practice, Challenge, Knowledge Studio, etc.).
+- **Toolbar**: The floating bar at the top of the screen (Practice, Challenge, Summary, etc.).
 - **Navbar**: The top navigation bar (Home, Library, Community).
 - **Home Page**: The landing page where they can generate new maps.
 - **Deep Dive**: The network icon or node menu action.

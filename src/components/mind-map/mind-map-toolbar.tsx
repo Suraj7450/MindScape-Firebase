@@ -81,7 +81,6 @@ interface MindMapToolbarProps {
     onStartGlobalQuiz?: () => void;
     onOpenSummary?: () => void;
     isSummarizing?: boolean;
-    onTransform?: () => void;
     isSharing?: boolean;
     status?: MindMapStatus;
 
@@ -117,7 +116,6 @@ export const MindMapToolbar = ({
     onStartGlobalQuiz,
     onOpenSummary,
     isSummarizing,
-    onTransform,
     isSharing = false,
     status = 'idle',
 
@@ -219,25 +217,6 @@ export const MindMapToolbar = ({
                             <BrainCircuit className="h-4 w-4" />
                             Challenge
                         </Button>
-                    )}
-
-                    {/* Transform - PURPLE GRADIENT (Main Call to Action) */}
-                    {onTransform && !isCompare && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onTransform}
-                                    disabled={isBusy}
-                                    className="h-10 gap-2 text-[11px] font-black font-orbitron uppercase tracking-widest px-6 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-purple-600/20 text-white border border-white/10 hover:border-fuchsia-500/30 hover:shadow-[0_0_20px_-5px_rgba(192,38,211,0.4)]"
-                                >
-                                    <Sparkles className="h-4 w-4 text-fuchsia-400 animate-pulse" />
-                                    Knowledge Studio
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="glassmorphism"><p>Open Knowledge Studio</p></TooltipContent>
-                        </Tooltip>
                     )}
 
                     {/* Summarize - PINK */}

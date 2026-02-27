@@ -15,9 +15,6 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
 });
 
 import { SearchReferencesPanel } from '@/components/canvas/SearchReferencesPanel';
-import { QueryIntel } from '@/components/query-intel';
-import { StudioRenderer } from '@/components/studio-renderer';
-import { TransformStudioDialog } from '@/components/transform-studio-dialog';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -85,12 +82,7 @@ function MindMapPageContent() {
   const [isRegenDialogOpen, setIsRegenDialogOpen] = useState(false);
   const [tempPersona, setTempPersona] = useState<string>('Standard');
   const [tempDepth, setTempDepth] = useState<'low' | 'medium' | 'deep'>('low');
-  const [isTransformDialogOpen, setIsTransformDialogOpen] = useState(false);
-  const [transformedStudioData, setTransformedStudioData] = useState<any | null>(null);
-  const [transformedStudioType, setTransformedStudioType] = useState<string | null>(null);
   const [showReferences, setShowReferences] = useState(false);
-  const [studioData, setStudioData] = useState<any | null>(null);
-  const [studioType, setStudioType] = useState<string | null>(null);
 
   // Universal Nested Maps Dialog state
   const [mapHierarchy, setMapHierarchy] = useState<{
@@ -998,7 +990,6 @@ function MindMapPageContent() {
             onUpdate={onMapUpdate}
             status={hookStatus}
             aiHealth={aiHealth}
-            onTransform={() => setIsTransformDialogOpen(true)}
             onDeleteNestedMap={handleDeleteNestedMap}
             onRegenerateNestedMap={handleRegenerateNestedMap}
             onPracticeQuestionClick={handleExplainInChat}
@@ -1122,83 +1113,7 @@ function MindMapPageContent() {
       {/* TODO: SearchReferencesPanel component needs to be created */}
       {/* {showReferences && <SearchReferencesPanel onClose={() => setShowReferences(false)} />} */}
 
-      {studioData && (
-        <StudioRenderer
-          data={studioData.data}
-          type={studioData.type}
-          topic={studioData.topic || 'Brainstorm Output'}
-          onClose={() => setStudioData(null)}
-        />
-      )}
 
-      {/* Transformed Studio Content */}
-      {transformedStudioData && transformedStudioType && (
-        <StudioRenderer
-          data={transformedStudioData}
-          type={transformedStudioType}
-          topic={mindMap?.topic || 'Transformed Content'}
-          onClose={() => {
-            setTransformedStudioData(null);
-            setTransformedStudioType(null);
-          }}
-        />
-      )}
-
-      {/* Transform Studio Dialog */}
-      <TransformStudioDialog
-        isOpen={isTransformDialogOpen}
-        onClose={() => setIsTransformDialogOpen(false)}
-        sourceMap={mindMap}
-        onTransformComplete={(data, type) => {
-          if (type === 'mindmap' || type === 'roadmap') {
-            const newMapId = data.id || `transform-${Date.now()}`;
-            // Mark as sub-map and link to parent
-            const newMap: MindMapData = {
-              ...data,
-              id: newMapId,
-              isSubMap: true,
-              parentMapId: mindMap?.id,
-              createdAt: Date.now()
-            };
-
-            // Persist the new map first
-            handleSaveMap(newMap, newMapId);
-
-            // Construct nested item reference
-            const nestedItem: NestedExpansionItem = {
-              id: newMapId,
-              topic: newMap.topic || 'Untitled',
-              parentName: mindMap?.topic || 'Parent',
-              icon: type === 'roadmap' ? 'calendar' : 'network',
-              status: 'completed',
-              fullData: newMap as any,
-              createdAt: Date.now(),
-              depth: (newMap as any).depth || 1,
-              subCategories: []
-            };
-
-            // Update parent map's nested expansions list locally and persist
-            if (mindMap) {
-              const updatedExpansions = [...(mindMap.nestedExpansions || []), nestedItem];
-              handleUpdateCurrentMap({ nestedExpansions: updatedExpansions });
-              // We don't necessarily need to blocking-save the parent for the UI to update, but good for consistency
-              handleSaveMap({ ...mindMap, nestedExpansions: updatedExpansions }, mindMap.id, true);
-            }
-
-            // Provide immediate feedback
-            toast({
-              title: type === 'roadmap' ? 'Roadmap Created' : 'Mind Map Transformed',
-              description: 'Opening as a nested map...'
-            });
-
-            // Use the standard handler to open/switch to nested map
-            handleOpenNestedMap(newMap, newMapId);
-          }
-
-          setTransformedStudioData(data);
-          setTransformedStudioType(type);
-        }}
-      />
 
       <ChatPanel
         isOpen={isChatOpen}
