@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { PartyPopper, ArrowRight } from 'lucide-react';
 import { CHANGELOG_DATA, CURRENT_VERSION, STORAGE_KEY } from '@/lib/changelog-data';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export function ChangelogDialog() {
     const [isOpen, setIsOpen] = useState(false);
@@ -95,7 +96,7 @@ export function ChangelogDialog() {
                 </ScrollArea>
 
                 {/* Footer */}
-                <DialogFooter className="p-6 pt-2">
+                <DialogFooter className="p-6 pt-2 flex-col gap-2">
                     <Button
                         onClick={handleClose}
                         className="w-full bg-white text-black hover:bg-zinc-200 font-bold rounded-xl"
@@ -103,6 +104,13 @@ export function ChangelogDialog() {
                         Start Exploring
                         <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
+                    <Link
+                        href={`/changelog/${latest.slug}`}
+                        onClick={handleClose}
+                        className="w-full text-center text-xs text-zinc-500 hover:text-purple-400 transition-colors py-2 font-bold uppercase tracking-widest"
+                    >
+                        Read Full Article →
+                    </Link>
                 </DialogFooter>
 
             </DialogContent>

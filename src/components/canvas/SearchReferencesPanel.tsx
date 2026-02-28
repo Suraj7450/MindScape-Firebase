@@ -107,7 +107,7 @@ export function SearchReferencesPanel({ sources, images, timestamp }: SearchRefe
             )}
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-1">
-                {sources.map((source, index) => {
+                {sources?.map((source, index) => {
                     const { icon: DomainIcon, color, bgColor, borderColor } = getDomainMeta(source.url);
                     const hostname = new URL(source.url).hostname.replace('www.', '');
                     const faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;

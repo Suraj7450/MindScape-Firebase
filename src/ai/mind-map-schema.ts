@@ -193,6 +193,8 @@ export const NestedExpansionOutputSchema = z.object({
   ).min(4).describe('4-6 sub-categories for the expanded node'),
 });
 
+export type NestedExpansionOutput = z.infer<typeof NestedExpansionOutputSchema>;
+
 /**
  * CLEAN SCHEMA for AI GENERATION
  * This schema only contains fields the AI should actually produce.

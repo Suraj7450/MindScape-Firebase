@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { QuizSchema } from '../schemas/quiz-schema';
-import { generateContent } from '../client-dispatcher';
+import { generateContent, AIProvider } from '../client-dispatcher';
 
 export const GenerateQuizInputSchema = z.object({
     topic: z.string(),

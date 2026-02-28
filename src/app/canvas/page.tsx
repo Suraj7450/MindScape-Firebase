@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { MindMap } from '@/components/mind-map';
 import { MindMapData, NestedExpansionItem, MindMapWithId } from '@/types/mind-map';
-import { GenerationLoading } from '@/components/generation-loading';
+import { LogoLoading } from '@/components/loading/logo-loading';
 import dynamic from 'next/dynamic';
 
 const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mod.ChatPanel), {
@@ -51,6 +51,7 @@ import {
   generateComparisonMapAction,
   mapToMindMapData,
 } from '@/app/actions';
+// shareMindMapAction removed - using client-side sharing
 import { toPlainObject } from '@/lib/serialize';
 import { mindscapeMap } from '@/lib/mindscape-data';
 import { useMindMapStack } from '@/hooks/use-mind-map-stack';
@@ -162,7 +163,11 @@ function MindMapPageContent() {
   // Local state for initial fetch/regenerate only
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [initialError, setInitialError] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
   const [localGeneratingNodeId, setLocalGeneratingNodeId] = useState<string | null>(null);
+  const [studioData, setStudioData] = useState<any>(null);
+  const [studioType, setStudioType] = useState<string | null>(null);
+
 
   const isLoading = (hookStatus === 'generating' && generationScope === 'foreground') || isInitialLoading;
   const error = hookError || initialError;
@@ -217,9 +222,8 @@ function MindMapPageContent() {
       const currentParamsKey = getParamKey();
 
       // If we already have this map in our state, just switch to it
-      // BUT bypass this if we are specifically asked to regenerate (_r param)
-      const existingMapIndex = mindMaps.findIndex(m => {
-        if (params.mapId && (m as any).id === params.mapId) return true;
+      const existingMapIndex = mindMaps.findIndex((m: any) => {
+        if (params.mapId && m.id === params.mapId) return true;
         if (params.topic && m.topic?.toLowerCase() === params.topic.toLowerCase()) return true;
         if (params.isSelfReference && m.topic?.toLowerCase() === 'mindscape') return true;
         return false;
@@ -233,7 +237,6 @@ function MindMapPageContent() {
         return;
       }
 
-      // Guard for params equality - only skip if we are already loading something for these exact params
       if (lastFetchedParamsRef.current === currentParamsKey && isLoading) return;
       lastFetchedParamsRef.current = currentParamsKey;
 
@@ -247,255 +250,196 @@ function MindMapPageContent() {
         if (params.isSelfReference) {
           currentMode = 'self-reference';
           result.data = { ...mindscapeMap, id: 'mindscape' } as MindMapWithId;
-        } else if (params.mapId && params.isRegenerating) {
-          currentMode = 'saved';
-          // 1. Get topic from state or fetch it
-          let topicToRegen = params.topic || (mindMapsRef.current.find(m => (m as any).id === params.mapId)?.topic);
-          if (!topicToRegen) {
-            // Fallback to fetching it if not in stack
-            if (user) {
-              const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
+        } else {
+          const effectiveMapId = params.mapId || params.sharedMapId || params.publicMapId;
+
+          if (params.isRegenerating && effectiveMapId) {
+            currentMode = 'saved';
+            let topicToRegen = params.topic || (mindMapsRef.current.find((m: any) => m.id === effectiveMapId)?.topic);
+            if (!topicToRegen && user) {
+              const docRef = doc(firestore, 'users', user.uid, 'mindmaps', effectiveMapId);
               const snap = await getDoc(docRef);
               topicToRegen = snap.data()?.topic;
             }
-          }
 
-          if (!topicToRegen) throw new Error("Could not determine topic for regeneration.");
+            if (!topicToRegen) throw new Error("Could not determine topic for regeneration.");
 
-          const aiOptions = {
-            provider: config.provider,
-            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-            model: config.pollinationsModel,
-            strict: true
-          };
-          result = await generateMindMapAction({
-            topic: topicToRegen,
-            parentTopic: params.parent || undefined,
-            targetLang: params.lang,
-            persona: aiPersona,
-            depth: params.depth,
-            useSearch: params.useSearch === 'true',
-          }, aiOptions);
+            const aiOptions = {
+              provider: config.provider,
+              apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+              model: config.pollinationsModel,
+              strict: true
+            };
+            result = await generateMindMapAction({
+              topic: topicToRegen,
+              parentTopic: params.parent || undefined,
+              targetLang: params.lang,
+              persona: aiPersona,
+              depth: params.depth,
+              useSearch: params.useSearch === 'true',
+            }, aiOptions);
 
-          // Overwrite existing!
-          if (result.data) {
-            await handleSaveMap(result.data, params.mapId);
-          }
-        } else if (params.mapId) {
-          currentMode = 'saved';
+            if (result.data) {
+              await handleSaveMap(result.data, effectiveMapId);
+            }
+          } else if (effectiveMapId) {
+            currentMode = 'saved';
 
-
-          if (!result.data && user) {
-            // Fetch from user's collection (Metadata + Conditional Content)
-            const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-              const meta = docSnap.data();
-              if (meta.hasSplitContent) {
-                // Load the heavy tree from sub-collection
-                const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId, 'content', 'tree');
-                const contentSnap = await getDoc(contentRef);
-                if (contentSnap.exists()) {
-                  const content = contentSnap.data();
-                  result.data = { ...meta, ...content, id: docSnap.id } as any;
-                } else {
-                  result.data = { ...meta, id: docSnap.id } as any;
-                }
-              } else {
-                // Legacy: all data is in the main document
-                result.data = { ...(meta as any), id: docSnap.id };
+            // Priority 1: Explicit shared or public params
+            if (params.sharedMapId) {
+              const sharedDocRef = doc(firestore, 'sharedMindmaps', params.sharedMapId);
+              const sharedSnap = await getDoc(sharedDocRef);
+              if (sharedSnap.exists()) {
+                result.data = { ...sharedSnap.data(), id: sharedSnap.id } as any;
               }
-
-              // Backfill summary if missing
-              if (result.data && !result.data.summary) {
-                handleSaveMap(result.data, params.mapId, true);
-              }
-
-              // Load nested expansions (sub-maps) for this parent map
-              if (result.data && user) {
-                try {
-                  const subMapsQuery = query(
-                    collection(firestore, 'users', user.uid, 'mindmaps'),
-                    where('parentMapId', '==', params.mapId)
-                  );
-                  const subMapsSnap = await getDocs(subMapsQuery);
-
-                  if (!subMapsSnap.empty) {
-                    const existingExpansions = result.data.nestedExpansions || [];
-                    const existingIds = new Set(existingExpansions.map(e => e.id));
-
-                    const newNestedExpansions: NestedExpansionItem[] = [];
-
-                    subMapsSnap.docs.forEach(doc => {
-                      if (existingIds.has(doc.id)) return;
-
-                      const subMapData = { ...doc.data(), id: doc.id } as MindMapWithId;
-                      newNestedExpansions.push({
-                        id: doc.id,
-                        topic: subMapData.topic,
-                        parentName: result.data!.topic,
-                        icon: subMapData.icon || 'network',
-                        status: 'completed' as const,
-
-                        fullData: subMapData,
-                        createdAt: subMapData.createdAt ? (typeof subMapData.createdAt === 'number' ? subMapData.createdAt : subMapData.createdAt.toMillis()) : Date.now(),
-                        depth: (subMapData as any).depth || 1,
-                        subCategories: []
-                      });
-                    });
-
-                    // Add unique nested expansions to the loaded map data
-                    if (newNestedExpansions.length > 0) {
-                      result.data = {
-                        ...result.data,
-                        nestedExpansions: [...existingExpansions, ...newNestedExpansions]
-                      };
-                    }
-                  }
-                } catch (err) {
-                  console.error('Failed to load nested expansions:', err);
-                  // Don't fail the whole load if nested expansions fail
-                }
-              }
-            } else {
-              // Not found in user's collection, check public collection
-              const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
+            } else if (params.publicMapId) {
+              const publicDocRef = doc(firestore, 'publicMindmaps', params.publicMapId);
               const publicSnap = await getDoc(publicDocRef);
               if (publicSnap.exists()) {
                 result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
-              } else {
-                // Check shared collection (unlisted maps)
-                const sharedDocRef = doc(firestore, 'sharedMindmaps', params.mapId);
-                const sharedSnap = await getDoc(sharedDocRef);
-                if (sharedSnap.exists()) {
-                  result.data = { ...sharedSnap.data(), id: sharedSnap.id } as any;
-                }
               }
             }
-          } else {
-            // Not logged in but has mapId, check public collection
-            const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
-            const publicSnap = await getDoc(publicDocRef);
-            if (publicSnap.exists()) {
-              result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
-            } else {
-              // Check shared collection (unlisted maps)
+            // Priority 2: mapId with share_ or public_ prefix (common for shared links)
+            else if (params.mapId?.startsWith('share_')) {
               const sharedDocRef = doc(firestore, 'sharedMindmaps', params.mapId);
               const sharedSnap = await getDoc(sharedDocRef);
               if (sharedSnap.exists()) {
                 result.data = { ...sharedSnap.data(), id: sharedSnap.id } as any;
               }
+            } else if (params.mapId?.startsWith('public_')) {
+              const publicDocRef = doc(firestore, 'publicMindmaps', params.mapId);
+              const publicSnap = await getDoc(publicDocRef);
+              if (publicSnap.exists()) {
+                result.data = { ...publicSnap.data(), id: publicSnap.id } as any;
+              }
             }
-          }
-
-          // CRITICAL: Throw error if map was requested but not found in any collection
-          if (!result.data && !result.error) {
-            result.error = "Mind map not found or you don't have permission to view it.";
-          }
-        } else if (params.topic1 && params.topic2) {
-          if (params.topic1.trim().toLowerCase() === params.topic2.trim().toLowerCase()) {
-            throw new Error('Comparison requires two different topics.');
-          }
-          currentMode = 'compare';
-          const aiOptions = {
-            provider: config.provider,
-            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-            model: config.pollinationsModel,
-            userId: user?.uid,
-            strict: false
-          };
-          result = await generateComparisonMapAction({
-            topic1: params.topic1,
-            topic2: params.topic2,
-            targetLang: params.lang,
-            persona: aiPersona,
-            depth: params.depth,
-            useSearch: params.useSearch === 'true',
-          }, aiOptions);
-        } else if (params.topic) {
-          currentMode = 'standard';
-          const aiOptions = {
-            provider: config.provider,
-            apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-            model: config.pollinationsModel,
-            userId: user?.uid,
-            strict: false
-          };
-          result = await generateMindMapAction({
-            topic: params.topic,
-            parentTopic: params.parent || undefined,
-            targetLang: params.lang,
-            persona: aiPersona,
-            depth: params.depth,
-            useSearch: params.useSearch === 'true',
-          }, aiOptions);
-        } else if (params.sessionId) {
-          const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
-          const sessionContent = sessionStorage.getItem(`session-content-${params.sessionId}`);
-
-          if (sessionContent) {
-            let fileContent, additionalText;
-            try {
-              const parsed = JSON.parse(sessionContent);
-              fileContent = parsed.file;
-              additionalText = parsed.text;
-            } catch {
-              fileContent = sessionContent;
-              additionalText = '';
+            // Priority 3: Private mind map (requires user)
+            else if (user && params.mapId) {
+              const docRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId);
+              const docSnap = await getDoc(docRef);
+              if (docSnap.exists()) {
+                const meta = docSnap.data();
+                if (meta.hasSplitContent) {
+                  const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', params.mapId, 'content', 'tree');
+                  const contentSnap = await getDoc(contentRef);
+                  if (contentSnap.exists()) {
+                    result.data = { ...meta, ...contentSnap.data(), id: docSnap.id } as any;
+                  } else {
+                    result.data = { ...meta, id: docSnap.id } as any;
+                  }
+                } else {
+                  result.data = { ...meta, id: docSnap.id } as any;
+                }
+              }
             }
 
-            if (sessionType === 'image' || sessionType === 'pdf') {
-              currentMode = sessionType === 'image' ? 'vision-image' : 'vision-pdf';
-              const aiOptions = {
-                provider: config.provider,
-                apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-                model: config.pollinationsModel,
-                userId: user?.uid,
-                strict: false
-              };
-              result = await generateMindMapFromImageAction({
-                imageDataUri: fileContent,
-                targetLang: params.lang,
-                persona: aiPersona,
-                depth: params.depth,
-              }, aiOptions);
+            if (!result.data && !result.error) {
+              result.error = "Mind map not found or you don't have permission to view it.";
             }
-            else if (sessionType === 'text') {
-              currentMode = 'vision-text';
-              const aiOptions = {
-                provider: config.provider,
-                apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-                model: config.pollinationsModel,
-                userId: user?.uid,
-                strict: false
-              };
-              result = await generateMindMapFromTextAction({
-                text: fileContent,
-                context: additionalText,
-                targetLang: params.lang,
-                persona: aiPersona,
-                depth: params.depth,
-              }, aiOptions);
+          } else if (params.topic1 && params.topic2) {
+            currentMode = 'compare';
+            result = await generateComparisonMapAction({
+              topic1: params.topic1,
+              topic2: params.topic2,
+              targetLang: params.lang,
+              persona: aiPersona,
+              depth: params.depth,
+              useSearch: params.useSearch === 'true',
+            }, {
+              provider: config.provider,
+              apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+              model: config.pollinationsModel,
+              userId: user?.uid,
+            });
+          } else if (params.topic) {
+            currentMode = 'standard';
+            result = await generateMindMapAction({
+              topic: params.topic,
+              parentTopic: params.parent || undefined,
+              targetLang: params.lang,
+              persona: aiPersona,
+              depth: params.depth,
+              useSearch: params.useSearch === 'true',
+            }, {
+              provider: config.provider,
+              apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+              model: config.pollinationsModel,
+              userId: user?.uid,
+            });
+          } else if (params.sessionId) {
+            const sessionType = sessionStorage.getItem(`session-type-${params.sessionId}`);
+            const sessionContent = sessionStorage.getItem(`session-content-${params.sessionId}`);
+            if (sessionContent) {
+              let fileContent, additionalText;
+              try {
+                const parsed = JSON.parse(sessionContent);
+                fileContent = parsed.file;
+                additionalText = parsed.text;
+              } catch {
+                fileContent = sessionContent;
+                additionalText = '';
+              }
+              if (sessionType === 'image' || sessionType === 'pdf') {
+                currentMode = sessionType === 'image' ? 'vision-image' : 'vision-pdf';
+                result = await generateMindMapFromImageAction({
+                  imageDataUri: fileContent,
+                  targetLang: params.lang,
+                  persona: aiPersona,
+                  depth: params.depth,
+                }, {
+                  provider: config.provider,
+                  apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+                  model: config.pollinationsModel,
+                  userId: user?.uid,
+                });
+              } else if (sessionType === 'text') {
+                currentMode = 'vision-text';
+                result = await generateMindMapFromTextAction({
+                  text: fileContent,
+                  context: additionalText,
+                  targetLang: params.lang,
+                  persona: aiPersona,
+                  depth: params.depth,
+                }, {
+                  provider: config.provider,
+                  apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+                  model: config.pollinationsModel,
+                  userId: user?.uid,
+                });
+              }
+              sessionStorage.removeItem(`session-type-${params.sessionId}`);
+              sessionStorage.removeItem(`session-content-${params.sessionId}`);
             }
-            sessionStorage.removeItem(`session-type-${params.sessionId}`);
-            sessionStorage.removeItem(`session-content-${params.sessionId}`);
+          } else if (params.studioId) {
+            const rawStudioData = sessionStorage.getItem(`studio-data-${params.studioId}`);
+            if (rawStudioData) {
+              try {
+                const parsed = JSON.parse(rawStudioData);
+                setStudioData(parsed);
+                setStudioType(parsed.type);
+                if (parsed.type === 'mindmap' || parsed.type === 'roadmap') {
+                  if (parsed.data) {
+                    result.data = await mapToMindMapData(parsed.data, params.depth as any || 'low') as MindMapWithId;
+                    result.data.id = params.studioId;
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to parse studio data', e);
+                setError('Failed to load generated content.');
+              }
+            }
           } else {
-            result.error = 'Could not retrieve session data. Please try again.';
+            setIsLoading(false);
+            return;
           }
-        } else {
-          setIsLoading(false);
-          return;
         }
 
         setMode(currentMode);
 
-        if (result.error) {
-          throw new Error(result.error);
-        }
+        if (result.error) throw new Error(result.error);
 
         if (result.data) {
-          // Add to stack if not already there and set active index
-          setMindMaps(prevMaps => {
+          setMindMaps((prevMaps: any[]) => {
             const exists = prevMaps.some(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
             if (exists) {
               const newIndex = prevMaps.findIndex(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
@@ -507,72 +451,27 @@ function MindMapPageContent() {
             return newMaps;
           });
 
-          // SPEED OPTIMIZATION: Hide loading screen as soon as we have data!
           setIsLoading(false);
 
-          const isNewlyGenerated = !['saved', 'self-reference'].includes(currentMode);
+          const isNewlyGenerated = !['saved', 'self-reference', 'studio'].includes(currentMode);
           if (isNewlyGenerated && user && result.data) {
             const existingMapWithId = mindMapsRef.current.find(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase() && m.id);
-
-            // Perform save in background to not block UI/navigation
-            handleSaveMap(result.data, existingMapWithId?.id).then((savedId) => {
-              // CRITICAL: Update the map in stack with the returned ID to prevent re-saves
+            handleSaveMap(result.data, existingMapWithId?.id).then((savedId: any) => {
               if (savedId && !existingMapWithId?.id) {
-                setMindMaps(prev => prev.map(m =>
+                setMindMaps((prev: any[]) => prev.map(m =>
                   m.topic === result.data!.topic ? { ...m, id: savedId } : m
                 ));
-
-                // Also update the current map directly to ensure isSaved shows immediately
                 handleUpdateCurrentMap({ id: savedId });
-
                 navigateToMap(savedId);
               }
             });
           }
-        } else if (params.studioId) {
-          // Handle studio content from brainstorm wizard
-          console.log(`Canvas: Loading Studio content for ID: ${params.studioId}`);
-          const rawStudioData = sessionStorage.getItem(`studio-data-${params.studioId}`);
-
-          if (rawStudioData) {
-            try {
-              const parsed = JSON.parse(rawStudioData);
-              console.log('Canvas: Studio data parsed:', { type: parsed.type, topic: parsed.topic });
-
-              setStudioData(parsed);
-              setStudioType(parsed.type);
-
-              // If it's map-related, also load into the mind map view
-              if (parsed.type === 'mindmap' || parsed.type === 'roadmap') {
-                if (parsed.data) {
-                  result.data = await mapToMindMapData(parsed.data, params.depth as any || 'low') as MindMapWithId;
-                  result.data.id = params.studioId;
-                } else {
-                  console.error('Canvas: Studio data missing "data" field for map type');
-                }
-              }
-            } catch (e) {
-              console.error('Failed to parse studio data', e);
-              setError('Failed to load generated content.');
-            }
-          } else {
-            console.error('Canvas: No studio data found in session storage for ID:', params.studioId);
-            // If data is missing (e.g. refreshed tab), we can't do much. 
-            // Maybe user pasted a URL?
-            setError('Content session expired or not found. Please try generating again.');
-          }
-
-          // CRITICAL: Ensure loading is turned off after processing studio data
-          setIsLoading(false);
-
         } else {
           setIsLoading(false);
-          return;
         }
       } catch (e: any) {
-        const errorMessage = e.message || 'An unknown error occurred.';
-        setError(errorMessage);
-        setIsLoading(false); // Ensure loading stops on error
+        setError(e.message || 'An unknown error occurred.');
+        setIsLoading(false);
       } finally {
         setGeneratingNodeId(null);
         clearRegenFlag();
@@ -580,7 +479,8 @@ function MindMapPageContent() {
     };
 
     fetchMindMapData();
-  }, [getParamKey, user, isUserLoading, handleSaveMap, toast, firestore, params, setIsLoading, setError, setGeneratingNodeId, clearRegenFlag, config, aiPersona, setMindMaps, setActiveMindMapIndexState]);
+  }, [getParamKey, user, isUserLoading, handleSaveMap, toast, firestore, params, config, aiPersona, setMindMaps, setActiveMindMapIndexState, activeMindMapIndex, navigateToMap, isLoading, handleUpdateCurrentMap, setActiveMindMapIndex]);
+
 
   // Track views for community maps
   useEffect(() => {
@@ -920,7 +820,52 @@ function MindMapPageContent() {
     navigateToMap(finalMapData.id || '', finalMapData.topic);
   }, [mindMaps, navigateToMap, toast, setMindMaps, setActiveMindMapIndex, user, firestore]);
 
-  if (isLoading) return <GenerationLoading />;
+  const handleShare = useCallback(async () => {
+    if (!mindMap || isSharing || !firestore) return;
+
+    setIsSharing(true);
+    try {
+      // 1. Generate a stable share ID based on the original mapId
+      const shareId = `share_${mindMap.id}`;
+
+      // 2. Prepare the snapshot data (flat document)
+      const snapshot = {
+        ...toPlainObject(mindMap),
+        id: shareId,
+        originalMapId: mindMap.id,
+        originalAuthorId: user?.uid || 'anonymous',
+        isShared: true,
+        sharedAt: Date.now(),
+        updatedAt: serverTimestamp(),
+      };
+
+      // 3. Save directly via Client SDK
+      // This uses the user's active session and avoids Server Action auth issues
+      await setDoc(doc(firestore, 'sharedMindmaps', shareId), snapshot);
+
+      // 4. Construct and copy the link
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+      const shareUrl = `${baseUrl}/canvas?mapId=${shareId}`;
+
+      await navigator.clipboard.writeText(shareUrl);
+
+      toast({
+        title: "Link Copied!",
+        description: "Anyone with this link can now view this mind map.",
+      });
+    } catch (err: any) {
+      console.error('Error sharing mind map:', err);
+      toast({
+        variant: "destructive",
+        title: "Sharing Failed",
+        description: err.message || "Failed to generate share link.",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  }, [mindMap, isSharing, firestore, user, toast]);
+
+  if (isLoading) return <LogoLoading />;
 
   if (error) {
     const isAuthError = error.toLowerCase().includes('api key') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('401');
@@ -995,6 +940,8 @@ function MindMapPageContent() {
             onPracticeQuestionClick={handleExplainInChat}
             rootMap={mapHierarchy.rootMap}
             allSubMaps={mapHierarchy.allSubMaps}
+            onShare={handleShare}
+            isSharing={isSharing}
           />
 
           {/* Search References Panel */}
@@ -1137,7 +1084,7 @@ function MindMapPageContent() {
 export default function MindMapPage() {
   return (
     <TooltipProvider delayDuration={300}>
-      <Suspense fallback={<GenerationLoading />}>
+      <Suspense fallback={<LogoLoading />}>
         <MindMapPageContent />
       </Suspense>
     </TooltipProvider>

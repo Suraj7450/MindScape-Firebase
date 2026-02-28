@@ -2,9 +2,10 @@ import { doc, setDoc, getDoc, getDocs, updateDoc, increment, deleteField, FieldP
 import { Firestore } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
+import { Achievement, getNewlyUnlockedAchievements, UserStatistics } from './achievements';
 
 /**
- * Update user statistics in Firestore
+ * Update user statistics in Firestore and check for newly unlocked achievements
  */
 export async function updateUserStatistics(
     firestore: Firestore,
@@ -16,7 +17,7 @@ export async function updateUserStatistics(
         studyTimeMinutes?: number;
         nodesCreated?: number;
     }
-) {
+): Promise<Achievement[]> {
     const userRef = doc(firestore, 'users', userId);
     const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -53,8 +54,40 @@ export async function updateUserStatistics(
         if (Object.keys(activityUpdates).length > 0) {
             await updateDoc(userRef, activityUpdates);
         }
+
+        // 4. Check for newly unlocked achievements
+        try {
+            const freshDoc = await getDoc(userRef);
+            const freshData = freshDoc.data();
+            if (freshData?.statistics) {
+                const stats: UserStatistics = {
+                    totalMapsCreated: freshData.statistics.totalMapsCreated || 0,
+                    totalNestedExpansions: freshData.statistics.totalNestedExpansions || 0,
+                    totalImagesGenerated: freshData.statistics.totalImagesGenerated || 0,
+                    totalStudyTimeMinutes: freshData.statistics.totalStudyTimeMinutes || 0,
+                    currentStreak: freshData.statistics.currentStreak || 0,
+                    longestStreak: freshData.statistics.longestStreak || 0,
+                };
+                const currentAchievements: string[] = freshData.unlockedAchievements || [];
+                const newlyUnlocked = getNewlyUnlockedAchievements(stats, currentAchievements);
+
+                if (newlyUnlocked.length > 0) {
+                    // Persist newly unlocked achievement IDs
+                    const updatedAchievements = [...currentAchievements, ...newlyUnlocked.map(a => a.id)];
+                    await updateDoc(userRef, {
+                        unlockedAchievements: updatedAchievements,
+                    });
+                    return newlyUnlocked;
+                }
+            }
+        } catch (achError) {
+            console.warn('Achievement check failed (non-critical):', achError);
+        }
+
+        return [];
     } catch (error) {
         console.error('Error updating user statistics:', error);
+        return [];
     }
 }
 
@@ -160,37 +193,37 @@ async function updateStreak(firestore: Firestore, userId: string, today: string,
 /**
  * Track mind map creation
  */
-export async function trackMapCreated(firestore: Firestore, userId: string) {
-    await updateUserStatistics(firestore, userId, { mapsCreated: 1 });
+export async function trackMapCreated(firestore: Firestore, userId: string): Promise<Achievement[]> {
+    return await updateUserStatistics(firestore, userId, { mapsCreated: 1 });
 }
 
 /**
  * Track nested expansion
  */
-export async function trackNestedExpansion(firestore: Firestore, userId: string) {
-    await updateUserStatistics(firestore, userId, { nestedExpansions: 1 });
+export async function trackNestedExpansion(firestore: Firestore, userId: string): Promise<Achievement[]> {
+    return await updateUserStatistics(firestore, userId, { nestedExpansions: 1 });
 }
 
 /**
  * Track image generation
  */
-export async function trackImageGenerated(firestore: Firestore, userId: string) {
-    await updateUserStatistics(firestore, userId, { imagesGenerated: 1 });
+export async function trackImageGenerated(firestore: Firestore, userId: string): Promise<Achievement[]> {
+    return await updateUserStatistics(firestore, userId, { imagesGenerated: 1 });
 }
 
 /**
  * Track study time (call periodically)
  */
-export async function trackStudyTime(firestore: Firestore, userId: string, minutes: number) {
-    await updateUserStatistics(firestore, userId, { studyTimeMinutes: minutes });
+export async function trackStudyTime(firestore: Firestore, userId: string, minutes: number): Promise<Achievement[]> {
+    return await updateUserStatistics(firestore, userId, { studyTimeMinutes: minutes });
 }
 
 /**
  * Track total nodes added
  */
-export async function trackNodesAdded(firestore: Firestore, userId: string, count: number) {
-    if (count <= 0) return;
-    await updateUserStatistics(firestore, userId, { nodesCreated: count });
+export async function trackNodesAdded(firestore: Firestore, userId: string, count: number): Promise<Achievement[]> {
+    if (count <= 0) return [];
+    return await updateUserStatistics(firestore, userId, { nodesCreated: count });
 }
 
 /**

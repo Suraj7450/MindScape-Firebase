@@ -26,9 +26,6 @@ const AVAILABLE_MODELS: ModelDef[] = [
     { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 128000, isFree: false },
     { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
 
-    // Reasoning / Coding
-    { id: 'deepseek-chat', feature: 'reasoning', description: 'DeepSeek Chat', context: 64000, isFree: true },
-
     // Fallbacks / Niche
     { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
     { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
@@ -79,6 +76,12 @@ export async function generateContentWithPollinations(
     // Use specific model if provided, OR select based on capability, OR default to creative
     let model = options.model || (hasImages ? 'openai' : selectModel(options.capability || 'creative', attempt));
 
+    // Validate model: if user has a saved model that's no longer available, fall back
+    if (options.model && !AVAILABLE_MODELS.find(m => m.id === options.model)) {
+        console.warn(`⚠️ Model "${options.model}" not found in available models, falling back to auto-select.`);
+        model = hasImages ? 'openai' : selectModel(options.capability || 'creative', attempt);
+    }
+
     // Override if specific capabilities are needed
     if (hasImages) {
         model = 'openai'; // Vision support
@@ -124,10 +127,13 @@ CRITICAL SAFETY & OUTPUT RULES:
 
         messages.push({ role: 'user', content: userContent });
 
+        // Sanitize model name: strip spaces, convert to kebab-case
+        const sanitizedModel = model ? model.trim().replace(/\s+/g, '-').toLowerCase() : model;
+
         // Construct request body carefully to avoid 400 validation errors
         const body: any = {
             messages: messages,
-            model: model,
+            model: sanitizedModel,
             stream: false,
         };
 

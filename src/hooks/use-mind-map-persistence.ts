@@ -6,6 +6,7 @@ import { MindMapData } from '@/types/mind-map';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { trackMapCreated, trackStudyTime, trackNodesAdded, trackNestedExpansion } from '@/lib/activity-tracker';
+import { Achievement } from '@/lib/achievements';
 
 interface PersistenceOptions {
     onRemoteUpdate?: (data: MindMapData) => void;
@@ -23,6 +24,23 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
     const isSavingRef = useRef(false);
 
     const [aiPersona, setAiPersona] = useState<string>('Standard');
+
+    // Achievement toast helper
+    const showAchievementToasts = useCallback((achievements: Achievement[]) => {
+        const tierEmoji: Record<string, string> = {
+            bronze: '🥉',
+            silver: '🥈',
+            gold: '🥇',
+            platinum: '💎',
+        };
+        for (const a of achievements) {
+            toast({
+                title: `${tierEmoji[a.tier] || '🏆'} Achievement Unlocked!`,
+                description: `${a.name} — ${a.description}`,
+                duration: 6000,
+            });
+        }
+    }, [toast]);
 
     // 1. Load User Preferences
     useEffect(() => {
@@ -298,16 +316,19 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 generateThumbnailInBackground(finalId);
 
                 // Track creation
-                await trackMapCreated(firestore, user.uid);
+                const mapAchievements = await trackMapCreated(firestore, user.uid);
+                showAchievementToasts(mapAchievements);
 
                 // Track initial nodes
                 if (nodes && nodes.length > 0) {
-                    await trackNodesAdded(firestore, user.uid, nodes.length);
+                    const nodeAchievements = await trackNodesAdded(firestore, user.uid, nodes.length);
+                    showAchievementToasts(nodeAchievements);
                 }
 
                 // Track nested expansion if applicable
                 if (metadataFinal.isSubMap || metadataFinal.parentMapId) {
-                    await trackNestedExpansion(firestore, user.uid);
+                    const expansionAchievements = await trackNestedExpansion(firestore, user.uid);
+                    showAchievementToasts(expansionAchievements);
                 }
             }
 

@@ -62,7 +62,7 @@ interface CompareViewProps {
     onGenerateHybrid?: () => void;
     onStartContrastQuiz?: () => void;
     onDrillDown?: (dimensionName: string) => void;
-    onWarpPerspective?: () => void;
+
     onShowTimeline?: () => void;
     onStartQuiz?: (topic: string) => void;
 }
@@ -82,7 +82,7 @@ export const CompareView = ({
     onGenerateHybrid,
     onStartContrastQuiz,
     onDrillDown,
-    onWarpPerspective,
+
     onShowTimeline,
     onStartQuiz,
 }: CompareViewProps) => {
@@ -165,19 +165,7 @@ export const CompareView = ({
                             </div>
                         </Button>
 
-                        <div className="w-px h-8 bg-white/10 mx-2" />
 
-                        <Button
-                            onClick={() => onWarpPerspective?.()}
-                            variant="ghost"
-                            className="rounded-full h-12 px-10 gap-3 group hover:bg-blue-500/20 transition-all duration-500"
-                        >
-                            <Compass className="w-4 h-4 text-blue-500 group-hover:animate-spin-slow" />
-                            <div className="flex flex-col items-start leading-none">
-                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Warp</span>
-                                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-tight group-hover:text-blue-500/70">Perspective Swap</span>
-                            </div>
-                        </Button>
 
                         <div className="w-px h-8 bg-white/10 mx-2" />
 
@@ -242,6 +230,7 @@ export const CompareView = ({
                             onGenerateImage={onGenerateImage}
                             onStartQuiz={onStartQuiz}
                             onExplainInChat={onExplainInChat}
+                            onSubCategoryClick={onSubCategoryClick}
                             isGlobalBusy={isGlobalBusy}
                         />
                     ))}
@@ -385,6 +374,7 @@ const DimensionBentoCard = ({
     onGenerateImage,
     onStartQuiz,
     onExplainInChat,
+    onSubCategoryClick,
     isGlobalBusy = false,
 }: {
     dimension: ComparisonDimension,
@@ -395,6 +385,7 @@ const DimensionBentoCard = ({
     onGenerateImage?: (node: any) => void,
     onStartQuiz?: (topic: string) => void,
     onExplainInChat?: (message: string) => void,
+    onSubCategoryClick?: (node: any) => void,
     isGlobalBusy?: boolean,
 }) => {
     const Icon = (LucideIcons as any)[toPascalCase(dimension.icon || 'layers')] || Activity;

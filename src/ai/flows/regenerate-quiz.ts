@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { QuizSchema } from '../schemas/quiz-schema';
-import { generateContent } from '../client-dispatcher';
+import { generateContent, type AIProvider } from '../client-dispatcher';
 
 export const RegenerateQuizInputSchema = z.object({
     topic: z.string(),
@@ -9,7 +9,7 @@ export const RegenerateQuizInputSchema = z.object({
     otherAreas: z.array(z.string()).optional().describe('Other conceptTags from the original quiz'),
     previousQuestions: z.array(z.string()).optional().describe('List of question texts to avoid repetitions'),
     apiKey: z.string().optional(),
-    provider: z.string().optional() as z.Schema<AIProvider | undefined>
+    provider: z.string().optional()
 });
 
 export type RegenerateQuizInput = z.infer<typeof RegenerateQuizInputSchema>;

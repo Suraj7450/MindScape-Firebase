@@ -29,6 +29,13 @@ export const mindscapeMap = {
                             isExpanded: false
                         },
                         {
+                            name: "Knowledge Pack Exports",
+                            description: "Export comprehensive knowledge packs as structured PDFs with professional layouts, ready for offline study or sharing.",
+                            icon: "file-down",
+                            tags: ["PDF", "Export", "jsPDF"],
+                            isExpanded: false
+                        },
+                        {
                             name: "Knowledge Navigator",
                             description: "Deep dive through infinite hierarchies using Miller Columns. Smooth lateral navigation across nested sub-maps.",
                             icon: "layout-columns",
@@ -94,6 +101,13 @@ export const mindscapeMap = {
                             icon: "brain-circuit",
                             tags: ["Gamification", "Quiz"],
                             isExpanded: false
+                        },
+                        {
+                            name: "Achievement System",
+                            description: "Unlock 15+ specialized achievements across Creation, Consistency, and Exploration to track your cognitive growth.",
+                            icon: "award",
+                            tags: ["Gamification", "Badges"],
+                            isExpanded: false
                         }
                     ]
                 },
@@ -110,9 +124,9 @@ export const mindscapeMap = {
                         },
                         {
                             name: "Notification Center",
-                            description: "Integrated 'Activities' and 'What's New' tabs to keep you updated on progress and platform innovations.",
+                            description: "Redesigned premium notification hub with 'Activities' and 'What's New' tabs for tracking progress and platform updates.",
                             icon: "bell",
-                            tags: ["Alerts", "Changelog"],
+                            tags: ["Premium UI", "Changelog"],
                             isExpanded: false
                         },
                         {
@@ -169,8 +183,15 @@ export const mindscapeMap = {
                             isExpanded: false
                         },
                         {
+                            name: "Advanced Sharing",
+                            description: "Generate secure, shareable links with `sharedMapId` support. Optimized for community collaboration and link consistency.",
+                            icon: "share-2",
+                            tags: ["Collaboration", "Links"],
+                            isExpanded: false
+                        },
+                        {
                             name: "Personal Cloud Vault",
-                            description: "Secure real-time synchronization via Firebase. Access your library from any device, anywhere.",
+                            description: "Secure real-time synchronization via Firebase. Protected by owner-only security rules (Option B encryption) for maximum privacy.",
                             icon: "cloud",
                             tags: ["Backup", "Security"],
                             isExpanded: false

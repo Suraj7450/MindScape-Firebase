@@ -212,25 +212,48 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
   } else if (prompt.includes('search')) { // Fixed: variable name was systemPrompt
     capability = 'fast';
   }
+  // Template validation markers
+  const TEMPLATE_MARKERS = ['Subtopic Name', 'Category Name', 'Subcategory Name', 'One sentence explanation', 'Generate a catchy, short title', 'Reasoning about this'];
 
-  const result = await generateContent({
-    provider: provider,
-    apiKey: apiKey,
-    systemPrompt: "You are a mind map generator. Output MUST be strictly valid JSON according to the requested structure.",
-    userPrompt: prompt,
-    schema: AIGeneratedMindMapSchema,
-    options: {
-      // Fixed: Removed undefined aiOptions
-      // CRITICAL: Overwrite 'model' with undefined if we have a specific capability in mind
-      model: capability !== 'creative' ? undefined : model,
-      capability: capability as any // Pass capability hint
+  const MAX_TEMPLATE_RETRIES = 3;
+  let lastTemplateError: any = null;
+
+  for (let attempt = 0; attempt < MAX_TEMPLATE_RETRIES; attempt++) {
+    const result = await generateContent({
+      provider: provider,
+      apiKey: apiKey,
+      systemPrompt: "You are a mind map generator. Output MUST be strictly valid JSON according to the requested structure. DO NOT copy the example template - generate REAL content about the given topic.",
+      userPrompt: prompt,
+      schema: AIGeneratedMindMapSchema,
+      options: {
+        // On retry, clear user model to force auto-selection of a different model
+        model: attempt === 0 ? model : undefined,
+        capability: capability as any
+      }
+    });
+
+    // Validate: Detect if AI returned template/placeholder content
+    const resultStr = JSON.stringify(result);
+    const templateHits = TEMPLATE_MARKERS.filter(m => resultStr.includes(m));
+
+    if (templateHits.length >= 2) {
+      console.warn(`⚠️ Attempt ${attempt + 1}: AI returned template content (${templateHits.length} markers). Retrying with different model...`);
+      lastTemplateError = new Error(
+        `AI echoed the prompt template instead of generating real content (retryable). Markers: ${templateHits.join(', ')}`
+      );
+      // Short delay before retry
+      await new Promise(res => setTimeout(res, 1500));
+      continue;
     }
-  });
 
-  console.log(`✅ Mind map generated successfully:`, {
-    topic: result.topic,
-    subTopicsCount: result.subTopics.length
-  });
+    console.log(`✅ Mind map generated successfully:`, {
+      topic: result.topic,
+      subTopicsCount: result.subTopics.length
+    });
 
-  return result;
+    return result;
+  }
+
+  // All retries returned template content
+  throw lastTemplateError || new Error('AI failed to generate real content after multiple attempts.');
 }

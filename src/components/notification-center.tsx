@@ -77,7 +77,7 @@ export function NotificationCenter() {
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 glassmorphism p-0 overflow-hidden" align="end" forceMount>
+            <DropdownMenuContent className="w-[320px] sm:w-[420px] glassmorphism p-0 overflow-hidden border-white/10 shadow-2xl" align="end" forceMount>
                 <Tabs defaultValue="activities" className="w-full">
                     <div className="px-4 pt-4 border-b border-white/5">
                         <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1 rounded-xl h-9">
@@ -98,15 +98,15 @@ export function NotificationCenter() {
                     </div>
 
                     <TabsContent value="activities" className="m-0 focus:outline-none">
-                        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
-                            <DropdownMenuLabel className="p-0 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">History</DropdownMenuLabel>
-                            <div className="flex gap-2">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-white/[0.01]">
+                            <DropdownMenuLabel className="p-0 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500/70">Activity Log</DropdownMenuLabel>
+                            <div className="flex gap-1.5">
                                 {notifications.length > 0 && (
                                     <>
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-6 px-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 hover:text-white"
+                                            className="h-7 px-2.5 text-[9px] font-black uppercase tracking-wider text-zinc-500 hover:text-primary transition-colors hover:bg-white/5 rounded-lg"
                                             onClick={markAllAsRead}
                                         >
                                             Mark All Read
@@ -114,10 +114,10 @@ export function NotificationCenter() {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-6 w-6 text-zinc-500 hover:text-red-400"
+                                            className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-colors"
                                             onClick={clearNotifications}
                                         >
-                                            <Trash2 className="h-3 w-3" />
+                                            <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                     </>
                                 )}
@@ -159,29 +159,44 @@ export function NotificationCenter() {
                                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">No recent activity</p>
                                 </div>
                             ) : (
-                                <div className="flex flex-col">
+                                <div className="flex flex-col p-2 space-y-1">
                                     {notifications.map((n) => (
                                         <button
                                             key={n.id}
                                             onClick={() => handleNotificationClick(n)}
                                             className={cn(
-                                                "flex flex-col items-start gap-1 p-4 text-left transition-colors border-b border-white/5 last:border-0 hover:bg-white/[0.03]",
-                                                !n.read && "bg-white/[0.04]"
+                                                "flex flex-col items-start gap-1 px-4 py-3.5 text-left transition-all rounded-xl relative group",
+                                                !n.read
+                                                    ? "bg-primary/[0.03] border border-primary/10 shadow-[0_0_15px_-5px_rgba(var(--primary),0.1)]"
+                                                    : "hover:bg-white/[0.03] border border-transparent hover:border-white/5"
                                             )}
                                         >
-                                            <div className="flex items-center justify-between w-full gap-2">
-                                                <div className="flex items-center gap-2">
-                                                    {getIcon(n.type)}
-                                                    <span className={cn("text-[11px] font-bold tracking-tight", !n.read ? "text-white" : "text-zinc-500")}>
-                                                        {n.message}
-                                                    </span>
+                                            <div className="flex items-start justify-between w-full gap-3">
+                                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                    <div className={cn(
+                                                        "mt-0.5 p-1.5 rounded-lg flex-shrink-0",
+                                                        !n.read ? "bg-primary/10" : "bg-white/5"
+                                                    )}>
+                                                        {getIcon(n.type)}
+                                                    </div>
+                                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                                        <span className={cn(
+                                                            "text-[12px] leading-tight transition-colors truncate",
+                                                            !n.read ? "text-white font-bold" : "text-zinc-400 font-medium group-hover:text-zinc-300"
+                                                        )}>
+                                                            {n.message}
+                                                        </span>
+                                                        <span className="text-[10px] text-zinc-600 font-medium">
+                                                            {formatDistanceToNow(n.timestamp, { addSuffix: true })}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <span className="text-[9px] font-medium text-zinc-700 whitespace-nowrap">
-                                                    {formatDistanceToNow(n.timestamp, { addSuffix: true })}
-                                                </span>
+                                                {!n.read && (
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0 shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
+                                                )}
                                             </div>
                                             {n.details && (
-                                                <p className="text-[10px] text-zinc-500 mt-1 pl-6 line-clamp-2 leading-relaxed">
+                                                <p className="text-[11px] text-zinc-500/80 mt-1 pl-[38px] line-clamp-2 leading-relaxed font-medium">
                                                     {n.details}
                                                 </p>
                                             )}
@@ -194,41 +209,44 @@ export function NotificationCenter() {
 
                     <TabsContent value="changelog" className="m-0 focus:outline-none">
                         <ScrollArea className="h-[400px]">
-                            <div className="p-4 space-y-6">
+                            <div className="p-2 space-y-1">
                                 {CHANGELOG_DATA.map((version, vIdx) => (
-                                    <div key={vIdx} className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-primary/30 text-primary bg-primary/5">
+                                    <div
+                                        key={vIdx}
+                                        className="group relative flex flex-col gap-2 p-4 rounded-xl transition-all border border-transparent hover:bg-white/[0.02] hover:border-white/5"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase tracking-widest border-primary/20 text-primary/80 bg-primary/5 rounded-md">
                                                     v{version.version}
                                                 </Badge>
-                                                <span className="text-[10px] font-bold text-white">{version.title}</span>
+                                                <span className="text-[12px] font-bold text-zinc-200 group-hover:text-primary transition-colors">{version.title}</span>
                                             </div>
-                                            <span className="text-[9px] text-zinc-600 font-medium">{version.date}</span>
+                                            <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">{version.date}</span>
+                                                <ChevronRight className="h-3.5 w-3.5 text-zinc-600 group-hover:text-primary transition-colors" />
+                                            </div>
                                         </div>
-
-                                        <div className="space-y-2">
-                                            {version.highlights.map((highlight, hIdx) => (
-                                                <div key={hIdx} className="flex gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
-                                                    <div className={cn("flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center", highlight.color)}>
-                                                        <highlight.icon className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="space-y-0.5">
-                                                        <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-300 group-hover:text-primary transition-colors">
-                                                            {highlight.title}
-                                                        </h4>
-                                                        <p className="text-[10px] text-zinc-500 leading-relaxed">
-                                                            {highlight.description}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {vIdx < CHANGELOG_DATA.length - 1 && <DropdownMenuSeparator className="bg-white/5" />}
+                                        <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-2 pl-0.5 font-medium">{version.summary}</p>
+                                        <button
+                                            onClick={() => router.push(`/changelog/${version.slug}`)}
+                                            className="w-fit text-[10px] font-black uppercase tracking-[0.1em] text-primary/50 hover:text-primary transition-all flex items-center gap-1.5 hover:gap-2.5"
+                                        >
+                                            Full Article
+                                            <div className="h-px w-3 bg-primary/30 group-hover:w-5 group-hover:bg-primary transition-all" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         </ScrollArea>
+                        <div className="p-3 border-t border-white/5 bg-white/[0.02]">
+                            <button
+                                onClick={() => router.push('/changelog')}
+                                className="w-full text-center text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-primary transition-colors py-1.5"
+                            >
+                                View All Updates →
+                            </button>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </DropdownMenuContent>

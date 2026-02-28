@@ -231,6 +231,8 @@ interface MindMapProps {
   onPracticeQuestionClick?: (question: string) => void;
   rootMap?: { id: string; topic: string; icon?: string } | null;
   allSubMaps?: NestedExpansionItem[];
+  onShare?: () => void;
+  isSharing?: boolean;
 }
 
 /**
@@ -280,6 +282,8 @@ export const MindMap = ({
   onPracticeQuestionClick,
   rootMap,
   allSubMaps,
+  onShare,
+  isSharing: propIsSharing,
 }: MindMapProps) => {
   const [viewMode, setViewMode] = useState<'accordion' | 'map' | 'roadmap'>('accordion');
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null);
@@ -303,7 +307,7 @@ export const MindMap = ({
   }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel, user?.uid]);
 
   const imageProviderOptions = useMemo(() => ({
-    provider: config.provider as 'pollinations' | 'bytez',
+    provider: config.provider as 'pollinations',
     apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
     model: config.pollinationsModel,
     userId: user?.uid,
@@ -532,24 +536,6 @@ export const MindMap = ({
     });
   };
 
-  const handleStartMentorRoleplay = (role: string) => {
-    const mentorPrompt = `I need guidance from a Project Mentor acting as a ${role}. Based on the comparison of ${data.topic}, help me understand which one I should choose for my project. Ask me 3 critical questions about my specific requirements to give me the best advice.`;
-    onExplainInChat(mentorPrompt);
-    toast({
-      title: `${role} Mentor Active`,
-      description: `The ${role} is ready to consult in the chat panel.`,
-    });
-  };
-
-  const handleWarpPerspective = () => {
-    // Switch to creative persona and regenerate
-    onAIPersonaChange('Creative');
-    onRegenerate();
-    toast({
-      title: "Dimensional Warp Initiated",
-      description: "Perspective shifted. Regenerating with a Creative Visionary lens.",
-    });
-  };
 
   const handleReloadSummary = async () => {
     if (isSummarizing) return;
@@ -910,7 +896,16 @@ export const MindMap = ({
 
       if (firestore && user) {
         try {
-          await trackImageGenerated(firestore, user.uid);
+          const achievements = await trackImageGenerated(firestore, user.uid);
+          // Show achievement toasts
+          const tierEmoji: Record<string, string> = { bronze: '🥉', silver: '🥈', gold: '🥇', platinum: '💎' };
+          for (const a of achievements) {
+            toast({
+              title: `${tierEmoji[a.tier] || '🏆'} Achievement Unlocked!`,
+              description: `${a.name} — ${a.description}`,
+              duration: 6000,
+            });
+          }
         } catch (fE: any) {
           console.warn('⚠️ Could not track usage:', fE.message);
         }
@@ -1000,7 +995,16 @@ export const MindMap = ({
     if (id) {
       const baseUrl = `${window.location.origin}${window.location.pathname}`;
       const params = new URLSearchParams();
-      params.set('mapId', id);
+      if (isPublicOrShared) {
+        if (data.isPublic) {
+          params.set('publicMapId', id);
+        } else {
+          params.set('sharedMapId', id);
+        }
+      } else {
+        params.set('mapId', id);
+      }
+
 
       // Transfer relevant status flags but drop 'topic'
       if (selectedLanguage && selectedLanguage !== 'en') {
@@ -1212,8 +1216,8 @@ export const MindMap = ({
         isAllExpanded={isAllExpanded}
         onToggleExpandAll={isAllExpanded ? collapseAll : expandAll}
         isCopied={isCopied}
-        onCopyPath={handleShareLink}
-        isSharing={isSharing}
+        onCopyPath={onShare || handleShareLink}
+        isSharing={propIsSharing || isSharing}
         isSaved={isSaved}
         onSave={onSaveMap}
         onOpenAiContent={() => setIsAiContentDialogOpen(true)}
@@ -1235,7 +1239,7 @@ export const MindMap = ({
         onOpenSummary={handleOpenSummary}
         isSummarizing={isSummarizing}
         status={status}
-
+        isRegenerating={isRegenerating}
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-12">
@@ -1255,7 +1259,6 @@ export const MindMap = ({
             onGenerateHybrid={handleGenerateHybrid}
             onStartContrastQuiz={handleStartContrastQuiz}
             onDrillDown={handleDimensionDrillDown}
-            onWarpPerspective={handleWarpPerspective}
             onShowTimeline={handleShowTimeline}
             onStartQuiz={onStartQuiz}
           />
@@ -1393,7 +1396,7 @@ export const MindMap = ({
         onClose={() => setIsNestedMapsDialogOpen(false)}
         expansions={(allSubMaps || nestedExpansions || []).map(item => ({
           ...item,
-          thumbnailUrl: thumbnailOverrides[item.id] || (item.fullData as any)?.thumbnailUrl || item.thumbnailUrl,
+          thumbnailUrl: thumbnailOverrides[item.id] || (item.fullData as any)?.thumbnailUrl || (item as any).thumbnailUrl,
           path: item.path || ''
         }))}
         rootMap={rootMap}
@@ -1491,9 +1494,9 @@ export const MindMap = ({
               const imageData = await response.json();
 
               // Update LOCAL nestedExpansions state
-              setNestedExpansions(prev => prev.map(exp =>
+              setNestedExpansions((prev: any[]) => prev.map(exp =>
                 exp.id === nestedLabNode.id
-                  ? { ...exp, thumbnailUrl: imageData.imageUrl, fullData: { ...exp.fullData, thumbnailUrl: imageData.imageUrl } }
+                  ? ({ ...exp, fullData: exp.fullData ? { ...exp.fullData, thumbnailUrl: imageData.imageUrl } : undefined } as any)
                   : exp
               ));
 

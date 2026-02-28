@@ -74,6 +74,13 @@ import { MindMapData, SingleMindMapData, CompareMindMapData, SubTopic, Category,
 import { addDoc, collection } from 'firebase/firestore';
 import { generateSearchContext } from './actions/generateSearchContext';
 
+export interface AIActionOptions {
+  apiKey?: string;
+  provider?: AIProvider;
+  model?: string;
+  userId?: string;
+}
+
 /**
  * Ensures AI-generated data strictly adheres to the frontend MindMapData interface.
  * Fills in default values for required fields like tags and isExpanded.
@@ -164,7 +171,7 @@ export interface GenerateMindMapFromImageInput {
  * Prioritizes explicitly provided keys, then user-specific keys from Firestore, 
  * and finally falls back to server-side environmental variables.
  */
-export async function resolveApiKey(options: { apiKey?: string; userId?: string; provider?: AIProvider }): Promise<string | undefined> {
+export async function resolveApiKey(options: AIActionOptions): Promise<string | undefined> {
   let effectiveApiKey = options.apiKey;
 
   // If no API key provided, try to fetch from user profile on server
@@ -192,7 +199,7 @@ export async function resolveApiKey(options: { apiKey?: string; userId?: string;
  */
 export async function generateMindMapAction(
   input: GenerateMindMapInput & { useSearch?: boolean },
-  options: { apiKey?: string; provider?: AIProvider; model?: string; userId?: string } = {}
+  options: AIActionOptions = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   try {
     // Ensure input.topic is treated as a plain string
@@ -258,6 +265,36 @@ export async function checkPollinationsKeyAction(): Promise<{ isConfigured: bool
 }
 
 /**
+ * Server action to check the pollen balance for the user's API key.
+ * Uses the same key resolution chain as other AI actions.
+ */
+export async function checkPollenBalanceAction(
+  options: { apiKey?: string; userId?: string } = {}
+): Promise<{ balance: number | null; error: string | null }> {
+  try {
+    const effectiveApiKey = await resolveApiKey({ ...options, provider: 'pollinations' });
+
+    if (!effectiveApiKey) {
+      // Fall back to server env key
+      const serverKey = process.env.POLLINATIONS_API_KEY;
+      if (!serverKey) {
+        return { balance: null, error: 'No API key configured.' };
+      }
+      const { checkPollinationsBalance } = await import('@/ai/pollinations-client');
+      const balance = await checkPollinationsBalance(serverKey);
+      return { balance, error: balance === null ? 'Failed to fetch balance.' : null };
+    }
+
+    const { checkPollinationsBalance } = await import('@/ai/pollinations-client');
+    const balance = await checkPollinationsBalance(effectiveApiKey);
+    return { balance, error: balance === null ? 'Failed to fetch balance.' : null };
+  } catch (error) {
+    console.error('Error in checkPollenBalanceAction:', error);
+    return { balance: null, error: 'Failed to check pollen balance.' };
+  }
+}
+
+/**
  * Server action to update the user's preferred Pollinations model.
  */
 export async function updateAIModelPreferenceAction(userId: string, model: string): Promise<{ success: boolean; error: string | null }> {
@@ -282,7 +319,7 @@ export async function updateAIModelPreferenceAction(userId: string, model: strin
  */
 export async function generateMindMapFromImageAction(
   input: GenerateMindMapFromImageInput,
-  options: { apiKey?: string; provider?: AIProvider; userId?: string } = {}
+  options: AIActionOptions = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   if (!input.imageDataUri) {
     return { data: null, error: 'Image data URI is required.' };
@@ -314,7 +351,7 @@ export async function generateMindMapFromImageAction(
  */
 export async function generateMindMapFromTextAction(
   input: GenerateMindMapFromTextInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ data: MindMapData | null; error: string | null }> {
   if (!input.text || input.text.trim().length < 10) {
     return { data: null, error: 'Text content is too short to generate a mind map.' };
@@ -349,7 +386,7 @@ export async function generateMindMapFromTextAction(
  */
 export async function explainNodeAction(
   input: ExplainMindMapNodeInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -373,7 +410,7 @@ export async function explainNodeAction(
  */
 export async function chatAction(
   input: ChatWithAssistantInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -397,7 +434,7 @@ export async function chatAction(
  */
 export async function translateMindMapAction(
   input: TranslateMindMapInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ translation: MindMapData | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -469,7 +506,7 @@ export async function summarizeChatAction(
  */
 export async function summarizeTopicAction(
   input: { mindMapData: MindMapData },
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ summary: string | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -494,7 +531,7 @@ export async function summarizeTopicAction(
  */
 export async function enhanceImagePromptAction(
   input: EnhanceImagePromptInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{
   enhancedPrompt: EnhanceImagePromptOutput | null;
   error: string | null;
@@ -524,7 +561,7 @@ export async function enhanceImagePromptAction(
  */
 export async function expandNodeAction(
   input: ExpandNodeInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -550,7 +587,7 @@ export async function expandNodeAction(
  */
 export async function generateRelatedQuestionsAction(
   input: RelatedQuestionsInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
+  options: AIActionOptions = {}
 ): Promise<{ data: RelatedQuestionsOutput | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
@@ -578,7 +615,7 @@ export async function getAIHealthReportAction() {
  */
 export async function generateComparisonMapAction(
   input: GenerateComparisonMapInput & { useSearch?: boolean },
-  options: { apiKey?: string; provider?: AIProvider; userId?: string } = {}
+  options: { apiKey?: string; provider?: AIProvider; userId?: string; model?: string } = {}
 ): Promise<{ data: CompareMindMapData | null; error: string | null }> {
   // TODO: Validate Firebase ID token server-side before invoking AI
 

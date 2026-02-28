@@ -108,6 +108,8 @@ export default function DashboardPage() {
   const [isUnpublishingMapId, setIsUnpublishingMapId] = useState<string | null>(null);
   const [previewMapPublishStatus, setPreviewMapPublishStatus] = useState<boolean | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [isSharingMapId, setIsSharingMapId] = useState<string | null>(null);
+  const [isCopiedMapId, setIsCopiedMapId] = useState<string | null>(null);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [isDownloadingFullData, setIsDownloadingFullData] = useState(false);
   const [selectedMapFullData, setSelectedMapFullData] = useState<MindMapData | null>(null);
@@ -640,6 +642,60 @@ export default function DashboardPage() {
     }
   };
 
+  const handleShareLink = async (map: SavedMindMap) => {
+    if (!user || !firestore) return;
+
+    // If already shared, just copy the link
+    if ((map as any).isShared) {
+      const shareUrl = `${window.location.origin}/canvas?sharedMapId=${map.id}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setIsCopiedMapId(map.id);
+      setTimeout(() => setIsCopiedMapId(null), 2000);
+      toast({ title: 'Link Copied', description: 'Anyone with this link can view your map.' });
+      return;
+    }
+
+    setIsSharingMapId(map.id);
+    try {
+      // 1. Fetch full content from the split schema
+      const docRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id);
+      const contentRef = doc(firestore, 'users', user.uid, 'mindmaps', map.id, 'content', 'tree');
+      const [metaSnap, contentSnap] = await Promise.all([getDoc(docRef), getDoc(contentRef)]);
+
+      if (!metaSnap.exists()) throw new Error('Mind map not found.');
+
+      const fullData = { ...metaSnap.data(), ...(contentSnap.exists() ? contentSnap.data() : {}), id: map.id };
+
+      // 2. Create shared entry (unlisted) - Using stable share_ prefix
+      const shareId = `share_${map.id}`;
+      const sharedData = {
+        ...fullData,
+        id: shareId,
+        isShared: true,
+        isPublic: false,
+        sharedAt: serverTimestamp(),
+        originalAuthorId: user.uid,
+        authorName: user.displayName || 'Explorer',
+      };
+      await setDoc(doc(firestore, 'sharedMindmaps', shareId), sharedData);
+
+      // 3. Mark user's map as shared
+      await updateDoc(docRef, { isShared: true });
+
+      // 4. Copy link
+      const shareUrl = `${window.location.origin}/canvas?mapId=${shareId}`;
+      await navigator.clipboard.writeText(shareUrl);
+
+      setIsCopiedMapId(map.id);
+      setTimeout(() => setIsCopiedMapId(null), 2000);
+      toast({ title: 'Sharing Enabled!', description: 'Unlisted link copied to clipboard. Share it with anyone!' });
+    } catch (err: any) {
+      console.error('Share failed:', err);
+      toast({ title: 'Sharing Failed', description: err.message || 'An error occurred.', variant: 'destructive' });
+    } finally {
+      setIsSharingMapId(null);
+    }
+  };
 
   const mindMapsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -1096,6 +1152,29 @@ export default function DashboardPage() {
                           </TooltipContent>
                         </Tooltip>
                       )}
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300"
+                            onClick={() => handleShareLink(map)}
+                            disabled={isSharingMapId === map.id}
+                          >
+                            {isCopiedMapId === map.id ? (
+                              <Check className="h-4 w-4 text-emerald-400" />
+                            ) : isSharingMapId === map.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+                            ) : (
+                              <Share2 className={cn("h-4 w-4", (map as any).isShared && "text-blue-400")} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>{isCopiedMapId === map.id ? 'Copied!' : isSharingMapId === map.id ? 'Sharing...' : (map as any).isShared ? 'Copy Share Link' : 'Create Share Link'}</p>
+                        </TooltipContent>
+                      </Tooltip>
 
                       <Tooltip>
                         <TooltipTrigger asChild>

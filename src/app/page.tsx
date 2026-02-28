@@ -503,7 +503,7 @@ export default function Home() {
 
   const handleGenerate = async (
     topic: string,
-    fileInfo?: { name: string; type: string }
+    fileInfo?: { name: string; type: string; content: string }
   ) => {
     // Navigate immediately. The target page (Canvas) will show the radial skeleton.
     setIsGenerating(true);
