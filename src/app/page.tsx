@@ -509,7 +509,8 @@ export default function Home() {
     setIsGenerating(true);
 
     // Check if user is searching for "MindScape" itself
-    if (topic.toLowerCase().trim() === 'mindscape' && !fileInfo) {
+    const normalizedTopic = topic.toLowerCase().trim();
+    if ((normalizedTopic === 'mindscape' || normalizedTopic === 'mindscape core architecture') && !fileInfo) {
       // Redirect to mindmap page with special flag
       router.push(`/canvas?selfReference=true&lang=${lang}`);
       return;

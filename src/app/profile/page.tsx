@@ -802,40 +802,8 @@ export default function ProfilePage() {
 
                                 {/* Objectives & Growth Grid */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                    {/* Objectives */}
-                                    <div className="lg:col-span-1 space-y-6">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-zinc-500">Current Objectives</h3>
-                                            <Target className="h-4 w-4 text-zinc-600" />
-                                        </div>
-                                        <div className="nm-flat rounded-[2.5rem] p-8 space-y-6">
-                                            {[
-                                                { label: 'Weekly Map Goal', current: stats.maps % (profile.goals?.weeklyMapGoal || 5), total: profile.goals?.weeklyMapGoal || 5, color: 'bg-blue-500' },
-                                                { label: 'Monthly Growth', current: stats.nodes % (profile.goals?.monthlyMapGoal || 50), total: profile.goals?.monthlyMapGoal || 50, color: 'bg-violet-500' }
-                                            ].map((goal, i) => (
-                                                <div key={i} className="space-y-3">
-                                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                                        <span className="text-zinc-400">{goal.label}</span>
-                                                        <span className="text-white">{goal.current}/{goal.total}</span>
-                                                    </div>
-                                                    <div className="h-1.5 w-full nm-pressed rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full ${goal.color} rounded-full transition-all duration-1000`}
-                                                            style={{ width: `${(goal.current / goal.total) * 100}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            <div className="pt-4 border-t border-white/5">
-                                                <p className="text-[10px] text-zinc-500 leading-relaxed italic">
-                                                    Goals reset periodically. Keep reaching your milestones to unlock exclusive badges.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     {/* Growth Journey */}
-                                    <div className="lg:col-span-2 space-y-6">
+                                    <div className="lg:col-span-3 space-y-6">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-sm font-black uppercase tracking-[0.3em] text-zinc-500">Growth Journey</h3>
                                             <Badge variant="outline" className="text-[10px] font-bold text-violet-400 uppercase tracking-widest bg-violet-500/5 border-none">Rank {totalUnlockedTiers}</Badge>

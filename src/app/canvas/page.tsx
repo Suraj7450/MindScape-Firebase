@@ -225,7 +225,7 @@ function MindMapPageContent() {
       const existingMapIndex = mindMaps.findIndex((m: any) => {
         if (params.mapId && m.id === params.mapId) return true;
         if (params.topic && m.topic?.toLowerCase() === params.topic.toLowerCase()) return true;
-        if (params.isSelfReference && m.topic?.toLowerCase() === 'mindscape') return true;
+        if (params.isSelfReference && m.topic?.toLowerCase() === 'mindscape core architecture') return true;
         return false;
       });
 
@@ -440,6 +440,16 @@ function MindMapPageContent() {
 
         if (result.data) {
           setMindMaps((prevMaps: any[]) => {
+            if (params.isSelfReference) {
+              const idIndex = prevMaps.findIndex(m => m.id === 'mindscape');
+              if (idIndex !== -1) {
+                const newMaps = [...prevMaps];
+                newMaps[idIndex] = result.data!;
+                setActiveMindMapIndexState(idIndex);
+                return newMaps;
+              }
+            }
+
             const exists = prevMaps.some(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
             if (exists) {
               const newIndex = prevMaps.findIndex(m => m.topic?.toLowerCase() === result.data!.topic?.toLowerCase());
