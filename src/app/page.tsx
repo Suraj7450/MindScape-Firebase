@@ -36,6 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { languages } from '@/lib/languages';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -52,7 +58,12 @@ const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mo
   loading: () => null
 });
 
-
+const PERSONAS = [
+  { id: 'teacher', label: 'Teacher', icon: UserRound, color: 'text-blue-400', description: 'Explains concepts with detailed examples and educational step-by-step guidance.' },
+  { id: 'concise', label: 'Concise', icon: Zap, color: 'text-amber-400', description: 'Provides direct, short, and to-the-point answers without fluff.' },
+  { id: 'creative', label: 'Creative', icon: Palette, color: 'text-pink-400', description: 'Uses imaginative and out-of-the-box thinking for brainstorming.' },
+  { id: 'sage', label: 'Cognitive Sage', icon: Brain, color: 'text-purple-400', description: 'Deep, philosophical, and analytical thinker for complex problems.' }
+];
 
 // ---------- HERO ----------
 function Hero({
@@ -343,20 +354,40 @@ function Hero({
                     else if (openSelect === 'persona') setOpenSelect(null);
                   }}>
                     <SelectTrigger className="w-auto h-9 border border-white/5 bg-black/40 text-[10px] font-black uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 hover:text-primary transition-all group px-4 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                      <Bot className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
-                      <SelectValue placeholder="Persona" />
+                      {(() => {
+                        const active = PERSONAS.find(p => p.id === persona);
+                        if (!active) {
+                          return (
+                            <>
+                              <Bot className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+                              <span>Persona</span>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <active.icon className={cn("w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform", active.color)} />
+                            <span>{active.label}</span>
+                          </>
+                        );
+                      })()}
                     </SelectTrigger>
                     <SelectContent className="glassmorphism border-white/10 min-w-[160px]" position="popper">
-                      {[
-                        { id: 'teacher', label: 'Teacher', icon: UserRound, color: 'text-blue-400' },
-                        { id: 'concise', label: 'Concise', icon: Zap, color: 'text-amber-400' },
-                        { id: 'creative', label: 'Creative', icon: Palette, color: 'text-pink-400' },
-                        { id: 'sage', label: 'Cognitive Sage', icon: Brain, color: 'text-purple-400' }
-                      ].map((p) => (
-                        <SelectItem key={p.id} value={p.id} className="text-[10px] font-bold uppercase tracking-wider">
-                          <div className="flex items-center gap-2">
-                            <p.icon className={cn("w-3.5 h-3.5", p.color)} />
-                            <span>{p.label}</span>
+                      <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1 border-b border-white/5">AI Persona</div>
+                      {PERSONAS.map((p) => (
+                        <SelectItem
+                          key={p.id}
+                          value={p.id}
+                          className="w-full cursor-pointer py-3 px-3 mb-1 last:mb-0 rounded-xl focus:bg-white/5 data-[state=checked]:bg-primary/10"
+                        >
+                          <div className="flex flex-col items-start gap-1.5 w-full text-left">
+                            <div className="flex items-center gap-2 w-full">
+                              <p.icon className={cn("w-4 h-4", p.color)} />
+                              <span className="font-bold tracking-wide uppercase text-[11px]">{p.label}</span>
+                            </div>
+                            <p className="text-[10px] text-zinc-400 font-normal leading-relaxed whitespace-normal normal-case tracking-normal line-clamp-2">
+                              {p.description}
+                            </p>
                           </div>
                         </SelectItem>
                       ))}

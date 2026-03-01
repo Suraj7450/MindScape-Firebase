@@ -119,11 +119,11 @@ export interface Attachment {
 
 type Persona = 'Standard' | 'Teacher' | 'Concise' | 'Creative';
 
-const personas: { id: Persona; label: string; icon: any; color: string }[] = [
-  { id: 'Standard', label: 'Standard', icon: Sparkles, color: 'text-blue-400' },
-  { id: 'Teacher', label: 'Teacher', icon: GraduationCap, color: 'text-yellow-400' },
-  { id: 'Concise', label: 'Concise', icon: Zap, color: 'text-orange-400' },
-  { id: 'Creative', label: 'Creative', icon: Palette, color: 'text-pink-400' },
+const personas: { id: Persona; label: string; icon: any; color: string; description: string }[] = [
+  { id: 'Standard', label: 'Standard', icon: Sparkles, color: 'text-blue-400', description: 'Balanced and helpful AI assistant for general queries.' },
+  { id: 'Teacher', label: 'Teacher', icon: GraduationCap, color: 'text-yellow-400', description: 'Explains concepts with detailed examples and educational step-by-step guidance.' },
+  { id: 'Concise', label: 'Concise', icon: Zap, color: 'text-orange-400', description: 'Provides direct, short, and to-the-point answers without fluff.' },
+  { id: 'Creative', label: 'Creative', icon: Palette, color: 'text-pink-400', description: 'Uses imaginative and out-of-the-box thinking for brainstorming.' },
 ];
 
 /**
@@ -1729,16 +1729,25 @@ export function ChatPanel({
                       })()}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-[300px] p-2 glassmorphism border-white/10 z-[200]">
+                    <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">AI Persona</div>
                     {personas.map((p) => (
                       <DropdownMenuItem
                         key={p.id}
                         onClick={() => setPersona(p.id)}
-                        className="gap-2"
+                        className={cn(
+                          "flex flex-col items-start gap-1.5 p-3 cursor-pointer w-full rounded-xl transition-all mb-1 last:mb-0",
+                          persona === p.id ? "bg-primary/15 hover:bg-primary/25" : "hover:bg-white/5 focus:bg-white/5"
+                        )}
                       >
-                        <p.icon className={cn("h-4 w-4", p.color)} />
-                        <span>{p.label}</span>
-                        {persona === p.id && <Check className="h-3 w-3 ml-auto" />}
+                        <div className="flex items-center gap-2 w-full">
+                          <p.icon className={cn("h-4 w-4", p.color)} />
+                          <span className="font-bold text-[13px]">{p.label}</span>
+                          {persona === p.id && <Check className="h-4 w-4 ml-auto text-primary" />}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 whitespace-normal leading-relaxed text-left">
+                          {p.description}
+                        </p>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
