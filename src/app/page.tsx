@@ -100,12 +100,20 @@ function Hero({
     content: string;
   } | null>(null);
 
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+
   const [openSelect, setOpenSelect] = useState<string | null>(null);
 
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+    // Initialize Web Worker
+    workerRef.current = new Worker(new URL('../workers/pdf.worker.ts', import.meta.url));
+    return () => {
+      workerRef.current?.terminate();
+    };
   }, []);
 
   const { user } = useUser();
@@ -176,33 +184,53 @@ function Hero({
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(file);
         });
+        setUploadedFile({ name: file.name, type, content });
       } else if (file.type === 'application/pdf') {
         type = 'pdf';
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          content += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+
+        if (!workerRef.current) {
+          throw new Error("PDF Worker not initialized");
         }
+
+        setPdfProgress({ current: 0, total: 1 }); // Indeterminate start
+
+        workerRef.current.onmessage = (e) => {
+          const data = e.data;
+          if (data.progress) {
+            setPdfProgress({ current: data.progress.currentPage, total: data.progress.totalPages });
+          } else if (data.text !== undefined) {
+            setPdfProgress(null);
+            setUploadedFile({
+              name: file.name,
+              type: 'pdf',
+              content: data.text
+            });
+          } else if (data.error) {
+            setPdfProgress(null);
+            console.error("PDF Parsing error:", data.error);
+            toast({ title: "PDF Parse Failed", description: data.error, variant: "destructive" });
+          }
+        };
+
+        workerRef.current.postMessage({ fileBuffer: arrayBuffer });
+        return; // Early return, state is set asynchronously by worker
       } else {
         content = await file.text();
+        setUploadedFile({ name: file.name, type, content });
       }
 
-      setUploadedFile({
-        name: file.name,
-        type: type,
-        content: content
-      });
     } catch (err) {
       console.error('Error uploading file:', err);
       toast({ title: "Upload Failed", description: "Could not process file.", variant: "destructive" });
+      setPdfProgress(null);
     }
   };
 
   const handleRemoveFile = (e: React.MouseEvent) => {
     e.stopPropagation();
     setUploadedFile(null);
+    setPdfProgress(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -366,6 +394,7 @@ function Hero({
                   )}>
                     <div className="relative flex-1">
                       <input
+                        autoFocus
                         placeholder={isCompareMode ? 'First topic...' : uploadedFile ? 'Add context for the file...' : 'What sparks your curiosity today?'}
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
@@ -383,7 +412,20 @@ function Hero({
                       {!isCompareMode && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <AnimatePresence>
-                            {uploadedFile && (
+                            {pdfProgress ? (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, x: 10 }}
+                              >
+                                <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30 h-9 px-3 rounded-xl backdrop-blur-sm gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span className="text-[10px] font-bold uppercase">
+                                    {pdfProgress.total > 1 ? `Parsing ${pdfProgress.current}/${pdfProgress.total}` : 'Parsing...'}
+                                  </span>
+                                </Badge>
+                              </motion.div>
+                            ) : uploadedFile && (
                               <motion.div
                                 initial={{ opacity: 0, scale: 0.8, x: 10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}

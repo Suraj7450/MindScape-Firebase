@@ -263,7 +263,7 @@ const LayoutEngine = (data: MindMapData, collapsedNodes: Set<string>) => {
 
 // --- Components ---
 
-export const MindMapRadialView = ({
+export const MindMapRadialView = React.memo(({
     data,
     onNodeClick,
     onGenerateNewMap,
@@ -802,4 +802,4 @@ export const MindMapRadialView = ({
             </Dialog>
         </div>
     );
-};
+});

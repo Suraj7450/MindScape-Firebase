@@ -80,7 +80,7 @@ const InsightCard = ({ text, title, mode }: { text: string; title: string, mode:
     </div>
 );
 
-export const MindMapAccordion = ({
+export const MindMapAccordion = React.memo(({
     mindMap,
     openSubTopics,
     setOpenSubTopics,
@@ -325,4 +325,4 @@ export const MindMapAccordion = ({
             })}
         </Accordion>
     );
-};
+});

@@ -34,6 +34,7 @@ import {
   TranslateMindMapOutput,
 } from '@/ai/flows/translate-mind-map';
 import { summarizeTopic } from '@/ai/flows/summarize-topic';
+import { apiCache } from '@/lib/cache';
 
 import {
   explainWithExample,
@@ -389,8 +390,20 @@ export async function explainNodeAction(
   options: AIActionOptions = {}
 ): Promise<{ explanation: ExplainMindMapNodeOutput | null; error: string | null }> {
   try {
+    const cacheKey = `explain_${input.subCategoryName}_${input.mainTopic}`;
+    const cached = apiCache.get<ExplainMindMapNodeOutput>(cacheKey);
+    if (cached) {
+      console.log(`⚡ Returning cached explanation for: ${input.subCategoryName}`);
+      return { explanation: cached, error: null };
+    }
+
     const effectiveApiKey = await resolveApiKey(options);
     const result = await explainMindMapNode({ ...input, ...options, apiKey: effectiveApiKey });
+
+    if (result) {
+      apiCache.set(cacheKey, result);
+    }
+
     return { explanation: result, error: null };
   } catch (error) {
     console.error(error);
@@ -463,8 +476,20 @@ export async function explainWithExampleAction(
   options: { apiKey?: string; provider?: AIProvider } = {}
 ): Promise<{ example: ExplainWithExampleOutput | null; error: string | null }> {
   try {
+    const cacheKey = `example_${input.topicName}_${input.mainTopic}`;
+    const cached = apiCache.get<ExplainWithExampleOutput>(cacheKey);
+    if (cached) {
+      console.log(`⚡ Returning cached example for: ${input.topicName}`);
+      return { example: cached, error: null };
+    }
+
     const effectiveApiKey = await resolveApiKey(options);
     const result = await explainWithExample({ ...input, ...options, apiKey: effectiveApiKey });
+
+    if (result) {
+      apiCache.set(cacheKey, result);
+    }
+
     return { example: result, error: null };
   } catch (error) {
     console.error('Error in explainWithExampleAction:', error);
@@ -509,8 +534,25 @@ export async function summarizeTopicAction(
   options: AIActionOptions = {}
 ): Promise<{ summary: string | null; error: string | null }> {
   try {
+    // Determine a stable key: could hash the data, but for simplicity we'll use topic length or specific ID (here using topic name and length as proxy)
+    const topicName = input.mindMapData.topic.substring(0, 50);
+    // Rough estimate of tree size to know if we are caching the same map
+    const mapSizeHash = JSON.stringify(input.mindMapData).length;
+    const cacheKey = `summary_${topicName}_${mapSizeHash}`;
+
+    const cached = apiCache.get<{ summary: string }>(cacheKey);
+    if (cached) {
+      console.log(`⚡ Returning cached summary for: ${topicName}`);
+      return { summary: cached.summary, error: null };
+    }
+
     const effectiveApiKey = await resolveApiKey(options);
     const result = await summarizeTopic({ ...input, ...options, apiKey: effectiveApiKey });
+
+    if (result && result.summary) {
+      apiCache.set(cacheKey, { summary: result.summary });
+    }
+
     return { summary: result.summary, error: null };
   } catch (error) {
     console.error('Error in summarizeTopicAction:', error);

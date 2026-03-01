@@ -99,7 +99,12 @@ export async function generateMindMapFromImage(
   
   Analyze the provided image or document and generate a detailed, multi-layered mind map based on its content.
   
-  **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the visual or textual content. Use this **actual, literal data** to populate the mind map's topic, subTopics, categories, and subCategories.
+  **CRITICAL ENTITY EXTRACTION RULE**: 
+  If the image appears to be an identity document (Aadhar card, ID, passport), an invoice, a receipt, or a form, your PRIMARY GOAL is exact data extraction.
+  1. DO NOT create generic, conceptual categories like "Cardholder Details" -> "Name" -> "Indicates the name of the person".
+  2. YOU MUST USE THE ACTUAL DATA. Combine fields and values: "Megha's Identity" -> "Name: Megha" -> "DOB: 01/01/1990".
+  3. Never output a field name (like "Address" or "ID Number") without its corresponding value if it's visible. 
+  4. Fill the structure with the **actual, literal data, numbers, dates, and entity names** extracted by OCR from the visual content.
   
   ${densityInstruction}
   

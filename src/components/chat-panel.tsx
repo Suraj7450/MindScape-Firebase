@@ -583,20 +583,30 @@ export function ChatPanel({
   }, [activeSessionId, activeSession?.topic, activeSession?.messages.length]);
 
   /**
-   * Scrolls the chat view to the bottom.
+   * Scrolls the chat view to the latest assistant message or bottom.
    */
-  const scrollToBottom = () => {
+  const scrollToLatestMessage = () => {
+    if (!isLoading && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant') {
+        const el = document.getElementById(`message-${activeSessionId}-${messages.length - 1}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     if (isOpen && view === 'chat') {
       const timer = setTimeout(() => {
-        scrollToBottom();
+        scrollToLatestMessage();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, view, messages, isGeneratingRelated, relatedQuestions, isQuizLoading]);
+  }, [isOpen, view, messages, isQuizLoading, isLoading]);
 
   // Summarize chat to generate a topic title
   useEffect(() => {
@@ -678,20 +688,15 @@ export function ChatPanel({
         return cleanCitations(text)
           // Remove emojis and special unicode characters
           .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
-          // Remove markdown bold
-          .replace(/\*\*(.+?)\*\*/g, '$1')
-          // Remove markdown italic
-          .replace(/\*(.+?)\*/g, '$1')
-          // Remove markdown code
-          .replace(/`(.+?)`/g, '$1')
-          // Remove markdown headers
-          .replace(/^#{1,6}\s+/gm, '')
-          // Clean up bullet points
-          .replace(/^[\*\-]\s+/gm, '• ')
-          // Clean up numbered lists
-          .replace(/^\d+\.\s+/gm, '')
-          // Remove extra whitespace
-          .replace(/\s+/g, ' ')
+          // Preserve headers but remove hashes (we'll style them dynamically later by checking for them first)
+          // .replace(/^#{1,6}\s+(.*)$/gm, '$1') <- We will NOT strip headers here so we can detect them in the loop
+          // Remove markdown bold/italic
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .replace(/\*(.*?)\*/g, '$1')
+          // Remove inline code ticks
+          .replace(/`([^`]+)`/g, '$1')
+          // Clean spaces but preserve newlines
+          .replace(/[ \t]+/g, ' ')
           .trim();
       };
 
@@ -744,11 +749,11 @@ export function ChatPanel({
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
 
-        // Clean the message content
-        const cleanedContent = cleanText(msg.content);
-
-        // Split into paragraphs
-        const paragraphs = cleanedContent.split('\n').filter(p => p.trim());
+        // Split standard text into raw blocks based on newlines
+        // We do not format all text entirely yet, so we can detect lists and headings
+        const rawContent = cleanText(msg.content);
+        // By keeping newlines, we can read them paragraph by paragraph
+        const paragraphs = rawContent.split('\n').map(p => p.trim()).filter(p => p);
 
         paragraphs.forEach((paragraph) => {
           if (yPosition > pageHeight - 30) {
@@ -756,24 +761,49 @@ export function ChatPanel({
             yPosition = 20;
           }
 
-          // Handle bullet points
-          const isBullet = paragraph.trim().startsWith('•');
-          const indent = isBullet ? margin + 5 : margin;
-          const textWidth = isBullet ? maxWidth - 5 : maxWidth;
+          let isHeader = false;
+          let isBullet = false;
+          let isNumbered = false;
+          let displayParagraph = paragraph;
 
-          const lines = doc.splitTextToSize(paragraph, textWidth);
+          // Header detection
+          const headerMatch = paragraph.match(/^(#{1,6})\s+(.*)$/);
+          if (headerMatch) {
+            isHeader = true;
+            displayParagraph = headerMatch[2]; // The text without the hashes
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+          } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
 
-          lines.forEach((line: string, lineIndex: number) => {
+            // List detection
+            if (paragraph.startsWith('- ') || paragraph.startsWith('* ') || paragraph.startsWith('• ')) {
+              isBullet = true;
+              displayParagraph = '• ' + paragraph.substring(2);
+            } else if (/^\d+\.\s+/.test(paragraph)) {
+              isNumbered = true;
+              // Keep the number, just note it's a list item for indenting
+            }
+          }
+
+          const indent = (isBullet || isNumbered) ? margin + 5 : margin;
+          const textWidth = (isBullet || isNumbered) ? maxWidth - 5 : maxWidth;
+
+          const lines = doc.splitTextToSize(displayParagraph, textWidth);
+
+          lines.forEach((line: string) => {
             if (yPosition > pageHeight - 20) {
               doc.addPage();
               yPosition = 20;
             }
 
             doc.text(line, indent, yPosition);
-            yPosition += 5;
+            yPosition += (isHeader ? 6 : 5);
           });
 
-          yPosition += 2; // Small gap between paragraphs
+          // Extra spacing after headers or regular paragraphs
+          yPosition += (isHeader ? 3 : 2);
         });
 
         // Add separator between messages
@@ -1196,6 +1226,7 @@ export function ChatPanel({
                   return (
                     <motion.div
                       key={`${activeSessionId}-${index}`}
+                      id={`message-${activeSessionId}-${index}`}
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ duration: 0.3, ease: "easeOut" }}
@@ -1507,6 +1538,7 @@ export function ChatPanel({
                 accept=".pdf,.txt,image/*"
               />
               <Input
+                autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={isListening ? "Listening..." : "Ask a question..."}

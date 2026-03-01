@@ -206,7 +206,7 @@ export const MindMapToolbar = ({
                 {/* 2. CENTER SECTION: AI Creation Studio (Highlighted) */}
                 <div className="flex items-center gap-2 px-2">
 
-                    {/* Challenge / Quiz - ORANGE */}
+                    {/* Quiz - ORANGE */}
                     {(!isCompare && onStartGlobalQuiz) && (
                         <Button
                             variant="ghost"
@@ -215,7 +215,7 @@ export const MindMapToolbar = ({
                             className="h-9 gap-2 text-[10px] font-black font-orbitron uppercase tracking-widest px-4 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 hover:scale-105 transition-all active:scale-95 shadow-[0_0_10px_-4px_rgba(14,165,233,0.3)]"
                         >
                             <BrainCircuit className="h-4 w-4" />
-                            Challenge
+                            Quiz
                         </Button>
                     )}
 

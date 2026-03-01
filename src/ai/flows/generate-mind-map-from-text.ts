@@ -77,8 +77,12 @@ export async function generateMindMapFromText(
   
     Analyze the provided text and generate a detailed, multi-layered mind map based on its content. 
     
-    **CRITICAL INSTRUCTION**: You must extract the **specific information, names, values, and key entities** from the text. Use this **actual, literal data** to populate the mind map's topic, sub-topics, categories, and sub-categories. Do not just summarize the themes; fill the structure with the actual data found in the text.
-  
+    **CRITICAL ENTITY EXTRACTION RULE**: 
+    If the text appears to be from a highly structured document (like an ID card, Aadhar card, passport, invoice, receipt, or resume), your PRIMARY GOAL is exact data extraction. 
+    1. DO NOT create generic, conceptual categories like "Personal Information" -> "Name" -> "The name of the document holder".
+    2. YOU MUST USE THE ACTUAL DATA. Instead of generic labels, your nodes should be the actual data itself: "Personal Profile" -> "Name: Megha" -> "DOB: 01/01/1990".
+    3. Never output a field name (like "Address") without its corresponding value if it exists in the text.
+    4. Fill the structure with the **actual, literal data, numbers, dates, and entity names** found in the text. Do not just summarize the themes.
     ${densityInstruction}
   
     ${contextInstruction}
