@@ -977,21 +977,36 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+            <input
+              type="text"
               placeholder="Search maps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 glassmorphism"
+              className="w-full flex pl-10 h-11 rounded-full bg-black/40 text-zinc-100 outline-none focus:ring-0 placeholder:text-zinc-600 border border-white/5 focus:border-primary/50 focus:bg-black/60 transition-all font-medium"
             />
           </div>
           <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-            <SelectTrigger className="w-full sm:w-[180px] glassmorphism">
+            <SelectTrigger className="w-full sm:w-[180px] h-11 rounded-full glassmorphism border-white/5 bg-black/40 hover:bg-black/60 focus:ring-0 focus:ring-offset-0 transition-all">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">Most Recent</SelectItem>
-              <SelectItem value="alphabetical">A-Z</SelectItem>
-              <SelectItem value="oldest">Oldest</SelectItem>
+            <SelectContent className="glassmorphism border-white/10">
+              {[
+                { value: 'recent', label: 'Most Recent' },
+                { value: 'alphabetical', label: 'A-Z' },
+                { value: 'oldest', label: 'Oldest' }
+              ].map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  hideIndicator
+                  className="w-full cursor-pointer py-2.5 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary/50 data-[state=checked]:shadow-[0_0_15px_rgba(139,92,246,0.15)] text-[11px] font-bold uppercase tracking-wider transition-all"
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <span className={cn("inline-flex w-1.5 h-1.5 rounded-full transition-all", sortOption === option.value ? "bg-primary shadow-[0_0_8px_rgba(139,92,246,0.6)]" : "bg-zinc-600")} />
+                    {option.label}
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -1026,9 +1041,9 @@ export default function DashboardPage() {
               return (
                 <div
                   key={mapId}
-                  className="group relative cursor-pointer rounded-2xl bg-[#0D0D0E] p-4 flex flex-col h-full w-full overflow-hidden border border-white/5 transition-all duration-500 hover:border-purple-600/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.1)] hover:-translate-y-1"
+                  className="group relative cursor-pointer rounded-2xl bg-white/5 backdrop-blur-xl p-4 flex flex-col h-full w-full overflow-hidden border border-white/10 transition-all duration-500 hover:border-purple-600/50 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:-translate-y-1"
                 >
-                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#050505] group/image shrink-0" onClick={() => handleMindMapClick(mapId)}>
+                  <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A] group/image shrink-0" onClick={() => handleMindMapClick(mapId)}>
                     <img
                       src={map.thumbnailUrl || `https://gen.pollinations.ai/image/${encodeURIComponent(`${map.topic}, professional photography, high quality, detailed, 8k`)}?width=512&height=288&nologo=true&model=flux&enhance=true`}
                       alt={map.topic}
@@ -1082,23 +1097,18 @@ export default function DashboardPage() {
                       </div>
                     )}
                     {/* Glassmorphism overlay with buttons on hover */}
-                    {!regeneratingMapIds.has(map.id) && !imageErrorMapIds.has(map.id) && (
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 group-hover/image:opacity-100 transition-all duration-300 flex items-center justify-center pointer-events-none">
-                        <div className="flex items-center gap-3 pointer-events-auto">
-                          <Button
-                            variant="secondary"
-                            onClick={() => handleMindMapClick(map.id)}
-                            className="bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-white font-black font-orbitron uppercase tracking-[0.2em] px-6 h-10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all duration-300 flex items-center gap-2 group/btn"
-                          >
-                            <ExternalLink className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" />
-                            <span className="text-xs">Open</span>
-                          </Button>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/image:opacity-100 group-hover/image:bg-black/40 transition-all duration-300 pointer-events-none">
+                      <div className="flex items-center gap-3 pointer-events-auto" onClick={() => handleMindMapClick(map.id)}>
+                        <div className="rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white text-[10px] h-9 px-6 font-black uppercase tracking-widest shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Open Full Map
                         </div>
                       </div>
+                    </div>
                     )}
                   </div>
 
-                  <h3 className="font-bold text-lg text-white mb-1.5 truncate transition-colors group-hover:text-purple-400" onClick={() => handleMindMapClick(map.id)}>
+                  <h3 className="font-bold text-lg text-white mb-2 line-clamp-2 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pb-1 leading-snug" onClick={() => handleMindMapClick(map.id)}>
                     {(map as any).shortTitle || map.topic}
                   </h3>
 

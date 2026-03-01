@@ -160,7 +160,7 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
                     </div>
                 )}
 
-                <div className="w-full aspect-video relative mb-4 overflow-hidden rounded-xl bg-[#0A0A0A] group/image">
+                <div className="w-full aspect-video relative mb-3 overflow-hidden rounded-xl bg-[#0A0A0A] group/image">
                     <img
                         src={map.thumbnailUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(`Professional product photography of ${map.topic}, exact subject matter, literal representation, NO people, realistic objects only, studio lighting, 8k quality`)}?width=400&height=225&nologo=true&model=flux&enhance=true`}
                         alt={`Thumbnail for ${map.topic}`}
@@ -181,7 +181,7 @@ export const CommunityCard = ({ map, onClick }: CommunityCardProps) => {
                     </div>
                 </div>
 
-                <h3 className="font-bold text-lg text-white mb-2 line-clamp-1 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pt-2">{map.shortTitle || map.topic}</h3>
+                <h3 className="font-bold text-lg text-white mb-2 line-clamp-2 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pb-1 leading-snug">{map.shortTitle || map.topic}</h3>
 
                 <div className="flex flex-wrap gap-2 mb-4 min-h-[40px] items-center">
                     {map.publicCategories?.map(cat => (

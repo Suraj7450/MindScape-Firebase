@@ -19,6 +19,9 @@ import {
   Brain,
   X,
   MessageCircle,
+  FastForward,
+  Scale,
+  BookOpen,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -63,6 +66,12 @@ const PERSONAS = [
   { id: 'concise', label: 'Concise', icon: Zap, color: 'text-amber-400', description: 'Provides direct, short, and to-the-point answers without fluff.' },
   { id: 'creative', label: 'Creative', icon: Palette, color: 'text-pink-400', description: 'Uses imaginative and out-of-the-box thinking for brainstorming.' },
   { id: 'sage', label: 'Cognitive Sage', icon: Brain, color: 'text-purple-400', description: 'Deep, philosophical, and analytical thinker for complex problems.' }
+];
+
+const DEPTHS = [
+  { id: 'low', label: 'Quick', icon: FastForward, color: 'text-green-400', description: 'Brief and fast overview.' },
+  { id: 'medium', label: 'Balanced', icon: Scale, color: 'text-blue-400', description: 'Optimal mix of detail and brevity.' },
+  { id: 'deep', label: 'Detailed', icon: BookOpen, color: 'text-purple-400', description: 'Comprehensive, in-depth exploration.' }
 ];
 
 // ---------- HERO ----------
@@ -320,10 +329,10 @@ function Hero({
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "rounded-full text-[10px] font-extrabold tracking-widest uppercase px-5 h-8 transition-all duration-500",
+                        "rounded-full text-[10px] font-extrabold tracking-widest uppercase px-5 h-8 transition-all duration-500 border",
                         activeMode === mode.id
-                          ? "bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.4)] scale-105"
-                          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                          ? "bg-primary/10 border-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.15)] text-white scale-105"
+                          : "border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
                       )}
                       onClick={() => setActiveMode(mode.id as any)}
                     >
@@ -339,13 +348,44 @@ function Hero({
                     else if (openSelect === 'depth') setOpenSelect(null);
                   }}>
                     <SelectTrigger className="w-auto h-9 border border-white/5 bg-black/40 text-[10px] font-black uppercase tracking-widest text-zinc-400 rounded-full hover:bg-black/60 hover:text-primary transition-all group px-4 focus:ring-0 focus:ring-offset-0 focus:outline-none">
-                      <List className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
-                      <SelectValue placeholder="Depth" />
+                      {(() => {
+                        const active = DEPTHS.find(d => d.id === depth);
+                        if (!active) {
+                          return (
+                            <>
+                              <List className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+                              <span>Depth</span>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <active.icon className={cn("w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform", active.color)} />
+                            <span>{active.label}</span>
+                          </>
+                        );
+                      })()}
                     </SelectTrigger>
-                    <SelectContent className="glassmorphism border-white/10 min-w-[140px]" position="popper">
-                      <SelectItem value="low" className="text-[10px] font-bold uppercase tracking-wider">Quick</SelectItem>
-                      <SelectItem value="medium" className="text-[10px] font-bold uppercase tracking-wider">Balanced</SelectItem>
-                      <SelectItem value="deep" className="text-[10px] font-bold uppercase tracking-wider">Detailed</SelectItem>
+                    <SelectContent className="glassmorphism border-white/10 min-w-[160px]" position="popper">
+                      <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1 border-b border-white/5">Exploration Depth</div>
+                      {DEPTHS.map((d) => (
+                        <SelectItem
+                          key={d.id}
+                          value={d.id}
+                          hideIndicator
+                          className="w-full cursor-pointer py-3 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary/50 data-[state=checked]:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                        >
+                          <div className="flex flex-col items-start gap-1.5 w-full text-left">
+                            <div className="flex items-center gap-2 w-full">
+                              <d.icon className={cn("w-4 h-4", d.color)} />
+                              <span className="font-bold tracking-wide uppercase text-[11px]">{d.label}</span>
+                            </div>
+                            <p className="text-[10px] text-zinc-400 font-normal leading-relaxed whitespace-normal normal-case tracking-normal">
+                              {d.description}
+                            </p>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
 
@@ -378,7 +418,8 @@ function Hero({
                         <SelectItem
                           key={p.id}
                           value={p.id}
-                          className="w-full cursor-pointer py-3 px-3 mb-1 last:mb-0 rounded-xl focus:bg-white/5 data-[state=checked]:bg-primary/10"
+                          hideIndicator
+                          className="w-full cursor-pointer py-3 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary/50 data-[state=checked]:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
                         >
                           <div className="flex flex-col items-start gap-1.5 w-full text-left">
                             <div className="flex items-center gap-2 w-full">
@@ -407,8 +448,16 @@ function Hero({
                     </SelectTrigger>
                     <SelectContent className="glassmorphism border-white/10 max-h-[300px]" position="popper">
                       {languages.map((language) => (
-                        <SelectItem key={language.code} value={language.code} className="text-[10px] font-bold uppercase tracking-wider">
-                          {language.name}
+                        <SelectItem
+                          key={language.code}
+                          value={language.code}
+                          hideIndicator
+                          className="w-full cursor-pointer py-2.5 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary/50 text-[10px] font-bold uppercase tracking-wider transition-all"
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span className={cn("inline-flex w-1.5 h-1.5 rounded-full", lang === language.code ? "bg-primary shadow-[0_0_8px_rgba(139,92,246,0.6)]" : "bg-zinc-600")} />
+                            {language.name}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>

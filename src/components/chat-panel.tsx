@@ -1736,14 +1736,15 @@ export function ChatPanel({
                         key={p.id}
                         onClick={() => setPersona(p.id)}
                         className={cn(
-                          "flex flex-col items-start gap-1.5 p-3 cursor-pointer w-full rounded-xl transition-all mb-1 last:mb-0",
-                          persona === p.id ? "bg-primary/15 hover:bg-primary/25" : "hover:bg-white/5 focus:bg-white/5"
+                          "flex flex-col items-start gap-1.5 p-3 cursor-pointer w-full rounded-xl transition-all mb-1 last:mb-0 border",
+                          persona === p.id
+                            ? "bg-primary/10 border-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                            : "border-transparent hover:bg-white/5 focus:bg-white/5"
                         )}
                       >
                         <div className="flex items-center gap-2 w-full">
                           <p.icon className={cn("h-4 w-4", p.color)} />
                           <span className="font-bold text-[13px]">{p.label}</span>
-                          {persona === p.id && <Check className="h-4 w-4 ml-auto text-primary" />}
                         </div>
                         <p className="text-[11px] text-zinc-400 whitespace-normal leading-relaxed text-left">
                           {p.description}

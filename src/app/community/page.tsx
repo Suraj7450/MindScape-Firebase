@@ -13,6 +13,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit, where } from 'firebase/firestore';
 import { MindMapWithId } from '@/types/mind-map';
@@ -28,7 +34,7 @@ export default function CommunityPage() {
     const firestore = useFirestore();
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<string>('All');
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [sortOption, setSortOption] = useState<SortOption>('recent');
 
     const publicMapsQuery = useMemoFirebase(() => {
@@ -56,8 +62,10 @@ export default function CommunityPage() {
     const filteredMaps = useMemo(() => {
         let maps = publicMaps || [];
 
-        if (selectedCategory !== 'All') {
-            maps = maps.filter(map => map.publicCategories?.includes(selectedCategory));
+        if (selectedCategories.length > 0) {
+            maps = maps.filter(map =>
+                selectedCategories.some(cat => map.publicCategories?.includes(cat))
+            );
         }
 
         if (searchQuery) {
@@ -69,7 +77,7 @@ export default function CommunityPage() {
         }
 
         return maps;
-    }, [publicMaps, selectedCategory, searchQuery]);
+    }, [publicMaps, selectedCategories, searchQuery]);
 
     const handleMapClick = (id: string) => {
         router.push(`/canvas?mapId=${id}`);
@@ -98,44 +106,68 @@ export default function CommunityPage() {
                 <div className="flex flex-col md:flex-row gap-4 mb-10 items-center justify-between">
                     <div className="relative w-full md:max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                        <Input
+                        <input
+                            type="text"
                             placeholder="Search community mindmaps..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 h-11 bg-white/5 border-white/10 rounded-xl focus:ring-purple-600/50"
+                            className="w-full flex pl-10 h-11 rounded-full bg-black/40 text-zinc-100 outline-none focus:ring-0 placeholder:text-zinc-600 border border-white/5 focus:border-primary/50 focus:bg-black/60 transition-all font-medium"
                         />
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="h-11 rounded-full glassmorphism border-white/5 bg-black/40 hover:bg-black/60 focus:ring-0 whitespace-nowrap px-4 font-normal transition-all text-[12px]"
+                                >
+                                    <Filter className="h-4 w-4 text-gray-500 mr-2" />
+                                    Categories {selectedCategories.length > 0 && <span className="ml-1 text-primary">{`(${selectedCategories.length})`}</span>}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[200px] glassmorphism bg-black/80 border-white/10 p-2 rounded-2xl shadow-xl max-h-[300px] overflow-y-auto z-50">
+                                {categories.filter(c => c !== 'All').map(cat => (
+                                    <DropdownMenuCheckboxItem
+                                        key={cat}
+                                        checked={selectedCategories.includes(cat)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedCategories(prev =>
+                                                checked ? [...prev, cat] : prev.filter(c => c !== cat)
+                                            )
+                                        }}
+                                        className="cursor-pointer py-2.5 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-primary/10 data-[state=checked]:border-primary/50 data-[state=checked]:text-primary data-[state=checked]:shadow-[0_0_15px_rgba(139,92,246,0.15)] text-[12px] font-medium transition-all"
+                                    >
+                                        {cat}
+                                    </DropdownMenuCheckboxItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                         <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
-                            <SelectTrigger className="w-[140px] h-11 bg-white/5 border-white/10 rounded-xl">
+                            <SelectTrigger className="w-[140px] h-11 rounded-full glassmorphism border-white/5 bg-black/40 hover:bg-black/60 focus:ring-0 focus:ring-offset-0 transition-all">
                                 <SelectValue placeholder="Sort" />
                             </SelectTrigger>
-                            <SelectContent className="bg-zinc-900 border-zinc-800 rounded-xl">
-                                <SelectItem value="recent">Latest</SelectItem>
-                                <SelectItem value="views">Trending</SelectItem>
+                            <SelectContent className="glassmorphism border-white/10 rounded-xl">
+                                {[
+                                    { value: 'recent', label: 'Latest' },
+                                    { value: 'views', label: 'Trending' }
+                                ].map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        hideIndicator
+                                        className="w-full cursor-pointer py-2.5 px-3 mb-1 last:mb-0 rounded-xl border border-transparent focus:bg-white/5 data-[state=checked]:bg-purple-600/10 data-[state=checked]:border-purple-500/50 data-[state=checked]:shadow-[0_0_15px_rgba(168,85,247,0.15)] text-[11px] font-bold uppercase tracking-wider transition-all"
+                                    >
+                                        <div className="flex items-center gap-2 w-full">
+                                            <span className={cn("inline-flex w-1.5 h-1.5 rounded-full transition-all", sortOption === option.value ? "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]" : "bg-zinc-600")} />
+                                            {option.label}
+                                        </div>
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
-                </div>
-
-                {/* Categories */}
-                <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-4 scrollbar-hide">
-                    <Filter className="h-4 w-4 text-gray-500 mr-2 shrink-0" />
-                    {categories.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat)}
-                            className={cn(
-                                "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 border font-orbitron",
-                                selectedCategory === cat
-                                    ? "bg-purple-600/20 border-purple-500/50 text-white shadow-[0_0_20px_rgba(168,85,247,0.2)] scale-105"
-                                    : "bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-zinc-200 hover:border-white/10 hover:bg-zinc-800/50"
-                            )}
-                        >
-                            {cat}
-                        </button>
-                    ))}
                 </div>
 
                 {isLoading ? (
