@@ -46,7 +46,10 @@ async function retry<T>(fn: (attempt: number) => Promise<T>, retries = 3, delayM
 
             // AI-specific retryable errors: syntax errors in JSON and reasoning-only outputs
             const isAISyntaxError = (err instanceof StructuredOutputError || err.name === 'StructuredOutputError') && !err.zodError;
-            const isReasoningOnlyErr = errorMessage.includes('reasoning-only') || errorMessage.includes('empty content');
+            const isReasoningOnlyErr =
+                errorMessage.toLowerCase().includes('reasoning-only') ||
+                errorMessage.toLowerCase().includes('empty content') ||
+                errorMessage.toLowerCase().includes('reasoning-heavy');
 
             const shouldRetry = isRateLimit || isTimeout || isRetryableServerErr || isAISyntaxError || isReasoningOnlyErr;
 
@@ -129,8 +132,12 @@ function isReasoningOnly(raw: any): boolean {
     if (typeof raw !== 'object' || raw === null) return false;
 
     // Check if it has reasoning but NONE of the expected data markers
-    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning;
-    const hasData = !!raw.topic || !!raw.mode || !!raw.similarities || !!raw.differences || !!raw.root || (raw.subTopics && raw.subTopics.length > 0);
+    // Also detect if it's a known reasoning wrapper with empty content
+    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning || (typeof raw.thought === 'string' && raw.thought.length > 500 && !raw.subTopics);
+    const hasData = !!raw.topic || !!raw.mode || !!raw.similarities || !!raw.differences || !!raw.root || (Array.isArray(raw.subTopics) && raw.subTopics.length > 0);
+
+    // Special case: if it has virtually no data but was marked as success, it might be a reasoning-only failure
+    if (Object.keys(raw).length <= 2 && (raw.thought || raw.reasoning)) return true;
 
     return hasReasoning && !hasData;
 }
@@ -194,8 +201,10 @@ function validateAndParse(raw: any, schema?: any, strict: boolean = false): any 
                 if (strict) {
                     throw new StructuredOutputError("Schema validation failed", JSON.stringify(raw), result.error);
                 } else {
-                    console.warn("⚠️ Schema validation failed in loose mode, returning raw object:", result.error);
-                    return raw; // Return as-is, let the flow handle it
+                    console.warn("⚠️ Schema validation failed in loose mode, ensuring minimum structure:", result.error.message);
+                    // Ensure at least an empty array for subTopics to prevent runtime crashes
+                    if (!raw.subTopics) raw.subTopics = [];
+                    return raw;
                 }
             }
             return result.data;
@@ -259,7 +268,8 @@ function performSchemaValidation(parsed: any, schema: any, originalRaw: string, 
             console.error("❌ Schema Validation Error:", result.error);
             throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);
         } else {
-            console.warn("⚠️ Schema Validation failed in loose mode, returning raw parsed JSON.");
+            console.warn("⚠️ Schema Validation failed in loose mode, ensuring minimum structure.");
+            if (!parsed.subTopics) parsed.subTopics = [];
             return parsed;
         }
     }

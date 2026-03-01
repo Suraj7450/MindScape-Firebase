@@ -19,22 +19,22 @@ interface ModelDef {
     isFree: boolean;
 }
 
-// Registry of available models
+// Registry of available models (Updated for stability)
 const AVAILABLE_MODELS: ModelDef[] = [
-    // Primary / Stable (Optimized for Mind Map generation)
-    { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.0 Flash Lite', context: 32000, isFree: true },
-    { id: 'openai', feature: 'creative', description: 'GPT-4o', context: 128000, isFree: false },
-    { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
-
-    // Fallbacks / Niche
-    { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
-    { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
-    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
+    // High Availability / Stable / Free
+    { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
+    { id: 'openai', feature: 'creative', description: 'GPT-4o Mini', context: 128000, isFree: true },
+    { id: 'mistral', feature: 'coding', description: 'Mistral Small 3.2 24B', context: 32000, isFree: true },
     { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
-    { id: 'mistral', feature: 'coding', description: 'Mistral Large', context: 32000, isFree: true },
 
-    // Demoted (Reasoning-heavy, unstable for long JSON)
-    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Mini', context: 128000, isFree: true },
+    // Reasoning / Specialized
+    { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Small', context: 128000, isFree: true },
+    { id: 'claude-fast', feature: 'fast', description: 'Claude 3 Haiku', context: 16000, isFree: true },
+
+    // Fallbacks
+    { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
+    { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
 ];
 
 /**
@@ -129,6 +129,7 @@ CRITICAL SAFETY & OUTPUT RULES:
 
         // Sanitize model name: strip spaces, convert to kebab-case
         const sanitizedModel = model ? model.trim().replace(/\s+/g, '-').toLowerCase() : model;
+        const targetModelDef = AVAILABLE_MODELS.find(m => m.id === model);
 
         // Construct request body carefully to avoid 400 validation errors
         const body: any = {
@@ -142,24 +143,23 @@ CRITICAL SAFETY & OUTPUT RULES:
             body.response_format = options.response_format;
         }
 
-        // Increase max_tokens for models that support it to accommodate deep mind maps
-        const targetModelDef = AVAILABLE_MODELS.find(m => m.id === model);
-
         // If it's a known model or a model with high context potential
         if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
             // High token limit is essential for deep mode mind maps (120+ items)
-            // Using 12k for models that support high context (DeepSeek/Qwen/Gemini)
-            // Capped at 12k specifically for DeepSeek to avoid 16k stream=true requirement
-            if (model === 'qwen-coder' || model?.includes('deepseek') || model === 'gemini-fast') {
-                body.max_tokens = 12024;
+            // Using 4092 for models that support high context but may require streaming for > 4k
+            // Pollinations currently requires stream=true for deepseek > 4096
+            if (model?.includes('deepseek')) {
+                body.max_tokens = 4092;
+            } else if (model === 'qwen-coder' || model === 'gemini-fast') {
+                body.max_tokens = 9000;
             } else if (model === 'openai' || model === 'sur' || model === 'openai-fast' || model === 'mistral-nemo' || model === 'mistral') {
                 body.max_tokens = 8192; // Safely below context limits
             } else {
-                body.max_tokens = 8192;
+                body.max_tokens = 4092;
             }
         } else if (!targetModelDef && !(options as any)._stripParameters) {
             // Unknown model? Default to a safe limit
-            body.max_tokens = 8192;
+            body.max_tokens = 4092;
         }
 
         // Robust API Key selection
@@ -290,8 +290,14 @@ CRITICAL SAFETY & OUTPUT RULES:
         let text = data.choices?.[0]?.message?.content || "";
 
         if (!text || text.trim() === '') {
-            console.error('❌ Pollinations returned empty content. Full response:', JSON.stringify(data, null, 2));
-            throw new Error('Pollinations returned empty content (reasoning-heavy or token-limited)');
+            const usage = data.usage?.completion_tokens || 0;
+            const reasoning = data.usage?.completion_tokens_details?.reasoning_tokens || 0;
+            console.error(`❌ Pollinations [${model}] returned empty content. Tokens used: ${usage} (Reasoning: ${reasoning})`);
+
+            if (reasoning > 0 && usage > 0) {
+                throw new Error('Pollinations returned reasoning-heavy empty content (retryable)');
+            }
+            throw new Error('Pollinations returned empty content (token-limited or filter triggered)');
         }
 
         // Basic sanitization: remove markdown formatting if the model included it
@@ -355,7 +361,12 @@ CRITICAL SAFETY & OUTPUT RULES:
                 }
 
                 // --- ROBUST REPAIR LOGIC ---
-                // 1. Close unterminated strings first
+                // 1. Handle common AI truncation markers like [ ... ] or ... (truncated)
+                extracted = extracted.replace(/\[\s*\.\.\.\s*\]/g, '[]')
+                    .replace(/\.\.\.\s*\(truncated\)/g, '')
+                    .replace(/\.\.\./g, '');
+
+                // 2. Close unterminated strings first
                 let totalQuotes = 0;
                 for (let i = 0; i < extracted.length; i++) {
                     if (extracted[i] === '"' && (i === 0 || extracted[i - 1] !== '\\')) {
@@ -435,7 +446,9 @@ CRITICAL SAFETY & OUTPUT RULES:
         }
 
         // Deep extraction utility to find mind map data in potentially nested response wrappers
-        const deepExtract = (obj: any): any => {
+        const deepExtract = (obj: any, currentDepth: number = 0): any => {
+            // Safety limit to prevent stack overflow on highly nested or malformed responses
+            if (currentDepth > 10) return null;
             if (!obj || typeof obj !== 'object') return null;
 
             // 1. Direct usable object
@@ -457,12 +470,12 @@ CRITICAL SAFETY & OUTPUT RULES:
                         const first = cleaned.indexOf('{');
                         const last = cleaned.lastIndexOf('}');
                         if (first !== -1 && last !== -1) {
-                            return deepExtract(JSON.parse(cleaned.substring(first, last + 1)));
+                            return deepExtract(JSON.parse(cleaned.substring(first, last + 1)), currentDepth + 1);
                         }
-                        return deepExtract(JSON.parse(cleaned));
+                        return deepExtract(JSON.parse(cleaned), currentDepth + 1);
                     } catch { /* Not JSON */ }
                 } else if (typeof content === 'object') {
-                    return deepExtract(content);
+                    return deepExtract(content, currentDepth + 1);
                 }
             }
 
@@ -474,7 +487,7 @@ CRITICAL SAFETY & OUTPUT RULES:
                         const args = typeof toolCall.function.arguments === 'string'
                             ? JSON.parse(toolCall.function.arguments)
                             : toolCall.function.arguments;
-                        return deepExtract(args);
+                        return deepExtract(args, currentDepth + 1);
                     } catch { /* ignore */ }
                 }
             }
@@ -482,7 +495,7 @@ CRITICAL SAFETY & OUTPUT RULES:
             // 4. Recursive search
             for (const key in obj) {
                 if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    const found = deepExtract(obj[key]);
+                    const found = deepExtract(obj[key], currentDepth + 1);
                     if (found) return found;
                 }
             }

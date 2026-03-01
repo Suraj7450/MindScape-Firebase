@@ -63,15 +63,16 @@ export async function generateMindMap(
     - QUALITY CHECK: Every node must have a full name and description.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets`;
   } else if (depth === 'deep') {
-    // Deep mode: 6×4×8 = 192 items
+    // Deep mode: 6×3×6 = 114 items (Sustainable for JSON stability)
     densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
     - Generate EXACTLY 6 subTopics (no more, no less)
-    - EACH subTopic MUST have EXACTLY 4-5 categories
-    - EACH category MUST have EXACTLY 8-10 subCategories
-    - Target: ~200 highly detailed items
+    - EACH subTopic MUST have EXACTLY 3-4 categories
+    - EACH category MUST have EXACTLY 5-6 subCategories
+    - Target: ~115 highly detailed items
     - QUALITY CHECK: Every node must have a full name, description, and thought process.
     - DO NOT generate empty or placeholder objects.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets
+    - NEVER use "..." or placeholders to skip content. Every initiated object MUST be complete.
     - If approaching token limit, prioritize closing JSON structures over adding more content.`;
   } else {
     // Basic mode: 24-40 items
@@ -194,7 +195,7 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
   - Icons must be valid lucide-react names in kebab-case (e.g., "scroll", "landmark", "shield").
   - Sub-category descriptions MUST be exactly one sentence.
   - ${densityInstruction}
-  - Ensure ALL JSON is properly closed.
+  - NEVER include "...", "[...]", or similar truncation markers in your JSON.
   - DO NOT TRUNCATE. If you must stop, close all open [ and { structures.
   - PRIORITY: Depth and accuracy are more important than speed. Take your time to generate a full, rich dataset.
   ${searchContext ? '- Ground all information in the provided search results. Use current facts and recent developments.' : ''}
@@ -204,12 +205,14 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
   CRITICAL: Return ONLY valid JSON. No markdown formatting, no backticks, no extra text.`;
 
   // Determine capability based on inputs
-  let capability = 'creative';
-  if (depth === 'deep' || (depth as any) === 'detailed') { // Cast to any to avoid TS error if 'detailed' is not in strict enum
-    capability = 'reasoning'; // Deep mode requires strong reasoning and JSON discipline
+  let capability: any = 'creative';
+  if (depth === 'deep' || (depth as any) === 'detailed') {
+    // Deep mode uses 'fast' (Gemini) or 'creative' (GPT-5 Mini) for better JSON reliability 
+    // as reasoning-heavy models like DeepSeek can sometimes fail on very long structured outputs.
+    capability = 'fast';
   } else if (persona === 'expert' || persona === 'teacher') {
-    capability = 'reasoning'; // Need accuracy
-  } else if (prompt.includes('search')) { // Fixed: variable name was systemPrompt
+    capability = 'reasoning'; // Still try reasoning for instructional quality in smaller maps
+  } else if (prompt.includes('search')) {
     capability = 'fast';
   }
   // Template validation markers
@@ -247,8 +250,8 @@ Based on this current information from ${new Date(searchContext.timestamp).toLoc
     }
 
     console.log(`✅ Mind map generated successfully:`, {
-      topic: result.topic,
-      subTopicsCount: result.subTopics.length
+      topic: result?.topic || 'Unknown',
+      subTopicsCount: result?.subTopics?.length ?? 0
     });
 
     return result;
