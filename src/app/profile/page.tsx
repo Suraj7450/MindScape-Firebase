@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, collection, query, getDocs, onSnapshot } from 'firebase/firestore';
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
     Loader2, Flame, Map, Brain, LogOut, Settings, Globe, Wand2,
-    Pencil, Check, X, Trophy, Target, Lock, ChevronRight, Sparkles, Copy, Key, HelpCircle, RefreshCw, ShieldCheck, Activity
+    Pencil, Edit2, Check, X, Trophy, Target, Lock, ChevronRight, Sparkles, Copy, Key, HelpCircle, RefreshCw, ShieldCheck, Activity
 } from 'lucide-react';
 import {
     Sheet,
@@ -76,95 +76,13 @@ interface UserProfile {
         provider?: 'pollinations';
         imageProvider?: 'pollinations';
         pollinationsModel?: string;
-        pollinationsApiKey?: string;
     };
 }
-
-interface Tier {
-    level: 1 | 2 | 3;
-    requirement: number;
-    label: string;
-    description: string;
-    color: string;
-    shadow: string;
-}
-
-interface Achievement {
-    id: string;
-    name: string;
-    description: string;
-    icon: React.ElementType;
-    category: 'maps' | 'streak' | 'nodes' | 'depth' | 'images';
-    tiers: Tier[];
-}
-
-const ACHIEVEMENT_TIERS: Achievement[] = [
-    {
-        id: 'map_master',
-        name: 'Map Architect',
-        description: 'Awards for creating and organizing new mind maps',
-        icon: Map,
-        category: 'maps',
-        tiers: [
-            { level: 1, requirement: 1, label: 'Early Draft', description: 'Create your first mind map', color: 'text-blue-400', shadow: 'shadow-blue-500/20' },
-            { level: 2, requirement: 10, label: 'Cartographer', description: 'Create 10 functional mind maps', color: 'text-indigo-400', shadow: 'shadow-indigo-500/20' },
-            { level: 3, requirement: 50, label: 'Grand Architect', description: 'Create 50 complex mind maps', color: 'text-sky-400', shadow: 'shadow-sky-500/20' },
-        ]
-    },
-    {
-        id: 'streak_warrior',
-        name: 'Consistency King',
-        description: 'Rewards for daily login consistency',
-        icon: Flame,
-        category: 'streak',
-        tiers: [
-            { level: 1, requirement: 1, label: 'Initiated', description: '1-day login streak', color: 'text-orange-400', shadow: 'shadow-orange-500/20' },
-            { level: 2, requirement: 7, label: 'Dedicated', description: '7-day login streak', color: 'text-red-400', shadow: 'shadow-red-500/20' },
-            { level: 3, requirement: 30, label: 'Unstoppable', description: '30-day login streak', color: 'text-amber-400', shadow: 'shadow-amber-500/20' },
-        ]
-    },
-    {
-        id: 'topic_explorer',
-        name: 'Knowledge Seeker',
-        description: 'Based on total nodes generated across all maps',
-        icon: Brain,
-        category: 'nodes',
-        tiers: [
-            { level: 1, requirement: 10, label: 'Curious', description: 'Generate 10 information nodes', color: 'text-violet-400', shadow: 'shadow-violet-500/20' },
-            { level: 2, requirement: 100, label: 'Scholar', description: 'Generate 100 information nodes', color: 'text-fuchsia-400', shadow: 'shadow-fuchsia-500/20' },
-            { level: 3, requirement: 500, label: 'Sage', description: 'Generate 500 information nodes', color: 'text-purple-400', shadow: 'shadow-purple-500/20' },
-        ]
-    },
-    {
-        id: 'deep_diver',
-        name: 'AI Deep-Dive',
-        description: 'Based on total nested node expansions',
-        icon: Target,
-        category: 'depth',
-        tiers: [
-            { level: 1, requirement: 5, label: 'Explorer', description: 'Expand 5 nested nodes', color: 'text-emerald-400', shadow: 'shadow-emerald-500/20' },
-            { level: 2, requirement: 25, label: 'Diver', description: 'Expand 25 nested nodes', color: 'text-teal-400', shadow: 'shadow-teal-500/20' },
-            { level: 3, requirement: 100, label: 'Master Diver', description: 'Expand 100 nested nodes', color: 'text-cyan-400', shadow: 'shadow-cyan-500/20' },
-        ]
-    },
-    {
-        id: 'visual_learner',
-        name: 'Visual Learner',
-        description: 'Based on total AI images generated',
-        icon: Wand2,
-        category: 'images',
-        tiers: [
-            { level: 1, requirement: 1, label: 'Artist', description: 'Generate your first AI image', color: 'text-pink-400', shadow: 'shadow-pink-500/20' },
-            { level: 2, requirement: 20, label: 'Creator', description: 'Generate 20 AI images', color: 'text-rose-400', shadow: 'shadow-rose-500/20' },
-            { level: 3, requirement: 100, label: 'Visionary', description: 'Generate 100 AI images', color: 'text-red-400', shadow: 'shadow-red-500/20' },
-        ]
-    }
-];
-
 export default function ProfilePage() {
     const router = useRouter();
     const { user, firestore, auth } = useFirebase();
     const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -334,6 +252,24 @@ export default function ProfilePage() {
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update settings' });
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user || !firestore) return;
+
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64String = reader.result as string;
+                await setDoc(doc(firestore, 'users', user.uid), { photoURL: base64String }, { merge: true });
+                toast({ title: 'Success', description: 'Profile picture updated.' });
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload image' });
         }
     };
 
@@ -508,18 +444,8 @@ export default function ProfilePage() {
         images: profile.statistics.totalImagesGenerated || 0,
     };
 
-    // Calculate total unlocked tiers
-    const totalUnlockedTiers = ACHIEVEMENT_TIERS.reduce((acc, ach) => {
-        const value = stats[ach.category];
-        return acc + ach.tiers.filter(t => value >= t.requirement).length;
-    }, 0);
-
     const getActiveBadgeLabel = () => {
-        if (!profile.activeBadgeId) return "Early Adopter";
-        const [achId, level] = profile.activeBadgeId.split(':');
-        const ach = ACHIEVEMENT_TIERS.find(a => a.id === achId);
-        const tier = ach?.tiers.find(t => t.level === parseInt(level));
-        return tier ? tier.label : "Early Adopter";
+        return "Explorer";
     };
 
     // Helper for duration formatting
@@ -533,14 +459,14 @@ export default function ProfilePage() {
 
     // Helper for navigation items
     const navItems = [
-        { id: 'overview', label: 'Dashboard', icon: Brain, desc: 'Identity & Growth' },
-        { id: 'lab', label: 'AI Lab', icon: Sparkles, desc: 'API & Engine Hub' },
-        { id: 'preferences', label: 'Preferences', icon: Settings, desc: 'System Behavior' },
-        { id: 'security', label: 'Security', icon: Lock, desc: 'Account & Safety' },
+        { id: 'overview', label: 'Dashboard', icon: Brain },
+        { id: 'lab', label: 'AI Lab', icon: Sparkles },
+        { id: 'preferences', label: 'Preferences', icon: Settings },
+        { id: 'security', label: 'Security', icon: Lock },
     ] as const;
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden selection:bg-violet-500/30 font-sans">
+        <div className="h-[calc(100vh-80px)] bg-zinc-950 text-zinc-100 flex overflow-hidden selection:bg-violet-500/30 font-sans">
             {/* Professional Background Layer */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-violet-600/5 blur-[160px] rounded-full" />
@@ -548,21 +474,87 @@ export default function ProfilePage() {
             </div>
 
             {/* Sidebar Navigation */}
-            <aside className="hidden lg:flex w-80 border-r border-white/5 bg-zinc-950/50 backdrop-blur-xl flex-col z-20 relative">
-                <div className="p-8 flex flex-col h-full">
-                    {/* Brand/Top Identity */}
-                    <div className="flex items-center gap-3 mb-12 px-2">
-                        <div className="w-10 h-10 nm-flat rounded-xl flex items-center justify-center">
-                            <Brain className="h-6 w-6 text-violet-400" />
-                        </div>
-                        <div>
-                            <span className="text-xl font-black tracking-tighter text-white">MindScape</span>
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Intelligence Hub</p>
+            <aside className="hidden lg:flex w-80 border-r border-white/5 bg-zinc-950/50 backdrop-blur-xl flex-col z-20 relative h-full">
+                <div className="p-6 flex flex-col h-full overflow-hidden">
+                    {/* Detailed User Identity at Top */}
+                    <div className="mb-6 shrink-0">
+                        <div className="nm-flat rounded-[2rem] p-5 space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="relative group">
+                                    <Avatar className="h-16 w-16 rounded-2xl nm-flat p-1">
+                                        <AvatarImage src={profile.photoURL} className="rounded-[12px]" />
+                                        <AvatarFallback className="bg-zinc-900 text-lg font-bold text-violet-400 rounded-[12px]">
+                                            {profile.displayName?.charAt(0)?.toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="absolute -bottom-1 -right-1 p-1.5 nm-flat hover:nm-pressed rounded-lg text-violet-400 bg-zinc-900 border-none transition-all shadow-lg"
+                                    >
+                                        <Edit2 className="h-3 w-3" />
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleImageUpload}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-0 space-y-0.5">
+                                    {isEditing ? (
+                                        <div className="flex items-center gap-1.5 nm-pressed p-1 rounded-xl">
+                                            <Input
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                className="h-7 text-xs font-bold bg-transparent border-none focus-visible:ring-0 text-white p-0 px-1"
+                                                autoFocus
+                                            />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={saveDisplayName} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors">
+                                                    <Check className="h-3 w-3" />
+                                                </button>
+                                                <button onClick={() => setIsEditing(false)} className="p-1 text-zinc-500 hover:bg-white/5 rounded-lg transition-colors">
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="group/name flex items-center gap-2 cursor-pointer"
+                                            onClick={() => setIsEditing(true)}
+                                        >
+                                            <p className="text-base font-black text-white truncate">{profile.displayName}</p>
+                                            <Pencil className="h-3 w-3 text-violet-400 opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
+                                        </div>
+                                    )}
+                                    <p className="text-[10px] text-zinc-500 truncate font-medium">{profile.email}</p>
+                                    <p className="text-[10px] text-violet-400/50 font-bold uppercase tracking-widest">{memberSince}</p>
+                                </div>
+                            </div>
+
+                            <div className="nm-pressed px-4 py-2 rounded-xl">
+                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Explorer ID</p>
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[9px] font-mono text-white/30 truncate">{user.uid}</p>
+                                    <Button
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-6 w-6 rounded-lg nm-flat hover:nm-pressed bg-transparent border-none text-zinc-500 hover:text-white transition-all shrink-0"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(user.uid);
+                                            toast({ title: "Copied", description: "Explorer ID copied." });
+                                        }}
+                                    >
+                                        <Copy className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Nav Links */}
-                    <nav className="space-y-2 flex-1">
+                    {/* Nav Links - Scrollable if needed */}
+                    <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = activeTab === item.id;
@@ -571,7 +563,7 @@ export default function ProfilePage() {
                                     key={item.id}
                                     onClick={() => setActiveTab(item.id)}
                                     className={`
-                                        w-full flex items-center gap-4 p-4 rounded-2xl transition-all group
+                                        w-full flex items-center gap-4 p-3 rounded-2xl transition-all group
                                         ${isActive
                                             ? 'nm-flat text-white'
                                             : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}
@@ -584,38 +576,26 @@ export default function ProfilePage() {
                                         <Icon className={`h-5 w-5 ${isActive ? 'text-violet-400' : 'group-hover:text-zinc-300'}`} />
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-sm font-bold tracking-tight">{item.label}</p>
-                                        <p className={`text-[10px] font-medium transition-colors ${isActive ? 'text-zinc-400' : 'text-zinc-600 group-hover:text-zinc-500'}`}>
-                                            {item.desc}
-                                        </p>
+                                        <p className="text-sm font-medium tracking-tight">{item.label}</p>
                                     </div>
                                 </button>
                             );
                         })}
                     </nav>
 
-                    {/* Bottom Actions */}
-                    <div className="pt-8 mt-8 border-t border-white/5 space-y-4">
-                        <div className="nm-pressed p-4 rounded-2xl flex items-center gap-4">
-                            <Avatar className="h-10 w-10 rounded-xl nm-flat p-0.5">
-                                <AvatarImage src={profile.photoURL} className="rounded-[10px]" />
-                                <AvatarFallback className="bg-zinc-900 text-xs font-bold text-violet-400 rounded-[10px]">
-                                    {profile.displayName?.charAt(0)?.toUpperCase()}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-white truncate">{profile.displayName}</p>
-                                <p className="text-[10px] text-zinc-500 truncate">{profile.email}</p>
-                            </div>
-                        </div>
-                        <Button
-                            variant="ghost"
+                    {/* Bottom Actions - Fixed at bottom */}
+                    <div className="pt-6 mt-auto border-t border-white/5 space-y-4 shrink-0">
+                        <button
                             onClick={handleLogout}
-                            className="w-full justify-start h-12 gap-3 text-zinc-500 hover:text-red-400 hover:bg-red-400/5 rounded-2xl transition-all"
+                            className="w-full flex items-center gap-4 p-3 rounded-2xl transition-all group text-red-400 nm-flat bg-red-500/5 hover:nm-pressed"
                         >
-                            <LogOut className="h-5 w-5" />
-                            <span className="text-sm font-bold">Sign Out</span>
-                        </Button>
+                            <div className="p-2 rounded-xl transition-all bg-red-500/10">
+                                <LogOut className="h-5 w-5" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-sm font-bold tracking-tight">Sign Out</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -634,15 +614,81 @@ export default function ProfilePage() {
                                         </Button>
                                     </SheetTrigger>
                                     <SheetContent side="left" className="bg-zinc-950 border-white/5 p-0 w-80">
-                                        <div className="p-8 flex flex-col h-full bg-zinc-950/50 backdrop-blur-xl">
-                                            {/* Brand/Top Identity */}
-                                            <div className="flex items-center gap-3 mb-12 px-2">
-                                                <div className="w-10 h-10 nm-flat rounded-xl flex items-center justify-center">
-                                                    <Brain className="h-6 w-6 text-violet-400" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xl font-black tracking-tighter text-white">MindScape</span>
-                                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Intelligence Hub</p>
+                                        <div className="p-6 flex flex-col h-full bg-zinc-950/50 backdrop-blur-xl">
+                                            {/* Detailed User Identity at Top */}
+                                            <div className="mb-6 shrink-0">
+                                                <div className="nm-flat rounded-[2rem] p-5 space-y-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="relative group">
+                                                            <Avatar className="h-16 w-16 rounded-2xl nm-flat p-1">
+                                                                <AvatarImage src={profile.photoURL} className="rounded-[12px]" />
+                                                                <AvatarFallback className="bg-zinc-900 text-lg font-bold text-violet-400 rounded-[12px]">
+                                                                    {profile.displayName?.charAt(0)?.toUpperCase()}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <button
+                                                                onClick={() => fileInputRef.current?.click()}
+                                                                className="absolute -bottom-1 -right-1 p-1.5 nm-flat hover:nm-pressed rounded-lg text-violet-400 bg-zinc-900 border-none transition-all shadow-lg"
+                                                            >
+                                                                <Edit2 className="h-3 w-3" />
+                                                            </button>
+                                                            <input
+                                                                type="file"
+                                                                ref={fileInputRef}
+                                                                onChange={handleImageUpload}
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 space-y-0.5">
+                                                            {isEditing ? (
+                                                                <div className="flex items-center gap-1.5 nm-pressed p-1 rounded-xl">
+                                                                    <Input
+                                                                        value={editName}
+                                                                        onChange={(e) => setEditName(e.target.value)}
+                                                                        className="h-7 text-xs font-bold bg-transparent border-none focus-visible:ring-0 text-white p-0 px-1"
+                                                                        autoFocus
+                                                                    />
+                                                                    <div className="flex items-center gap-1 shrink-0">
+                                                                        <button onClick={saveDisplayName} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors">
+                                                                            <Check className="h-3 w-3" />
+                                                                        </button>
+                                                                        <button onClick={() => setIsEditing(false)} className="p-1 text-zinc-500 hover:bg-white/5 rounded-lg transition-colors">
+                                                                            <X className="h-3 w-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div
+                                                                    className="group/name flex items-center gap-2 cursor-pointer"
+                                                                    onClick={() => setIsEditing(true)}
+                                                                >
+                                                                    <p className="text-base font-black text-white truncate">{profile.displayName}</p>
+                                                                    <Pencil className="h-3 w-3 text-violet-400 opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
+                                                                </div>
+                                                            )}
+                                                            <p className="text-[10px] text-zinc-500 truncate font-medium">{profile.email}</p>
+                                                            <p className="text-[10px] text-violet-400/50 font-bold uppercase tracking-widest">{memberSince}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="nm-pressed px-4 py-2 rounded-xl">
+                                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Explorer ID</p>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-[9px] font-mono text-white/30 truncate">{user.uid}</p>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="outline"
+                                                                className="h-6 w-6 rounded-lg nm-flat hover:nm-pressed bg-transparent border-none text-zinc-600 hover:text-white transition-all shrink-0"
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(user.uid);
+                                                                    toast({ title: "Copied", description: "Explorer ID copied." });
+                                                                }}
+                                                            >
+                                                                <Copy className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -656,7 +702,7 @@ export default function ProfilePage() {
                                                             <button
                                                                 onClick={() => setActiveTab(item.id)}
                                                                 className={`
-                                                                    w-full flex items-center gap-4 p-4 rounded-2xl transition-all group
+                                                                    w-full flex items-center gap-4 p-3 rounded-2xl transition-all group
                                                                     ${isActive
                                                                         ? 'nm-flat text-white'
                                                                         : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}
@@ -669,10 +715,7 @@ export default function ProfilePage() {
                                                                     <Icon className={`h-5 w-5 ${isActive ? 'text-violet-400' : 'group-hover:text-zinc-300'}`} />
                                                                 </div>
                                                                 <div className="text-left">
-                                                                    <p className="text-sm font-bold tracking-tight">{item.label}</p>
-                                                                    <p className={`text-[10px] font-medium transition-colors ${isActive ? 'text-zinc-400' : 'text-zinc-600 group-hover:text-zinc-500'}`}>
-                                                                        {item.desc}
-                                                                    </p>
+                                                                    <p className="text-sm font-medium tracking-tight">{item.label}</p>
                                                                 </div>
                                                             </button>
                                                         </SheetClose>
@@ -681,36 +724,28 @@ export default function ProfilePage() {
                                             </nav>
 
                                             {/* Bottom Actions */}
-                                            <div className="pt-8 mt-8 border-t border-white/5 space-y-4">
-                                                <div className="nm-pressed p-4 rounded-2xl flex items-center gap-4">
-                                                    <Avatar className="h-10 w-10 rounded-xl nm-flat p-0.5">
-                                                        <AvatarImage src={profile.photoURL} className="rounded-[10px]" />
-                                                        <AvatarFallback className="bg-zinc-900 text-xs font-bold text-violet-400 rounded-[10px]">
-                                                            {profile.displayName?.charAt(0)?.toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-bold text-white truncate">{profile.displayName}</p>
-                                                        <p className="text-[10px] text-zinc-500 truncate">{profile.email}</p>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    onClick={handleLogout}
-                                                    className="w-full justify-start h-12 gap-3 text-zinc-500 hover:text-red-400 hover:bg-red-400/5 rounded-2xl transition-all"
-                                                >
-                                                    <LogOut className="h-5 w-5" />
-                                                    <span className="text-sm font-bold">Sign Out</span>
-                                                </Button>
+                                            <div className="pt-6 mt-6 border-t border-white/5 space-y-4">
+                                                <SheetClose asChild>
+                                                    <button
+                                                        onClick={handleLogout}
+                                                        className="w-full flex items-center gap-4 p-3 rounded-2xl transition-all group text-red-400 nm-flat bg-red-500/5 hover:nm-pressed"
+                                                    >
+                                                        <div className="p-2 rounded-xl transition-all bg-red-500/10">
+                                                            <LogOut className="h-5 w-5" />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <p className="text-sm font-bold tracking-tight">Sign Out</p>
+                                                        </div>
+                                                    </button>
+                                                </SheetClose>
                                             </div>
                                         </div>
                                     </SheetContent>
                                 </Sheet>
                             </div>
                             <div className="hidden md:block">
-                                <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-[0.3em] mb-2">
-                                    <div className="w-1 h-3 bg-violet-500/50 rounded-full" />
-                                    {activeTab === 'overview' ? 'DASHBOARD' : activeTab.toUpperCase()} / {profile.displayName}
+                                <div className="flex items-center gap-2 text-violet-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-2 opacity-70">
+                                    {activeTab === 'overview' ? 'Dashboard' : navItems.find(i => i.id === activeTab)?.label} • {profile.displayName}
                                 </div>
                             </div>
                             <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">
@@ -786,7 +821,7 @@ export default function ProfilePage() {
                                         { label: 'Deep Expansions', value: stats.depth, icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                                         { label: 'AI Visuals', value: stats.images, icon: Wand2, color: 'text-pink-400', bg: 'bg-pink-500/10' },
                                         { label: 'Focus Time', value: formatDuration(profile.statistics.totalStudyTimeMinutes), icon: Loader2, color: 'text-sky-400', bg: 'bg-sky-500/10' },
-                                        { label: 'Tiers Unlocked', value: totalUnlockedTiers, icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                                        { label: 'System Active', value: 'Live', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                                     ].map((metric, i) => (
                                         <div key={i} className="nm-flat rounded-3xl p-6 flex flex-col items-center text-center gap-3 hover:scale-105 transition-all duration-300 group">
                                             <div className={`p-3 rounded-xl ${metric.bg} nm-inset-glow group-hover:nm-flat transition-all`}>
@@ -800,116 +835,9 @@ export default function ProfilePage() {
                                     ))}
                                 </div>
 
-                                {/* Objectives & Growth Grid */}
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                    {/* Growth Journey */}
-                                    <div className="lg:col-span-3 space-y-6">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-zinc-500">Growth Journey</h3>
-                                            <Badge variant="outline" className="text-[10px] font-bold text-violet-400 uppercase tracking-widest bg-violet-500/5 border-none">Rank {totalUnlockedTiers}</Badge>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {ACHIEVEMENT_TIERS.map((ach) => {
-                                                const value = stats[ach.category];
-                                                const nextTier = ach.tiers.find(t => value < t.requirement) || ach.tiers[ach.tiers.length - 1];
-                                                const prevTierMax = ach.tiers.filter(t => value >= t.requirement).pop()?.requirement || 0;
-                                                const progress = Math.min(100, Math.max(0, ((value - prevTierMax) / (nextTier.requirement - prevTierMax)) * 100));
-                                                return (
-                                                    <div key={ach.id} className="nm-flat rounded-3xl p-5 flex items-center gap-4 group hover:nm-pressed transition-all">
-                                                        <div className="p-3 nm-inset-glow rounded-xl bg-white/5 shrink-0 group-hover:nm-flat transition-all">
-                                                            <ach.icon className="h-5 w-5 text-zinc-400" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-center mb-2">
-                                                                <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">{ach.name}</span>
-                                                                <span className="text-[9px] font-bold text-zinc-500">{value}/{nextTier.requirement}</span>
-                                                            </div>
-                                                            <div className="h-1.5 w-full nm-pressed rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full rounded-full transition-all duration-1000 bg-gradient-to-r ${nextTier.color.replace('text-', 'from-').replace('-400', '-500')} to-violet-500/30`}
-                                                                    style={{ width: `${progress}%` }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
 
-                                {/* Identity Section */}
-                                <section className="nm-flat rounded-[3rem] p-1">
-                                    <div className="nm-inset bg-zinc-900/10 rounded-[2.8rem] p-10">
-                                        <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-center md:text-left">
-                                            <div className="relative group">
-                                                <div className="absolute inset-0 bg-violet-600/20 blur-3xl group-hover:bg-violet-600/30 transition-all rounded-full" />
-                                                <Avatar className="h-40 w-40 rounded-[2.5rem] nm-flat p-2 relative">
-                                                    <AvatarImage src={profile.photoURL} className="rounded-[2.2rem]" />
-                                                    <AvatarFallback className="bg-zinc-900 text-5xl font-black text-violet-400">
-                                                        {profile.displayName?.charAt(0)?.toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <button
-                                                    onClick={() => setIsEditing(true)}
-                                                    className="absolute -bottom-2 -right-2 nm-flat p-3 rounded-2xl text-violet-400 hover:nm-pressed transition-all hover:scale-110"
-                                                >
-                                                    <Pencil className="h-5 w-5" />
-                                                </button>
-                                            </div>
 
-                                            <div className="flex-1 space-y-6">
-                                                <div>
-                                                    <div className="flex items-center gap-3 mb-2 justify-center md:justify-start">
-                                                        {isEditing ? (
-                                                            <div className="flex items-center gap-2 nm-pressed p-1 rounded-2xl">
-                                                                <Input
-                                                                    value={editName}
-                                                                    onChange={(e) => setEditName(e.target.value)}
-                                                                    className="h-10 text-3xl font-black bg-transparent border-none focus-visible:ring-0 text-white"
-                                                                    autoFocus
-                                                                />
-                                                                <Button size="icon" variant="outline" onClick={saveDisplayName} className="text-emerald-400 border-none bg-transparent hover:bg-emerald-500/10">
-                                                                    <Check className="h-5 w-5" />
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <h2 className="text-4xl font-black tracking-tight text-white">{profile.displayName}</h2>
-                                                        )}
-                                                        <Badge className="bg-violet-600/10 text-violet-400 border-none px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest">
-                                                            {getActiveBadgeLabel()}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-xl text-zinc-500 font-medium">{profile.email}</p>
-                                                </div>
 
-                                                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                                                    <div className="nm-flat px-6 py-3 rounded-2xl flex flex-col min-w-[200px]">
-                                                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Explorer ID</p>
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <p className="text-[11px] font-mono text-white/40 break-all leading-tight">{user.uid}</p>
-                                                            <Button
-                                                                size="icon"
-                                                                variant="outline"
-                                                                className="h-8 w-8 rounded-xl nm-flat hover:nm-pressed bg-transparent border-none text-zinc-500 hover:text-white transition-all shrink-0"
-                                                                onClick={() => {
-                                                                    navigator.clipboard.writeText(user.uid);
-                                                                    toast({ title: "Copied", description: "Explorer ID copied to clipboard." });
-                                                                }}
-                                                            >
-                                                                <Copy className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="nm-flat px-6 py-3 rounded-2xl">
-                                                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Initiated In</p>
-                                                        <p className="text-sm font-bold text-white/50">{memberSince}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
                             </div>
                         )}
 
@@ -1162,10 +1090,7 @@ export default function ProfilePage() {
                                                     Your personal data is never shared with third-party vendors outside of the required LLM processing.
                                                 </p>
                                             </div>
-                                            <div className="flex items-center justify-between p-4 nm-inset-glow rounded-2xl mt-2 opacity-50">
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">2FA Support</span>
-                                                <span className="text-[10px] font-black text-zinc-600">COMING SOON</span>
-                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
@@ -1190,10 +1115,7 @@ export default function ProfilePage() {
                         )}
                     </div>
 
-                    {/* Stage Footer */}
-                    <footer className="mt-24 pt-12 border-t border-white/5 opacity-30 flex justify-center items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">MindScape Intelligence Hub</span>
-                    </footer>
+
                 </div>
             </main>
         </div>

@@ -115,6 +115,7 @@ export interface BaseMindMapData {
   createdAt?: Timestamp | number;
   updatedAt?: Timestamp | number;
   summary?: string;
+  summaryAudioUrl?: string;
   thumbnailUrl?: string;
   thumbnailPrompt?: string;
   explanations?: Record<string, string[]>;

@@ -19,22 +19,29 @@ interface ModelDef {
     isFree: boolean;
 }
 
-// Registry of available models (Updated for stability)
+// Registry of available models (Updated with latest Pollinations × OpenClaw models)
 const AVAILABLE_MODELS: ModelDef[] = [
-    // High Availability / Stable / Free
+    // --- FAST & SEARCH OPTIMIZED ---
     { id: 'gemini-fast', feature: 'fast', description: 'Gemini 2.5 Flash Lite', context: 32000, isFree: true },
-    { id: 'openai', feature: 'creative', description: 'GPT-4o Mini', context: 128000, isFree: true },
-    { id: 'mistral', feature: 'coding', description: 'Mistral Small 3.2 24B', context: 32000, isFree: true },
-    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 2.5 Coder 32B', context: 32000, isFree: true },
+    { id: 'perplexity-fast', feature: 'fast', description: 'Perplexity Sonar', context: 32000, isFree: true },
+    { id: 'gemini-search', feature: 'fast', description: 'Gemini 2.5 + Search', context: 32000, isFree: true },
+    { id: 'openai-fast', feature: 'fast', description: 'GPT-5 Nano', context: 128000, isFree: true },
+    { id: 'nova-fast', feature: 'fast', description: 'Amazon Nova Micro', context: 32000, isFree: true },
 
-    // Reasoning / Specialized
-    { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3', context: 64000, isFree: true },
-    { id: 'openai-fast', feature: 'fast', description: 'GPT-4o Small', context: 128000, isFree: true },
-    { id: 'claude-fast', feature: 'fast', description: 'Claude 3 Haiku', context: 16000, isFree: true },
+    // --- CREATIVE & HIGH-QUALITY ---
+    { id: 'openai', feature: 'creative', description: 'GPT-5 Mini', context: 128000, isFree: true },
+    { id: 'claude-fast', feature: 'creative', description: 'Claude Haiku 4.5', context: 128000, isFree: true },
+    { id: 'midijourney', feature: 'creative', description: 'MIDljourney Premium', context: 32000, isFree: true },
 
-    // Fallbacks
-    { id: 'mistral-nemo', feature: 'creative', description: 'Mistral Nemo', context: 16000, isFree: true },
-    { id: 'sur', feature: 'creative', description: 'Sur (Claude 3.5 Sonnet)', context: 16000, isFree: true },
+    // --- REASONING & DEPTH ---
+    { id: 'deepseek', feature: 'reasoning', description: 'DeepSeek V3.2', context: 64000, isFree: true },
+    { id: 'kimi', feature: 'reasoning', description: 'Kimi K2.5', context: 256000, isFree: true },
+    { id: 'glm', feature: 'reasoning', description: 'GLM-5 Expert', context: 32000, isFree: true },
+    { id: 'p1', feature: 'reasoning', description: 'Pollinations 1 (Pro)', context: 256000, isFree: true },
+
+    // --- CODING ---
+    { id: 'mistral', feature: 'coding', description: 'Mistral Small 3.2', context: 32000, isFree: true },
+    { id: 'qwen-coder', feature: 'coding', description: 'Qwen 3 Coder 30B', context: 32000, isFree: true },
 ];
 
 /**
@@ -42,17 +49,18 @@ const AVAILABLE_MODELS: ModelDef[] = [
  * Handles fallbacks based on attempt count.
  */
 function selectModel(capability: ModelCapability = 'creative', attempt: number = 0): string {
-    // 1. Filter models matching capability
-    const validModels = AVAILABLE_MODELS.filter(m => m.feature === capability);
+    // 1. Filter models matching capability and are free
+    const validModels = AVAILABLE_MODELS.filter(m => m.feature === capability && m.isFree === true);
 
     // 2. If models found and we are on an early attempt, stay within capability
     if (validModels.length > 0 && attempt < validModels.length) {
         return validModels[attempt].id;
     }
 
-    // 3. Fallback: Rotate through ALL models to find something that works
-    // This handles cases where entire capabilities (like 'coding') might be having issues
-    return AVAILABLE_MODELS[attempt % AVAILABLE_MODELS.length].id;
+    // 3. Fallback: Rotate through ALL free models
+    const allFreeModels = AVAILABLE_MODELS.filter(m => m.isFree === true);
+    if (allFreeModels.length === 0) return 'mistral'; // Hard fallback
+    return allFreeModels[attempt % allFreeModels.length].id;
 }
 
 export async function generateContentWithPollinations(
@@ -85,9 +93,9 @@ export async function generateContentWithPollinations(
     // Override if specific capabilities are needed
     if (hasImages) {
         model = 'openai'; // Vision support
-    } else if (systemPrompt.toLowerCase().includes('search')) {
-        // Keep search model if explicitly requested or implied
-        model = options.model || 'perplexity-fast';
+    } else if (systemPrompt.toLowerCase().includes('search') && attempt === 0) {
+        // Use high-reliability model for grounded JSON tasks on first try
+        model = options.model || 'openai';
     }
 
     console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}, Attempt=${attempt}`);
@@ -143,28 +151,22 @@ CRITICAL SAFETY & OUTPUT RULES:
             body.response_format = options.response_format;
         }
 
-        // If it's a known model or a model with high context potential
+        // Context token management
         if (targetModelDef && targetModelDef.context >= 16000 && !(options as any)._stripParameters) {
-            // High token limit is essential for deep mode mind maps (120+ items)
-            // Using 4092 for models that support high context but may require streaming for > 4k
-            // Pollinations currently requires stream=true for deepseek > 4096
             if (model?.includes('deepseek')) {
                 body.max_tokens = 4092;
             } else if (model === 'qwen-coder' || model === 'gemini-fast') {
                 body.max_tokens = 9000;
             } else if (model === 'openai' || model === 'sur' || model === 'openai-fast' || model === 'mistral-nemo' || model === 'mistral') {
-                body.max_tokens = 8192; // Safely below context limits
+                body.max_tokens = 8192;
             } else {
                 body.max_tokens = 4092;
             }
         } else if (!targetModelDef && !(options as any)._stripParameters) {
-            // Unknown model? Default to a safe limit
             body.max_tokens = 4092;
         }
 
-        // Robust API Key selection
-        // 1. First preference: Client Key
-        // 2. Second preference: Server Key (if failover)
+        // API Key logic
         const clientKey = (options.apiKey && options.apiKey.trim() !== "") ? options.apiKey : null;
         const serverKey = process.env.POLLINATIONS_API_KEY;
         const isFailover = (options as any)._isFailover;
@@ -180,18 +182,23 @@ CRITICAL SAFETY & OUTPUT RULES:
             console.log(`🔑 Using Pollinations Key: ${effectiveApiKey.substring(0, 7)}... (from ${keySource})`);
         }
 
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
-            },
-            body: JSON.stringify(body),
-        });
+        let response: Response;
+        try {
+            response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
+                },
+                body: JSON.stringify(body)
+            });
+        } catch (fetchError: any) {
+            throw fetchError;
+        }
 
+        const status = response.status;
         if (!response.ok) {
             let errorMessage = response.statusText;
-            const status = response.status;
             let errorBody: any = null;
 
             try {
@@ -202,7 +209,6 @@ CRITICAL SAFETY & OUTPUT RULES:
                     errorMessage = JSON.stringify(errorBody);
                 }
             } catch (e) {
-                // Fallback to text if JSON parse fails
                 try {
                     errorMessage = await response.text() || response.statusText;
                 } catch {
@@ -210,12 +216,9 @@ CRITICAL SAFETY & OUTPUT RULES:
                 }
             }
 
-            // Handle invalid API key or exhausted balance
+            // Error handling (Auth, 400, 5xx)
             if (status === 401 || status === 403) {
-                // Determine if we are currently using a client-provided key
                 const isUsingClientKey = clientKey && effectiveApiKey === clientKey;
-
-                // Case 1: Client key failed - Fallback to Server key (if different)
                 if (isUsingClientKey && serverKey && serverKey !== clientKey && !isFailover) {
                     console.warn(`⚠️ Client API Key failed (${status}). Falling back to Server API Key...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
@@ -224,97 +227,69 @@ CRITICAL SAFETY & OUTPUT RULES:
                     });
                 }
 
-                // Case 2: Server key also failed (or we were already on it) 
-                // OR no keys worked - Fallback to free-tier (mistral or selectModel('fast'))
-                console.warn(`⚠️ API Key failed (${status}) for ${effectiveApiKey === serverKey ? 'Server' : 'Client'} key. Checking balance or forcing free fallback...`);
+                console.warn(`⚠️ API Key failed (${status}). Forcing free-tier retry...`);
 
-                let balanceExhausted = false;
                 if (effectiveApiKey) {
                     const balanceInfo = await checkPollinationsBalance(effectiveApiKey);
                     if (balanceInfo !== null && balanceInfo <= 0) {
-                        balanceExhausted = true;
-                        console.error(`❌ Pollinations Balance Exhausted (0 pollen remaining).`);
+                        console.error(`❌ Pollinations Balance Exhausted.`);
                     }
                 }
 
-                console.warn(`⚠️ Forcing free-tier retry (Model: mistral, No API Key)...`);
                 return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                     ...options,
                     model: 'mistral',
                     apiKey: undefined,
                     skipApiKey: true,
-                    _isFailover: false // Reset failover state for free retry
+                    _isFailover: false
                 });
             }
 
-            // Handle 400 Bad Request (likely due to unsupported parameters or model limitations)
             if (status === 400) {
                 const alreadyStripped = (options as any)._stripParameters;
-                const hasExtraParams = options.response_format || body.max_tokens;
-
-                if (!alreadyStripped && hasExtraParams) {
-                    console.warn(`⚠️ Pollinations 400 Bad Request [Model: ${model}]: ${errorMessage}. Retrying without advanced parameters (response_format/max_tokens)...`);
+                if (!alreadyStripped && (options.response_format || body.max_tokens)) {
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
-                        _stripParameters: true // Internal flag to prevent re-adding params
+                        _stripParameters: true
                     });
                 } else if (attempt < 3) {
-                    // If stripping parameters didn't help or we already tried, rotate to next model
-                    console.warn(`⚠️ Pollinations 400 persistent error [Model: ${model}]: ${errorMessage}. Rotating to next model (Attempt ${attempt + 1})...`);
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
-                        attempt: attempt + 1, // This will select the NEXT model in selectModel()
-                        _stripParameters: false // Try next model WITH parameters first
+                        attempt: attempt + 1,
+                        _stripParameters: false
                     });
                 }
             }
 
-            // Handle service errors (Bad Gateway, Service Unavailable, etc.) with model re-selection
-            const isServiceError = status >= 500 && status <= 599;
-            // Allow up to 3 retries
-            if (isServiceError && attempt < 3) {
-                console.warn(`⚠️ Pollinations Service Error (${status}): ${errorMessage}. Rotating to next model...`);
+            if (status >= 500 && attempt < 3) {
                 return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                     ...options,
                     attempt: attempt + 1
                 });
             }
 
-            console.error(`❌ Pollinations API Error [Model: ${model}, Status: ${status}]:`, errorMessage);
             throw new Error(`Pollinations API error: ${status} ${errorMessage}`);
         }
+
         const data = await response.json();
         console.log(`✅ Pollinations Response Success [Model: ${model}]`);
-        console.log('📦 Response data length:', JSON.stringify(data).length);
 
         let text = data.choices?.[0]?.message?.content || "";
-
         if (!text || text.trim() === '') {
-            const usage = data.usage?.completion_tokens || 0;
-            const reasoning = data.usage?.completion_tokens_details?.reasoning_tokens || 0;
-            console.error(`❌ Pollinations [${model}] returned empty content. Tokens used: ${usage} (Reasoning: ${reasoning})`);
-
-            if (reasoning > 0 && usage > 0) {
-                throw new Error('Pollinations returned reasoning-heavy empty content (retryable)');
-            }
-            throw new Error('Pollinations returned empty content (token-limited or filter triggered)');
+            throw new Error('Pollinations returned empty content (retryable)');
         }
 
-        // Basic sanitization: remove markdown formatting if the model included it
+        // Sanitization & JSON Repair
         text = text.replace(/```json\n?|\n?```/g, '').trim();
 
         let parsedResponse;
         try {
             parsedResponse = JSON.parse(text);
         } catch (e) {
-            // If it's not valid JSON, try to extract and repair
+            // Find the first '{' and the LAST valid top-level '}'
             const firstBrace = text.indexOf('{');
-            if (firstBrace === -1) {
-                console.warn("Response contained no JSON object, returning raw text.");
-                return text;
-            }
+            if (firstBrace === -1) return text;
 
-            // Try to find the last valid closing brace by counting braces
             let braceCount = 0;
             let lastValidBrace = -1;
             let inString = false;
@@ -322,208 +297,128 @@ CRITICAL SAFETY & OUTPUT RULES:
 
             for (let i = firstBrace; i < text.length; i++) {
                 const char = text[i];
-                if (isEscaped) {
-                    isEscaped = false;
-                    continue;
-                }
-                if (char === '\\') {
-                    isEscaped = true;
-                    continue;
-                }
-                if (char === '"') {
-                    inString = !inString;
-                    continue;
-                }
+                if (isEscaped) { isEscaped = false; continue; }
+                if (char === '\\') { isEscaped = true; continue; }
+                if (char === '"') { inString = !inString; continue; }
                 if (!inString) {
                     if (char === '{') braceCount++;
                     else if (char === '}') {
                         braceCount--;
-                        if (braceCount === 0) {
-                            lastValidBrace = i;
-                            break;
-                        }
+                        if (braceCount === 0) { lastValidBrace = i; break; }
                     }
                 }
             }
 
             if (lastValidBrace === -1) {
-                // JSON is incomplete - try to close it
-                console.warn('⚠️ Incomplete JSON detected, attempting to repair...');
-                let extracted = text.substring(firstBrace);
+                console.warn('⚠️ Incomplete JSON detected, attempting structural repair...');
+                let extracted = text.substring(firstBrace).trim();
 
-                // Check if we are inside an unfinished string
-                const lastQuote = extracted.lastIndexOf('"');
-                const prevChar = lastQuote > 0 ? extracted[lastQuote - 1] : '';
-                // If the last quote isn't escaped and there's an odd number of quotes in the last level, we might be inside a string
-                const quoteCount = (extracted.match(/"/g) || []).length;
-                if (quoteCount % 2 !== 0) {
-                    extracted += '"';
-                }
-
-                // --- ROBUST REPAIR LOGIC ---
-                // 1. Handle common AI truncation markers like [ ... ] or ... (truncated)
+                // 1. Clean up "..." and other noise that might be mid-structure
                 extracted = extracted.replace(/\[\s*\.\.\.\s*\]/g, '[]')
                     .replace(/\.\.\.\s*\(truncated\)/g, '')
                     .replace(/\.\.\./g, '');
 
-                // 2. Close unterminated strings first
-                let totalQuotes = 0;
+                // 2. Remove trailing garbage that would prevent closing (comma, colon, or partial structural symbols)
+                // We keep repeating this until no more trailing garbage exists (e.g., if we have ", ")
+                while (extracted.length > 0 && /[,:\[\{]\s*$/.test(extracted)) {
+                    extracted = extracted.trim().slice(0, -1);
+                }
+
+                // 3. Close open quotes if any
+                let inString = false;
+                let isEscaped = false;
                 for (let i = 0; i < extracted.length; i++) {
-                    if (extracted[i] === '"' && (i === 0 || extracted[i - 1] !== '\\')) {
-                        totalQuotes++;
+                    if (isEscaped) { isEscaped = false; continue; }
+                    if (extracted[i] === '\\') { isEscaped = true; continue; }
+                    if (extracted[i] === '"') inString = !inString;
+                }
+                if (inString) extracted += '"';
+
+                // 4. Use a stack to track open structural elements and close them in order
+                const stack: string[] = [];
+                inString = false;
+                isEscaped = false;
+                for (let i = 0; i < extracted.length; i++) {
+                    const char = extracted[i];
+                    if (isEscaped) { isEscaped = false; continue; }
+                    if (char === '\\') { isEscaped = true; continue; }
+                    if (char === '"') { inString = !inString; continue; }
+                    if (!inString) {
+                        if (char === '{' || char === '[') stack.push(char);
+                        else if (char === '}') { if (stack[stack.length - 1] === '{') stack.pop(); }
+                        else if (char === ']') { if (stack[stack.length - 1] === '[') stack.pop(); }
                     }
                 }
 
-                if (totalQuotes % 2 !== 0) {
-                    // Unterminated string detected - close it
-                    extracted += '"';
+                // Append closing characters in correct reverse order
+                while (stack.length > 0) {
+                    const openChar = stack.pop();
+                    extracted += (openChar === '{' ? '}' : ']');
                 }
-
-                // 2. Remove any trailing incomplete content (after last comma or opening bracket/brace)
-                const lastComma = extracted.lastIndexOf(',');
-                const lastOpenBracket = extracted.lastIndexOf('[');
-                const lastOpenBrace = extracted.lastIndexOf('{');
-                const lastCloseBracket = extracted.lastIndexOf(']');
-                const lastCloseBrace = extracted.lastIndexOf('}');
-
-                // We find the safest cut point
-                const cutPoint = Math.max(lastComma, lastCloseBracket, lastCloseBrace);
-
-                if (cutPoint > 0 && cutPoint < extracted.length - 1) {
-                    // Only cut if we are not immediately after a closing character
-                    const lastChar = extracted[extracted.length - 1];
-                    if (lastChar !== '}' && lastChar !== ']' && lastChar !== '"') {
-                        extracted = extracted.substring(0, cutPoint);
-                    }
-                }
-
-                // 3. Add missing closing brackets and braces
-                let openBraces = (extracted.match(/{/g) || []).length;
-                let closeBraces = (extracted.match(/}/g) || []).length;
-                let openBrackets = (extracted.match(/\[/g) || []).length;
-                let closeBrackets = (extracted.match(/]/g) || []).length;
-
-                extracted += ']'.repeat(Math.max(0, openBrackets - closeBrackets));
-                extracted += '}'.repeat(Math.max(0, openBraces - closeBraces));
 
                 try {
                     parsedResponse = JSON.parse(extracted);
-                    console.log('✅ Successfully repaired incomplete JSON');
                 } catch (repairError) {
-                    // One final attempt: just keep adding brackets until it works or we hit a limit
-                    let salvageRetry = extracted;
-                    let success = false;
-                    for (let i = 1; i < 10; i++) {
-                        try {
-                            salvageRetry += '}';
-                            parsedResponse = JSON.parse(salvageRetry);
-                            success = true;
-                            break;
-                        } catch {
-                            try {
-                                // Try closing bracket instead
-                                let bracketRetry = salvageRetry.substring(0, salvageRetry.length - 1) + ']';
-                                parsedResponse = JSON.parse(bracketRetry);
-                                success = true;
-                                break;
-                            } catch { /* continue */ }
-                        }
-                    }
-                    if (!success) {
-                        const { StructuredOutputError } = await import('./client-dispatcher');
-                        throw new StructuredOutputError(`Failed to parse or repair JSON (retryable): ${repairError}`, salvageRetry);
-                    }
+                    console.error("❌ Stack-based JSON repair failed:", repairError, "\nPartial JSON extracted:", extracted);
+                    const { StructuredOutputError } = await import('./client-dispatcher');
+                    throw new StructuredOutputError(`Failed to parse or repair JSON: ${repairError}`, extracted);
                 }
             } else {
-                // Found valid closing brace
-                try {
-                    parsedResponse = JSON.parse(text.substring(firstBrace, lastValidBrace + 1));
-                } catch (innerE) {
-                    const { StructuredOutputError } = await import('./client-dispatcher');
-                    throw new StructuredOutputError(`Failed to parse extracted JSON (retryable): ${innerE}`, text.substring(firstBrace, lastValidBrace + 1));
-                }
+                parsedResponse = JSON.parse(text.substring(firstBrace, lastValidBrace + 1));
             }
         }
 
-        // Deep extraction utility to find mind map data in potentially nested response wrappers
+        // Deep extraction
         const deepExtract = (obj: any, currentDepth: number = 0): any => {
-            // Safety limit to prevent stack overflow on highly nested or malformed responses
-            if (currentDepth > 10) return null;
-            if (!obj || typeof obj !== 'object') return null;
-
-            // 1. Direct usable object
+            if (currentDepth > 10 || !obj || typeof obj !== 'object') return null;
             if (obj.topic || (obj.mode === 'compare' && obj.compareData)) return obj;
-            if (obj.similarities || obj.differences) return obj; // Partial compare data
+            if (obj.similarities || obj.differences) return obj;
 
-            // 2. Check common content wrappers
-            const content =
-                obj.content ||
-                obj.text ||
-                obj.message?.content ||
-                (obj.choices && obj.choices[0]?.message?.content);
-
+            const content = obj.content || obj.text || obj.message?.content || (obj.choices && obj.choices[0]?.message?.content);
             if (content) {
                 if (typeof content === 'string') {
                     try {
-                        const cleaned = content.replace(/```json\n?|\n?```/g, '').trim();
-                        // Try to find JSON inside the string if it's not pure JSON
-                        const first = cleaned.indexOf('{');
-                        const last = cleaned.lastIndexOf('}');
-                        if (first !== -1 && last !== -1) {
-                            return deepExtract(JSON.parse(cleaned.substring(first, last + 1)), currentDepth + 1);
-                        }
-                        return deepExtract(JSON.parse(cleaned), currentDepth + 1);
-                    } catch { /* Not JSON */ }
-                } else if (typeof content === 'object') {
+                        const first = content.indexOf('{');
+                        const last = content.lastIndexOf('}');
+                        if (first !== -1 && last !== -1) return deepExtract(JSON.parse(content.substring(first, last + 1)), currentDepth + 1);
+                        return deepExtract(JSON.parse(content), currentDepth + 1);
+                    } catch { }
+                } else {
                     return deepExtract(content, currentDepth + 1);
                 }
             }
 
-            // 3. Handle tool_calls
             if (Array.isArray(obj.tool_calls) && obj.tool_calls.length > 0) {
-                const toolCall = obj.tool_calls[0];
-                if (toolCall.function?.arguments) {
+                const args = obj.tool_calls[0].function?.arguments;
+                if (args) {
                     try {
-                        const args = typeof toolCall.function.arguments === 'string'
-                            ? JSON.parse(toolCall.function.arguments)
-                            : toolCall.function.arguments;
-                        return deepExtract(args, currentDepth + 1);
-                    } catch { /* ignore */ }
+                        return deepExtract(typeof args === 'string' ? JSON.parse(args) : args, currentDepth + 1);
+                    } catch { }
                 }
             }
 
-            // 4. Recursive search
             for (const key in obj) {
-                if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    const found = deepExtract(obj[key], currentDepth + 1);
-                    if (found) return found;
-                }
+                const found = deepExtract(obj[key], currentDepth + 1);
+                if (found) return found;
             }
-
             return null;
         };
 
-        const finalResult = deepExtract(parsedResponse) || parsedResponse;
-        return finalResult;
+        return deepExtract(parsedResponse) || parsedResponse;
     } catch (error: any) {
         console.error("Pollinations AI Generation Failed:", error);
         throw new Error(`Pollinations API failed: ${error.message}`);
     }
 }
 
-
 /**
  * Checks the current pollen balance for a given API key.
- * @returns The balance as a number, or null if the check fails.
  */
 export async function checkPollinationsBalance(apiKey: string): Promise<number | null> {
     try {
         const response = await fetch('https://gen.pollinations.ai/account/balance', {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`
-            }
+            headers: { 'Authorization': `Bearer ${apiKey}` }
         });
-
         if (response.ok) {
             const data = await response.json();
             return typeof data.balance === 'number' ? data.balance : null;

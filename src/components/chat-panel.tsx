@@ -54,7 +54,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
-import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction, regenerateQuizAction } from '@/app/actions';
+import { chatAction, summarizeChatAction, generateRelatedQuestionsAction, generateQuizAction } from '@/app/actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn, formatText, cleanCitations } from '@/lib/utils';
 import { Separator } from './ui/separator';
@@ -178,7 +178,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
-  const { config: providerOptionsConfig } = useAIConfig();
+  const { config: providerOptionsConfig, updateConfig } = useAIConfig();
   const providerOptions = useMemo(() => ({
     provider: providerOptionsConfig.provider,
     apiKey: providerOptionsConfig.provider === 'pollinations' ? providerOptionsConfig.pollinationsApiKey : providerOptionsConfig.apiKey,
@@ -1048,22 +1048,7 @@ export function ChatPanel({
         <ScrollArea className="flex-grow px-4">
           <div className="flex flex-col gap-4 py-4">
             {messages.length === 0 && (
-              <div className="text-center p-6 relative min-h-[600px] flex flex-col items-center justify-center">
-                {/* Dynamic Persona Indicator */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="absolute top-0 right-0"
-                >
-                  <div className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5 bg-white/5 transition-all shadow-sm",
-                    personas.find(p => p.id === persona)?.color
-                  )}>
-                    <Sparkles className="w-3 h-3" />
-                    <span>{persona} Mode</span>
-                  </div>
-                </motion.div>
-
+              <div className="text-center p-6 relative min-h-full flex flex-col items-center justify-start pt-12 sm:pt-16">
                 {/* Enhanced Animated Gradient Background Layer */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
                   <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-indigo-500/10 blur-[80px] animate-pulse-glow" />
@@ -1071,7 +1056,7 @@ export function ChatPanel({
                 </div>
 
                 {/* Central Hero Section */}
-                <div className="relative z-10 mb-10 w-full">
+                <div className="relative z-10 mb-6 w-full">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1528,71 +1513,79 @@ export function ChatPanel({
             }}
             className="flex items-end gap-2"
           >
-            <div className="relative flex-grow">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                multiple
-                className="hidden"
-                accept=".pdf,.txt,image/*"
-              />
-              <Input
-                autoFocus
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isListening ? "Listening..." : "Ask a question..."}
-                disabled={isLoading}
-                className={cn(
-                  "glassmorphism pr-24 min-h-[44px] rounded-2xl",
-                  isListening && "border-primary ring-1 ring-primary"
-                )}
-              />
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-8 w-8 rounded-full transition-all text-muted-foreground hover:text-foreground hover:bg-white/10 shadow-none",
-                          isProcessingFiles && "animate-pulse"
-                        )}
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isLoading || isProcessingFiles}
-                      >
-                        {isProcessingFiles ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Paperclip className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Attach File</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            <div className="relative flex-grow group">
+              {/* Premium Container with single border look */}
+              <div className="relative rounded-2xl bg-zinc-900/60 backdrop-blur-3xl shadow-2xl overflow-hidden transition-all duration-300">
+                {/* Subtle top highlight */}
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8 rounded-full transition-all shadow-none",
-                    isListening ? "text-red-500 animate-pulse bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
-                  )}
-                  onClick={handleVoiceInput}
-                  disabled={isLoading}
-                >
-                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
+                <div className="relative">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    multiple
+                    className="hidden"
+                    accept=".pdf,.txt,image/*"
+                  />
+                  <Input
+                    autoFocus
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={isListening ? "Listening..." : "Ask a question..."}
+                    disabled={isLoading}
+                    className={cn(
+                      "bg-transparent border-white/10 focus:border-primary/50 pr-24 min-h-[48px] rounded-2xl transition-all placeholder:text-zinc-600 focus-visible:ring-0 focus-visible:ring-offset-0",
+                      isListening && "border-primary"
+                    )}
+                  />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-8 w-8 rounded-full transition-all text-muted-foreground hover:text-foreground hover:bg-white/10 shadow-none",
+                              isProcessingFiles && "animate-pulse"
+                            )}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isLoading || isProcessingFiles}
+                          >
+                            {isProcessingFiles ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Paperclip className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Attach File</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8 rounded-full transition-all shadow-none",
+                        isListening ? "text-red-500 animate-pulse bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                      )}
+                      onClick={handleVoiceInput}
+                      disabled={isLoading}
+                    >
+                      {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
             <Button
               type="submit"
               disabled={isLoading || (input.trim() === '' && attachments.length === 0)}
-              className="h-11 w-11 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 bg-primary text-white"
+              className="h-11 w-11 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 bg-primary text-white flex-shrink-0"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1718,6 +1711,56 @@ export function ChatPanel({
           <div className='flex items-center gap-1 flex-shrink-0'>
             {view === 'chat' && (
               <>
+                {/* AI Model Selector */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors flex items-center gap-1.5"
+                    >
+                      <Bot className="w-3.5 h-3.5 mr-1" />
+                      {providerOptionsConfig.pollinationsModel?.split('/').pop() || 'Auto'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[220px] p-2 glassmorphism border-white/10 z-[200]">
+                    <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Select AI Engine</div>
+                    <DropdownMenuItem
+                      onClick={() => updateConfig({ pollinationsModel: undefined })}
+                      className={cn(
+                        "flex flex-col items-start gap-1 p-2 focus:bg-primary/10 rounded-xl cursor-pointer",
+                        !providerOptionsConfig.pollinationsModel && "bg-primary/5"
+                      )}
+                    >
+                      <span className="font-bold text-xs">Auto Select</span>
+                      <span className="text-[9px] text-zinc-500 leading-tight">AI chooses best model per task</span>
+                    </DropdownMenuItem>
+                    <div className="h-px bg-white/5 my-1 mx-2" />
+                    {[
+                      { id: 'pollinations/kimi', label: 'Kimi K2.5', desc: 'Coding & reasoning specialist', icon: Zap },
+                      { id: 'pollinations/gemini-search', label: 'Gemini Search', desc: 'Real-time web knowledge', icon: Wand2 },
+                      { id: 'pollinations/deepseek', label: 'DeepSeek V3', desc: 'Strong reasoning alternative', icon: BrainCircuit },
+                      { id: 'pollinations/glm', label: 'GLM-4.7', desc: 'Agentic workflows & coding', icon: Sparkles },
+                      { id: 'pollinations/claude-fast', label: 'Claude Haiku', desc: 'Fast & reliable responses', icon: Zap },
+                    ].map((m) => (
+                      <DropdownMenuItem
+                        key={m.id}
+                        onClick={() => updateConfig({ pollinationsModel: m.id })}
+                        className={cn(
+                          "flex flex-col items-start gap-1 p-2 focus:bg-primary/10 rounded-xl cursor-pointer mb-0.5 last:mb-0",
+                          providerOptionsConfig.pollinationsModel === m.id && "bg-primary/5 shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <m.icon className="w-3 h-3 text-primary" />
+                          <span className="font-bold text-xs">{m.label}</span>
+                        </div>
+                        <span className="text-[9px] text-zinc-500 leading-tight">{m.desc}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {/* Persona Selector */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

@@ -31,7 +31,7 @@ import {
     BrainCircuit,
     Sparkles,
     HelpCircle,
-
+    Search
 } from 'lucide-react';
 import {
     Select,
@@ -83,7 +83,8 @@ interface MindMapToolbarProps {
     isSummarizing?: boolean;
     isSharing?: boolean;
     status?: MindMapStatus;
-
+    useSearch?: boolean;
+    onToggleSearch?: () => void;
 }
 
 export const MindMapToolbar = ({
@@ -118,7 +119,8 @@ export const MindMapToolbar = ({
     isSummarizing,
     isSharing = false,
     status = 'idle',
-
+    useSearch = false,
+    onToggleSearch,
 }: MindMapToolbarProps) => {
     // Helper to determine if interaction should be disabled
     const isBusy = status !== 'idle' || isTranslating || isPublishing;
@@ -232,8 +234,6 @@ export const MindMapToolbar = ({
                             Summary
                         </Button>
                     )}
-
-
                 </div>
 
                 {/* 3. RIGHT SECTION: Actions & Tools */}

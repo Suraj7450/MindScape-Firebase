@@ -338,6 +338,15 @@
   }
 }
 
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) skewX(45deg);
+  }
+  100% {
+    transform: translateX(100%) skewX(45deg);
+  }
+}
+
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }

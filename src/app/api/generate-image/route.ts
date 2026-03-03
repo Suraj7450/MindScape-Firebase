@@ -3,10 +3,12 @@ import { NextResponse } from 'next/server';
 // Available Pollinations models with pricing
 const POLLINATIONS_MODELS = {
   'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - High Quality & Rapid Speed' },
-  'zimage': { cost: 0.0002, quality: 'fast', description: 'Z-Image Turbo - Maximum Performance' },
-  'klein': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 4B - Premium Professional Quality' },
-  'klein-large': { cost: 0.012, quality: 'ultra', description: 'FLUX.2 Klein 9B - Ultra Cinematic Quality' },
-  'gptimage': { cost: 0.0133, quality: 'balanced', description: 'GPT Image 1 Mini - Balanced & Logical' }
+  'zimage': { cost: 0.0002, quality: 'ultra-fast', description: 'Z-Image Turbo - Accelerated Generation' },
+  'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Imagen 4 - State-of-the-art Fidelity' },
+  'grok-imagine': { cost: 0.0025, quality: 'alpha', description: 'xAI Grok Imagine - Creative Outputs' },
+  'flux-pro': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 9B - Professional Grade' },
+  'klein': { cost: 0.008, quality: 'high', description: 'FLUX.2 Klein 4B - Efficient High-Detail' },
+  'gptimage': { cost: 8.0, quality: 'mini', description: 'GPT Image 1 Mini - Intelligent' }
 } as const;
 
 type ModelName = keyof typeof POLLINATIONS_MODELS | string;
@@ -104,7 +106,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['flux', 'klein', 'klein-large', 'zimage', 'gptimage'];
+const MODEL_ROTATION_ORDER = ['flux', 'zimage', 'imagen-4', 'grok-imagine', 'flux-pro', 'klein'];
 
 
 /**
@@ -129,7 +131,7 @@ export async function POST(req: Request) {
 
     const {
       prompt,
-      model = 'klein',
+      model = 'flux',
       style,
       composition,
       mood,

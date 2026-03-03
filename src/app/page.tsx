@@ -121,19 +121,11 @@ function Hero({
   } | null>(null);
 
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-
   const [openSelect, setOpenSelect] = useState<string | null>(null);
-
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    // Initialize Web Worker
-    workerRef.current = new Worker(new URL('../workers/pdf.worker.ts', import.meta.url));
-    return () => {
-      workerRef.current?.terminate();
-    };
   }, []);
 
   const { user } = useUser();
@@ -208,33 +200,54 @@ function Hero({
       } else if (file.type === 'application/pdf') {
         type = 'pdf';
         const arrayBuffer = await file.arrayBuffer();
+        setPdfProgress({ current: 0, total: 1 });
 
-        if (!workerRef.current) {
-          throw new Error("PDF Worker not initialized");
-        }
+        try {
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdf = await loadingTask.promise;
+          const totalPages = pdf.numPages;
+          let fullText = '';
 
-        setPdfProgress({ current: 0, total: 1 }); // Indeterminate start
+          for (let i = 1; i <= totalPages; i++) {
+            setPdfProgress({ current: i, total: totalPages });
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
 
-        workerRef.current.onmessage = (e) => {
-          const data = e.data;
-          if (data.progress) {
-            setPdfProgress({ current: data.progress.currentPage, total: data.progress.totalPages });
-          } else if (data.text !== undefined) {
-            setPdfProgress(null);
-            setUploadedFile({
-              name: file.name,
-              type: 'pdf',
-              content: data.text
-            });
-          } else if (data.error) {
-            setPdfProgress(null);
-            console.error("PDF Parsing error:", data.error);
-            toast({ title: "PDF Parse Failed", description: data.error, variant: "destructive" });
+            // Better text extraction: filter empty strings and trim
+            const pageText = textContent.items
+              .map((item: any) => item.str.trim())
+              .filter((str: string) => str.length > 0)
+              .join(' ');
+
+            fullText += pageText + '\n\n';
           }
-        };
 
-        workerRef.current.postMessage({ fileBuffer: arrayBuffer });
-        return; // Early return, state is set asynchronously by worker
+          // Final cleanup of the whole document
+          let cleanedText = fullText
+            .replace(/\s+/g, ' ')               // Collapse multiple spaces
+            .replace(/\n\s*\n/g, '\n\n')       // Collapse multiple newlines
+            .trim();
+
+          // Apply a stricter character limit to prevent AI hangs on massive files
+          // 20,000 chars is roughly 5,000 tokens, which fits well within free-tier model outputs.
+          const MAX_TEXT_LENGTH = 20000;
+          if (cleanedText.length > MAX_TEXT_LENGTH) {
+            console.warn(`⚠️ PDF text truncated from ${cleanedText.length} to ${MAX_TEXT_LENGTH} characters.`);
+            cleanedText = cleanedText.substring(0, MAX_TEXT_LENGTH) + "... [Text truncated for processing]";
+          }
+
+          setPdfProgress(null);
+          setUploadedFile({
+            name: file.name,
+            type: 'pdf',
+            content: cleanedText
+          });
+        } catch (err: any) {
+          console.error("PDF Parsing error:", err);
+          setPdfProgress(null);
+          toast({ title: "PDF Parse Failed", description: err.message || "Could not parse PDF.", variant: "destructive" });
+        }
+        return;
       } else {
         content = await file.text();
         setUploadedFile({ name: file.name, type, content });

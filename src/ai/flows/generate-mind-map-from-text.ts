@@ -83,6 +83,14 @@ export async function generateMindMapFromText(
     2. YOU MUST USE THE ACTUAL DATA. Instead of generic labels, your nodes should be the actual data itself: "Personal Profile" -> "Name: Megha" -> "DOB: 01/01/1990".
     3. Never output a field name (like "Address") without its corresponding value if it exists in the text.
     4. Fill the structure with the **actual, literal data, numbers, dates, and entity names** found in the text. Do not just summarize the themes.
+
+    **FOR ALL OTHER TEXTS (Reports, Stories, General PDFs)**:
+    - Prioritize information density. 
+    - You MUST generate a comprehensive mind map that covers the ENTIRE provided text.
+    - DO NOT return an empty or near-empty mind map.
+    - If the text is short, expand on the concepts logically while remaining faithful to the source.
+    - **MANDATORY**: The \`subTopics\` array MUST NOT BE EMPTY. Aim for a rich, multi-level hierarchy.
+
     ${densityInstruction}
   
     ${contextInstruction}
@@ -107,7 +115,7 @@ export async function generateMindMapFromText(
   const userPrompt = `Text to analyze:\n---\n${text}\n---`;
 
 
-  const maxAttempts = 2;
+  const maxAttempts = 1;
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {

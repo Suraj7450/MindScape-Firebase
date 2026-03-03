@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { MindMap } from '@/components/mind-map';
 import { MindMapData, NestedExpansionItem, MindMapWithId } from '@/types/mind-map';
-import { LogoLoading } from '@/components/loading/logo-loading';
+import { NeuralLoader } from '@/components/loading/neural-loader';
 import dynamic from 'next/dynamic';
 
 const ChatPanel = dynamic(() => import('@/components/chat-panel').then(mod => mod.ChatPanel), {
@@ -379,10 +379,25 @@ function MindMapPageContent() {
                 fileContent = sessionContent;
                 additionalText = '';
               }
-              if (sessionType === 'image' || sessionType === 'pdf') {
-                currentMode = sessionType === 'image' ? 'vision-image' : 'vision-pdf';
+              if (sessionType === 'image') {
+                currentMode = 'vision-image';
                 result = await generateMindMapFromImageAction({
                   imageDataUri: fileContent,
+                  targetLang: params.lang,
+                  persona: aiPersona,
+                  depth: params.depth,
+                }, {
+                  provider: config.provider,
+                  apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
+                  model: config.pollinationsModel,
+                  userId: user?.uid,
+                });
+              } else if (sessionType === 'pdf') {
+                currentMode = 'vision-pdf';
+                // PDF content is text-based, so we use the text action
+                result = await generateMindMapFromTextAction({
+                  text: fileContent,
+                  context: additionalText, // Include custom topic if provided
                   targetLang: params.lang,
                   persona: aiPersona,
                   depth: params.depth,
@@ -875,7 +890,7 @@ function MindMapPageContent() {
     }
   }, [mindMap, isSharing, firestore, user, toast]);
 
-  if (isLoading) return <LogoLoading />;
+  if (isLoading) return <NeuralLoader />;
 
   if (error) {
     const isAuthError = error.toLowerCase().includes('api key') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('401');
@@ -1094,7 +1109,7 @@ function MindMapPageContent() {
 export default function MindMapPage() {
   return (
     <TooltipProvider delayDuration={300}>
-      <Suspense fallback={<LogoLoading />}>
+      <Suspense fallback={<NeuralLoader />}>
         <MindMapPageContent />
       </Suspense>
     </TooltipProvider>

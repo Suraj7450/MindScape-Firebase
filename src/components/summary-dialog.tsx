@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -71,16 +71,57 @@ export function SummaryDialog({
   title,
   summary,
   isLoading = false,
-  onReload
+  onReload,
 }: SummaryDialogProps) {
   const { toast } = useToast();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('male');
   const [viewMode, setViewMode] = useState<'paragraph' | 'bullets'>('bullets');
   const [speechRate, setSpeechRate] = useState(1);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const currentCharIndex = useRef(0);
+  const isInternalCancel = useRef(false);
+
+  // Load voices dynamically
+  useEffect(() => {
+    const loadVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      // Filter for high-quality or preferred languages (English by default for this app)
+      const filteredVoices = allVoices.filter(v => v.lang.includes('en')).sort((a, b) => a.name.localeCompare(b.name));
+      setVoices(filteredVoices);
+
+      // Set default voice if not set
+      if (filteredVoices.length > 0 && selectedVoiceName === 'male') {
+        const defaultMale = filteredVoices.find(v => v.name.includes('Male') || v.name.includes('David')) || filteredVoices[0];
+        setSelectedVoiceName(defaultMale.name);
+      }
+    };
+
+    loadVoices();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // Stop speaking when dialog closes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsSpeaking(false);
+    }
+  }, [isOpen]);
 
   // Parse summary into bullets - Handle markdown lists and sentences
   const bulletPoints = summary
@@ -96,58 +137,95 @@ export function SummaryDialog({
     )
     .filter(s => s.length > 0);
 
-  // Load voices
-  useEffect(() => {
-    const loadVoices = () => {
-      const allVoices = window.speechSynthesis.getVoices();
-      const englishVoices = allVoices.filter(v => v.lang.startsWith('en'));
-      setVoices(englishVoices.length > 0 ? englishVoices : allVoices);
+  // Pre-calculate clean text for stable indexing
+  const cleanSummary = useMemo(() => {
+    return summary.replace(/\*\*|\*|_|#/g, '');
+  }, [summary]);
 
-      if (!selectedVoiceName) {
-        const preferred = englishVoices.find(v => v.name.includes('Google') || v.name.includes('Premium')) || englishVoices[0] || allVoices[0];
-        if (preferred) setSelectedVoiceName(preferred.name);
+  const startSpeech = (startIndex: number = 0, rate: number = speechRate) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis || !cleanSummary) return;
+
+    const remainingText = cleanSummary.substring(startIndex);
+
+    if (!remainingText.trim()) {
+      setIsSpeaking(false);
+      currentCharIndex.current = 0;
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(remainingText);
+
+    // Voice selection logic
+    const selectedVoice = voices.find(v => v.name === selectedVoiceName);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    utterance.rate = rate;
+
+    utterance.onstart = () => {
+      // Once the new utterance starts, we can safely clear the internal cancel flag
+      isInternalCancel.current = false;
+    };
+
+    utterance.onboundary = (event) => {
+      if (event.name === 'word') {
+        currentCharIndex.current = startIndex + event.charIndex;
       }
     };
 
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, [selectedVoiceName]);
+    utterance.onend = () => {
+      if (isInternalCancel.current) return;
 
-  // Stop speaking when dialog closes
-  useEffect(() => {
-    if (!isOpen) {
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.speaking === false) {
+        setIsSpeaking(false);
+        currentCharIndex.current = 0;
+      }
+    };
+
+    utterance.onerror = () => {
+      if (isInternalCancel.current) return;
+
       setIsSpeaking(false);
-    }
-  }, [isOpen]);
+      currentCharIndex.current = 0;
+    };
+
+    utteranceRef.current = utterance;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  };
 
   const handleToggleSpeech = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      toast({
+        variant: "destructive",
+        title: "Speech Not Supported",
+        description: "Your browser does not support text-to-speech.",
+      });
+      return;
+    }
+
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
 
-    if (!summary) return;
+    currentCharIndex.current = 0;
+    startSpeech(0);
+  };
 
-    // Clean text for speech (remove markdown artifacts)
-    const cleanText = summary.replace(/\*|_|#/g, '');
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = speechRate;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    // Use selected voice
-    const selectedVoice = voices.find(v => v.name === selectedVoiceName);
-    if (selectedVoice) utterance.voice = selectedVoice;
-
-    speechRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-    setIsSpeaking(true);
+  const handleRateChange = (newRate: number) => {
+    setSpeechRate(newRate);
+    if (isSpeaking) {
+      isInternalCancel.current = true;
+      window.speechSynthesis.cancel();
+      // Small timeout to allow the browser to process the cancel
+      setTimeout(() => {
+        startSpeech(currentCharIndex.current, newRate);
+      }, 10);
+    }
   };
 
   const handleDownloadMp3 = async () => {
@@ -261,78 +339,88 @@ export function SummaryDialog({
                 </div>
               </div>
 
-              {/* Narrator Settings Row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <span className="px-1 text-zinc-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                    <Music className="w-2.5 h-2.5 text-purple-500" /> Narrator
-                  </span>
-                  <Select value={selectedVoiceName} onValueChange={setSelectedVoiceName}>
-                    <SelectTrigger className="h-10 bg-white/5 border-white/5 rounded-2xl text-[11px] text-zinc-400 hover:bg-white/10 transition-all border-none shadow-inner ring-1 ring-white/10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="glassmorphism rounded-2xl border-white/10 max-h-[180px]">
-                      {voices.map((v) => (
-                        <SelectItem key={v.name} value={v.name} className="text-[11px] text-zinc-300 py-2">{v.name.split('-')[0]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Redesigned Audio Integration Hub */}
+              <div className="bg-white/5 rounded-[2rem] p-5 border border-white/10 shadow-inner backdrop-blur-xl space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <span className="px-1 text-purple-400 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                      <Music className="w-3 h-3" /> Narrator
+                    </span>
+                    <Select value={selectedVoiceName} onValueChange={setSelectedVoiceName}>
+                      <SelectTrigger className="h-11 bg-black/40 border-white/5 rounded-2xl text-[11px] text-zinc-300 hover:bg-black/60 transition-all border-none ring-1 ring-white/10 shadow-2xl">
+                        <SelectValue placeholder="Select Voice" />
+                      </SelectTrigger>
+                      <SelectContent className="glassmorphism rounded-2xl border-white/10 max-h-[250px] shadow-2xl">
+                        {voices.map((voice) => (
+                          <SelectItem key={voice.name} value={voice.name} className="text-[11px] text-zinc-300 py-2.5 focus:bg-purple-500/20">
+                            {voice.name.split(' - ')[0]}
+                            <span className="ml-2 opacity-30 text-[9px] uppercase tracking-tighter">({voice.lang.split('-')[0]})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <span className="px-1 text-zinc-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                    <FastForward className="w-2.5 h-2.5 text-pink-500" /> Speed
-                  </span>
-                  <div className="flex bg-white/5 rounded-2xl p-1 gap-1 ring-1 ring-white/10">
-                    {[1, 1.25, 1.5].map(rate => (
-                      <button
-                        key={rate}
-                        onClick={() => setSpeechRate(rate)}
-                        className={cn(
-                          "flex-1 h-8 rounded-xl text-[10px] font-bold transition-all",
-                          speechRate === rate ? "bg-white/10 text-white shadow-xl" : "text-zinc-600 hover:text-zinc-400"
-                        )}
-                      >
-                        {rate}x
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <span className="px-1 text-pink-400 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                      <FastForward className="w-3 h-3" /> Pace
+                    </span>
+                    <div className="flex bg-black/40 rounded-2xl p-1 gap-1 ring-1 ring-white/10 h-11">
+                      {[1, 1.25, 1.5].map(rate => (
+                        <button
+                          key={rate}
+                          onClick={() => handleRateChange(rate)}
+                          className={cn(
+                            "flex-1 rounded-xl text-[11px] font-black transition-all",
+                            speechRate === rate
+                              ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-white shadow-lg ring-1 ring-white/20"
+                              : "text-zinc-500 hover:text-zinc-300"
+                          )}
+                        >
+                          {rate}x
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* HERO ACTION AREA */}
-              <div className="flex flex-col items-center gap-4 pt-4">
-                <div className="flex items-center gap-3 w-full">
+                {/* Primary Interaction Area */}
+                <div className="flex items-center gap-3">
                   <Button
                     className={cn(
-                      "flex-1 h-14 rounded-2xl text-[15px] font-black uppercase tracking-[0.1em] transition-all active:scale-95 shadow-xl border-none group relative overflow-hidden",
+                      "flex-1 h-16 rounded-[1.5rem] text-[16px] font-black uppercase tracking-[0.2em] transition-all active:scale-[0.98] shadow-2xl border-none group relative overflow-hidden",
                       isSpeaking
-                        ? "bg-zinc-800 text-zinc-400"
-                        : "bg-gradient-to-r from-[#9B5CFF] to-[#FF4FC3] text-white hover:brightness-110 shadow-purple-600/20"
+                        ? "bg-zinc-900 border border-white/5 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.1)]"
+                        : "bg-gradient-to-r from-[#9333EA] via-[#A855F7] to-[#EC4899] text-white hover:brightness-110 shadow-[0_0_30px_rgba(168,85,247,0.4)]"
                     )}
                     onClick={handleToggleSpeech}
+                    disabled={isLoading}
                   >
                     <div className="relative z-10 flex items-center justify-center gap-3">
-                      {isSpeaking ? <Pause className="h-5 w-5 fill-zinc-400" /> : <Play className="h-5 w-5 fill-white" />}
-                      <span>{isSpeaking ? 'Pause' : 'Listen'}</span>
+                      {isSpeaking ? (
+                        <Pause className="h-6 w-6 fill-current" />
+                      ) : (
+                        <Play className="h-6 w-6 fill-current" />
+                      )}
+                      <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
                       {isSpeaking && <VoiceWaveform isPlaying={isSpeaking} />}
                     </div>
-                    {/* Glossy Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent opacity-50" />
+                    {/* Animated Shine Effect */}
+                    <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[45deg] -translate-x-full group-hover:animate-[shine_1.5s_infinite]" />
                   </Button>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="w-14 h-14 rounded-2xl border-white/5 bg-white/5 hover:bg-white/10 transition-all hover:scale-105 active:scale-95 group shrink-0"
+                      className="w-16 h-16 rounded-[1.5rem] border-white/5 bg-black/40 hover:bg-black/60 transition-all hover:scale-105 active:scale-95 group shrink-0 shadow-xl ring-1 ring-white/10"
                       onClick={handleDownloadMp3}
                       disabled={isDownloading}
                     >
                       {isDownloading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
                       ) : (
-                        <Download className="h-4 w-4 text-zinc-400 group-hover:text-purple-400" />
+                        <Download className="h-5 w-5 text-zinc-400 group-hover:text-purple-400 transition-colors" />
                       )}
                     </Button>
 
@@ -340,21 +428,15 @@ export function SummaryDialog({
                       <Button
                         variant="outline"
                         size="icon"
-                        className="w-14 h-14 rounded-2xl border-white/5 bg-white/5 hover:bg-white/10 transition-all hover:scale-105 active:scale-95 group shrink-0"
+                        className="w-16 h-16 rounded-[1.5rem] border-white/5 bg-black/40 hover:bg-black/60 transition-all hover:scale-105 active:scale-95 group shrink-0 shadow-xl ring-1 ring-white/10"
                         onClick={onReload}
                         disabled={isLoading}
                       >
-                        <RotateCcw className={cn("h-4 w-4 text-zinc-400 group-hover:text-blue-400", isLoading && "animate-spin")} />
+                        <RotateCcw className={cn("h-5 w-5 text-zinc-400 group-hover:text-blue-400 transition-colors", isLoading && "animate-spin")} />
                       </Button>
                     )}
                   </div>
                 </div>
-
-                {isSpeaking && (
-                  <p className="text-[9px] text-purple-500 font-bold uppercase tracking-widest animate-pulse">
-                    Live AI Transcription...
-                  </p>
-                )}
               </div>
             </>
           )}

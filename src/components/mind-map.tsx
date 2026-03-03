@@ -296,15 +296,16 @@ export const MindMap = ({
   const router = useRouter();
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
-
-
   const { config } = useAIConfig();
+  const [activeTab, setActiveTab] = useState<'visual' | 'radial' | 'accordion' | 'compare'>('visual');
+  const useSearch = true; // Always ON in background
+
   const providerOptions = useMemo(() => ({
     provider: config.provider,
     apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
-    model: config.pollinationsModel,
+    model: useSearch ? 'pollinations/gemini-search' : config.pollinationsModel,
     userId: user?.uid,
-  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel, user?.uid]);
+  }), [config.provider, config.apiKey, config.pollinationsApiKey, config.pollinationsModel, user?.uid, useSearch]);
 
   const imageProviderOptions = useMemo(() => ({
     provider: config.provider as 'pollinations',
@@ -1024,6 +1025,7 @@ export const MindMap = ({
     });
   };
 
+
   const handleShareLink = async () => {
     const sParams = new URLSearchParams(window.location.search);
     const effectiveId = data.id || sParams.get('mapId');
@@ -1240,6 +1242,7 @@ export const MindMap = ({
         isSummarizing={isSummarizing}
         status={status}
         isRegenerating={isRegenerating}
+        useSearch={true}
       />
 
       <div className="container max-w-6xl mx-auto px-4 space-y-12 pt-12">

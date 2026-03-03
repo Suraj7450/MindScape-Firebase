@@ -1251,16 +1251,25 @@ export default function DashboardPage() {
       </div>
 
       <AlertDialog open={!!mapToDelete} onOpenChange={(open) => !open && setMapToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <AlertDialogContent className="glassmorphism border-white/10 rounded-[2rem] p-8 shadow-2xl max-w-[400px]">
+          <AlertDialogHeader className="space-y-3">
+            <AlertDialogTitle className="text-xl font-bold tracking-tight text-white text-center">Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400 text-sm text-center">
               This action cannot be undone. This will permanently delete this mind map.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMap}>Delete</AlertDialogAction>
+          <AlertDialogFooter className="mt-6 flex sm:justify-center">
+            <div className="flex items-center gap-1 p-1 bg-black/40 rounded-full border border-white/5 backdrop-blur-md w-full sm:w-auto">
+              <AlertDialogCancel className="flex-1 sm:flex-none rounded-full text-[10px] font-extrabold px-8 h-10 uppercase tracking-widest border-transparent bg-transparent text-zinc-500 hover:text-white hover:bg-white/5 transition-all duration-300">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteMap}
+                className="flex-1 sm:flex-none rounded-full text-[10px] font-extrabold px-8 h-10 uppercase tracking-widest bg-red-500 hover:bg-red-600 text-white hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20 transition-all duration-300"
+              >
+                Delete
+              </AlertDialogAction>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

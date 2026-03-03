@@ -128,18 +128,36 @@ const providerMonitor = new ProviderMonitor();
  * Detects if a response object contains only AI reasoning/planning 
  * but lacks the actual structured data fields.
  */
-function isReasoningOnly(raw: any): boolean {
+function isReasoningOnly(raw: any, schema?: any, isFinalAttempt: boolean = false): boolean {
     if (typeof raw !== 'object' || raw === null) return false;
 
-    // Check if it has reasoning but NONE of the expected data markers
-    // Also detect if it's a known reasoning wrapper with empty content
-    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning || (typeof raw.thought === 'string' && raw.thought.length > 500 && !raw.subTopics);
-    const hasData = !!raw.topic || !!raw.mode || !!raw.similarities || !!raw.differences || !!raw.root || (Array.isArray(raw.subTopics) && raw.subTopics.length > 0);
+    // Detect reasoning-heavy fields
+    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning || (typeof raw.thought === 'string' && raw.thought.length > 300);
+
+    // Check for "meaningful" data. For mind maps, this means having subTopics.
+    // If it's a compare result, it needs compareData.
+    const hasSubTopics = Array.isArray(raw.subTopics) && raw.subTopics.length > 0;
+    const hasCompareData = !!raw.compareData || !!raw.similarities || !!raw.differences;
+    const hasRootData = !!raw.root || !!raw.topic;
+
+    // Special case: If it has a topic but NO subTopics, and it's supposed to be a mind map (schema check), it's probably empty/truncated.
+    const isMindMapSchema = schema?.description?.toLowerCase().includes('mind map') || JSON.stringify(schema).toLowerCase().includes('subtopics');
+    if (isMindMapSchema && hasRootData && !hasSubTopics) {
+        // SMART RETRY: If it's the final attempt, we'd rather show a "thin" map than fail/hang
+        if (isFinalAttempt) {
+            console.warn('⚠️ Final attempt: Accepting response with topic but no subTopics to prevent hang.');
+            return false;
+        }
+        console.warn('⚠️ Response contains topic but no subTopics. Treating as empty/truncated for retry.');
+        return true;
+    }
 
     // Special case: if it has virtually no data but was marked as success, it might be a reasoning-only failure
-    if (Object.keys(raw).length <= 2 && (raw.thought || raw.reasoning)) return true;
+    if (Object.keys(raw).length <= 2 && (raw.thought || raw.reasoning)) {
+        return !isFinalAttempt; // On final attempt, we might have to accept it if that's all we got
+    }
 
-    return hasReasoning && !hasData;
+    return hasReasoning && !(hasSubTopics || hasCompareData);
 }
 
 /**
@@ -160,6 +178,9 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
     try {
         const result = await retry(async (retryIndex) => {
+            const retriesCount = 2;
+            const isFinalAttempt = retryIndex === retriesCount - 1;
+
             // Tracking total attempt for model rotation (monitor failures + current retry index)
             const baseFailureCount = providerMonitor.getFailureCount('pollinations');
             const currentAttempt = baseFailureCount + retryIndex;
@@ -172,13 +193,13 @@ export async function generateContent(options: GenerateContentOptions): Promise<
                 attempt: currentAttempt
             });
 
-            if (isReasoningOnly(raw)) {
-                throw new Error('Pollinations returned reasoning-only output (retryable)');
+            if (isReasoningOnly(raw, schema, isFinalAttempt)) {
+                throw new Error('Pollinations returned reasoning-only or empty data (retryable)');
             }
 
             console.log(`✅ Pollinations Response Success. Raw length: ${JSON.stringify(raw).length} chars`);
             return validateAndParse(raw, schema, strict);
-        }, 5); // 5 retries with automatic model rotation inside
+        }, 2); // 2 retries as requested
 
         providerMonitor.recordSuccess('pollinations');
         return result;

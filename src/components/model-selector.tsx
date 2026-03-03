@@ -1,6 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Zap, Crown, Palette, Monitor, Cloud } from 'lucide-react';
+import { Sparkles, Zap, Crown, Palette, Monitor, Cloud, Brain } from 'lucide-react';
 
 export const POLLINATIONS_MODELS = [
     {
@@ -9,43 +9,61 @@ export const POLLINATIONS_MODELS = [
         cost: 0.0002,
         badge: 'Fast',
         icon: Zap,
-        description: 'High Quality & Rapid Speed - Instant generation for quick iterations',
+        description: 'Flux Schnell - High Quality & Rapid Speed (Instant)',
         isNew: false
     },
     {
         value: 'zimage',
         label: 'Z-Image Turbo',
         cost: 0.0002,
-        badge: 'Fast',
-        icon: Zap,
-        description: 'Maximum Performance - Optimized for raw processing speed',
+        badge: 'Ultra Fast',
+        icon: Sparkles,
+        description: 'Z-Image Turbo - Accelerated generation for dynamic workflows',
+        isNew: true
+    },
+    {
+        value: 'imagen-4',
+        label: 'Imagen 4',
+        cost: 0.0025,
+        badge: 'Alpha',
+        icon: Crown,
+        description: 'Google Imagen 4 - State-of-the-art visual fidelity',
+        isNew: true
+    },
+    {
+        value: 'grok-imagine',
+        label: 'Grok Imagine',
+        cost: 0.0025,
+        badge: 'Alpha',
+        icon: Brain,
+        description: 'xAI Grok Imagine - Creative and expressive outputs',
+        isNew: true
+    },
+    {
+        value: 'flux-pro',
+        label: 'Flux Pro',
+        cost: 0.008,
+        badge: 'Klein 9B',
+        icon: Sparkles,
+        description: 'FLUX.2 Klein 9B - Professional Grade lighting and detail',
         isNew: false
     },
     {
         value: 'klein',
-        label: 'FLUX.2 Klein 4B',
+        label: 'Flux Klein',
         cost: 0.008,
-        badge: 'Premium',
-        icon: Sparkles,
-        description: 'Premium Professional - Sharp details and realistic lighting',
-        isNew: true
-    },
-    {
-        value: 'klein-large',
-        label: 'FLUX.2 Klein 9B',
-        cost: 0.012,
-        badge: 'Ultra',
-        icon: Crown,
-        description: 'Ultra Cinematic Quality - Highest detail and fidelity',
+        badge: 'Klein 4B',
+        icon: Zap,
+        description: 'FLUX.2 Klein 4B - Efficient high-detail generation',
         isNew: true
     },
     {
         value: 'gptimage',
-        label: 'GPT Image 1 Mini',
-        cost: 0.0133,
-        badge: 'Balanced',
-        icon: Monitor,
-        description: 'Balanced & Logical - Consistent and reliable composition',
+        label: 'GPT Image 1',
+        cost: 8.0,
+        badge: 'Mini',
+        icon: Crown,
+        description: 'OpenAI GPT Image 1 Mini - Intelligent composition',
         isNew: true
     }
 ] as const;

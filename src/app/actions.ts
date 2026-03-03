@@ -1,5 +1,3 @@
-
-'use server';
 'use server';
 import { AIProvider } from '@/ai/client-dispatcher';
 import { providerMonitor } from '@/ai/provider-monitor';
@@ -53,13 +51,8 @@ import {
 } from '@/ai/flows/enhance-image-prompt';
 
 
-import {
-  expandNode,
-  ExpandNodeInput,
-  ExpandNodeOutput,
-} from '@/ai/flows/expand-node';
 import { generateQuizFlow, GenerateQuizInput } from '@/ai/flows/generate-quiz';
-import { regenerateQuizFlow, RegenerateQuizInput } from '@/ai/flows/regenerate-quiz';
+
 import { Quiz } from '@/ai/schemas/quiz-schema';
 import {
   generateRelatedQuestions,
@@ -261,9 +254,7 @@ export async function generateMindMapAction(
   }
 }
 
-export async function checkPollinationsKeyAction(): Promise<{ isConfigured: boolean }> {
-  return { isConfigured: !!process.env.POLLINATIONS_API_KEY };
-}
+
 
 /**
  * Server action to check the pollen balance for the user's API key.
@@ -295,23 +286,7 @@ export async function checkPollenBalanceAction(
   }
 }
 
-/**
- * Server action to update the user's preferred Pollinations model.
- */
-export async function updateAIModelPreferenceAction(userId: string, model: string): Promise<{ success: boolean; error: string | null }> {
-  try {
-    const { initializeFirebaseServer } = await import('@/firebase/server');
-    const { firestore } = initializeFirebaseServer();
 
-    await firestore.collection('users').doc(userId).set({
-      apiSettings: { pollinationsModel: model }
-    }, { merge: true });
-
-    return { success: true, error: null };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
 
 /**
  * Server action to generate a mind map from an image.
@@ -595,30 +570,7 @@ export async function enhanceImagePromptAction(
 
 
 
-/**
- * Server action to expand a specific node with nested sub-categories.
- * This enables inline expansion without creating a new mind map.
- * @param {ExpandNodeInput} input - The node to expand and its context.
- * @returns {Promise<{ expansion: ExpandNodeOutput | null; error: string | null }>} The generated expansion or an error.
- */
-export async function expandNodeAction(
-  input: ExpandNodeInput,
-  options: AIActionOptions = {}
-): Promise<{ expansion: ExpandNodeOutput | null; error: string | null }> {
-  try {
-    const effectiveApiKey = await resolveApiKey(options);
-    const result = await expandNode({ ...input, ...options, apiKey: effectiveApiKey });
-    return { expansion: result, error: null };
-  } catch (error) {
-    console.error('Error in expandNodeAction:', error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      expansion: null,
-      error: `Failed to expand node. ${errorMessage}`,
-    };
-  }
-}
+
 
 
 
@@ -765,22 +717,4 @@ export async function generateQuizAction(
   }
 }
 
-/**
- * Server action to regenerate an adaptive quiz based on previous results.
- */
-export async function regenerateQuizAction(
-  input: RegenerateQuizInput,
-  options: { apiKey?: string; provider?: AIProvider } = {}
-): Promise<{ data: Quiz | null; error: string | null }> {
-  try {
-    const effectiveApiKey = await resolveApiKey(options);
-    const result = await regenerateQuizFlow({ ...input, ...options, apiKey: effectiveApiKey });
-    return { data: result, error: null };
-  } catch (error) {
-    console.error('Error in regenerateQuizAction:', error);
-    return {
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to regenerate quiz.',
-    };
-  }
-}
+
