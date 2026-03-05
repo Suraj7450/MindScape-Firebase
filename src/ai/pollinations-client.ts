@@ -108,12 +108,12 @@ export async function generateContentWithPollinations(
                 
 CRITICAL SAFETY & OUTPUT RULES:
 - You must return ONLY the final structured JSON answer.
-- Do NOT include internal reasoning, analysis, planning, or hidden thoughts.
+- Do NOT include internal reasoning, analysis, planning, or hidden thoughts OUTSIDE the JSON.
+- Reasoning is ONLY permitted within the designated JSON fields (e.g., "thought", "insight").
 - If you cannot complete the task, return a minimal valid JSON response instead of an empty output.
 - Keep the response concise, factual, and strictly schema-compliant.
-- Think minimally. Output ONLY the raw JSON string.
+- Output ONLY the raw JSON string, starting with '{' and ending with '}'.
 - NEVER include comments (// or /* ... */) in the JSON.
-- Start with '{' and end with '}'.
 `
             }
         ];
@@ -183,6 +183,9 @@ CRITICAL SAFETY & OUTPUT RULES:
         }
 
         let response: Response;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
         try {
             response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
                 method: 'POST',
@@ -190,10 +193,25 @@ CRITICAL SAFETY & OUTPUT RULES:
                     'Content-Type': 'application/json',
                     ...(effectiveApiKey ? { 'Authorization': `Bearer ${effectiveApiKey}` } : {})
                 },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
+                signal: controller.signal
             });
         } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            if (fetchError.name === 'AbortError') {
+                console.warn(`🕒 Pollinations API request timed out (30s). Attempt: ${attempt}`);
+                if (attempt < 2) {
+                    return generateContentWithPollinations(systemPrompt, userPrompt, images, {
+                        ...options,
+                        attempt: attempt + 1,
+                        model: selectModel(options.capability || 'creative', attempt + 1)
+                    });
+                }
+                throw new Error('Pollinations API request timed out after multiple attempts.');
+            }
             throw fetchError;
+        } finally {
+            clearTimeout(timeoutId);
         }
 
         const status = response.status;
@@ -215,6 +233,8 @@ CRITICAL SAFETY & OUTPUT RULES:
                     errorMessage = response.statusText;
                 }
             }
+
+            console.error(`❌ Pollinations API Error [${status}]: ${errorMessage}`);
 
             // Error handling (Auth, 400, 5xx)
             if (status === 401 || status === 403) {
@@ -252,19 +272,24 @@ CRITICAL SAFETY & OUTPUT RULES:
                         ...options,
                         _stripParameters: true
                     });
-                } else if (attempt < 3) {
+                } else if (attempt < 2) {
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,
                         attempt: attempt + 1,
-                        _stripParameters: false
+                        _stripParameters: false,
+                        model: selectModel(options.capability || 'creative', attempt + 1)
                     });
                 }
             }
 
-            if (status >= 500 && attempt < 3) {
+            if ((status >= 500 || status === 429) && attempt < 2) {
+                const retryAfter = status === 429 ? 2000 : 1000;
+                console.warn(`⚠️ Pollinations API error (${status}). Retrying in ${retryAfter}ms...`);
+                await new Promise(resolve => setTimeout(resolve, retryAfter));
                 return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                     ...options,
-                    attempt: attempt + 1
+                    attempt: attempt + 1,
+                    model: selectModel(options.capability || 'creative', attempt + 1)
                 });
             }
 

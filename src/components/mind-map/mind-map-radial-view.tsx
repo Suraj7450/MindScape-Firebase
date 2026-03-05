@@ -287,6 +287,32 @@ export const MindMapRadialView = React.memo(({
 
     const { nodes, connections, width, height } = useMemo(() => LayoutEngine(data, collapsedNodes), [data, collapsedNodes]);
 
+    // Viewport culling: only render nodes/connections visible on screen
+    const visibleNodes = useMemo(() => {
+        if (!containerRef.current) return nodes;
+        const cw = containerRef.current.clientWidth || 1400;
+        const ch = containerRef.current.clientHeight || 900;
+        const pad = 200; // padding in world-space units
+        const viewLeft = (-offset.x / zoom) - pad;
+        const viewTop = (-offset.y / zoom) - pad;
+        const viewRight = viewLeft + (cw / zoom) + pad * 2;
+        const viewBottom = viewTop + (ch / zoom) + pad * 2;
+        return nodes.filter(n => {
+            const nx = n.x;
+            const ny = n.y - n.height / 2;
+            return nx + n.width >= viewLeft && nx <= viewRight && ny + n.height >= viewTop && ny <= viewBottom;
+        });
+    }, [nodes, offset, zoom]);
+
+    const visibleNodeIds = useMemo(() => new Set(visibleNodes.map(n => n.id)), [visibleNodes]);
+
+    const visibleConnections = useMemo(() => {
+        return connections.filter(c => visibleNodeIds.has(c.sourceId) || visibleNodeIds.has(c.targetId));
+    }, [connections, visibleNodeIds]);
+
+    // Level of detail: simplify rendering when zoomed out
+    const isLowDetail = zoom < 0.6;
+
     const filteredNodes = useMemo(() => {
         if (!searchQuery) return [];
         return nodes.filter(n => n.data.label.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -394,30 +420,40 @@ export const MindMapRadialView = React.memo(({
                         </filter>
                     </defs>
                     <AnimatePresence>
-                        {connections.map(conn => {
+                        {visibleConnections.map(conn => {
                             const isFocusedPath = focusedNodeId && (conn.sourceId === focusedNodeId || conn.targetId === focusedNodeId);
                             const isDimmed = focusedNodeId && !isFocusedPath;
 
                             return (
                                 <React.Fragment key={conn.id}>
-                                    <motion.path
-                                        initial={{ opacity: 0, pathLength: 0 }}
-                                        animate={{
-                                            opacity: isDimmed ? 0.1 : 1,
-                                            pathLength: 1,
-                                            stroke: isFocusedPath ? '#a855f7' : "url(#link-gradient)"
-                                        }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.5 }}
-                                        d={conn.path}
-                                        fill="none"
-                                        strokeWidth={isFocusedPath ? "3" : "2"}
-                                        strokeLinecap="round"
-                                        className={cn(
-                                            "drop-shadow-[0_0_2px_rgba(168,85,247,0.3)]",
-                                            isFocusedPath && "filter-[url(#glow)]"
-                                        )}
-                                    />
+                                    {isLowDetail ? (
+                                        <path
+                                            d={conn.path}
+                                            fill="none"
+                                            stroke={isDimmed ? 'rgba(168,85,247,0.05)' : 'rgba(168,85,247,0.4)'}
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                        />
+                                    ) : (
+                                        <motion.path
+                                            initial={{ opacity: 0, pathLength: 0 }}
+                                            animate={{
+                                                opacity: isDimmed ? 0.1 : 1,
+                                                pathLength: 1,
+                                                stroke: isFocusedPath ? '#a855f7' : "url(#link-gradient)"
+                                            }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.5 }}
+                                            d={conn.path}
+                                            fill="none"
+                                            strokeWidth={isFocusedPath ? "3" : "2"}
+                                            strokeLinecap="round"
+                                            className={cn(
+                                                "drop-shadow-[0_0_2px_rgba(168,85,247,0.3)]",
+                                                isFocusedPath && "filter-[url(#glow)]"
+                                            )}
+                                        />
+                                    )}
                                 </React.Fragment>
                             );
                         })}
@@ -425,7 +461,7 @@ export const MindMapRadialView = React.memo(({
                 </svg>
 
                 <AnimatePresence>
-                    {nodes.map(node => {
+                    {visibleNodes.map(node => {
                         const Icon = (LucideIcons as any)[toPascalCase(node.data.icon || 'circle')] || LucideIcons.Circle;
                         const isLeaf = node.type === 'subcategory';
                         const isCollapsed = collapsedNodes.has(node.id);

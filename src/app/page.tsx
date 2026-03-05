@@ -26,12 +26,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
+import { parsePdfContent } from '@/lib/pdf-processor';
 import {
   Select,
   SelectContent,
@@ -190,6 +185,16 @@ function Hero({
       let type: 'text' | 'pdf' | 'image' = 'text';
 
       if (file.type.startsWith('image/')) {
+        // Enforce 2MB limit for images to prevent memory bloat and session storage limits
+        if (file.size > 2 * 1024 * 1024) {
+          toast({
+            title: "Image Too Large",
+            description: "Please upload an image smaller than 2MB.",
+            variant: "destructive"
+          });
+          return;
+        }
+
         type = 'image';
         content = await new Promise<string>((resolve) => {
           const reader = new FileReader();
@@ -203,38 +208,11 @@ function Hero({
         setPdfProgress({ current: 0, total: 1 });
 
         try {
-          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-          const pdf = await loadingTask.promise;
-          const totalPages = pdf.numPages;
-          let fullText = '';
-
-          for (let i = 1; i <= totalPages; i++) {
-            setPdfProgress({ current: i, total: totalPages });
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-
-            // Better text extraction: filter empty strings and trim
-            const pageText = textContent.items
-              .map((item: any) => item.str.trim())
-              .filter((str: string) => str.length > 0)
-              .join(' ');
-
-            fullText += pageText + '\n\n';
-          }
-
-          // Final cleanup of the whole document
-          let cleanedText = fullText
-            .replace(/\s+/g, ' ')               // Collapse multiple spaces
-            .replace(/\n\s*\n/g, '\n\n')       // Collapse multiple newlines
-            .trim();
-
-          // Apply a stricter character limit to prevent AI hangs on massive files
-          // 20,000 chars is roughly 5,000 tokens, which fits well within free-tier model outputs.
-          const MAX_TEXT_LENGTH = 20000;
-          if (cleanedText.length > MAX_TEXT_LENGTH) {
-            console.warn(`⚠️ PDF text truncated from ${cleanedText.length} to ${MAX_TEXT_LENGTH} characters.`);
-            cleanedText = cleanedText.substring(0, MAX_TEXT_LENGTH) + "... [Text truncated for processing]";
-          }
+          const { content: cleanedText } = await parsePdfContent(
+            arrayBuffer,
+            (progress) => setPdfProgress(progress),
+            100000
+          );
 
           setPdfProgress(null);
           setUploadedFile({
@@ -245,7 +223,11 @@ function Hero({
         } catch (err: any) {
           console.error("PDF Parsing error:", err);
           setPdfProgress(null);
-          toast({ title: "PDF Parse Failed", description: err.message || "Could not parse PDF.", variant: "destructive" });
+          toast({
+            title: "PDF Parse Failed",
+            description: err.message || "Could not parse PDF.",
+            variant: "destructive"
+          });
         }
         return;
       } else {
@@ -569,7 +551,7 @@ function Hero({
                   {/* Main Submit Button - Integrated on the Right */}
                   <Button
                     onClick={handleInternalSubmit}
-                    disabled={isGenerating || (!!uploadedFile && !topic)}
+                    disabled={isGenerating || (!topic && !uploadedFile)}
                     className={cn(
                       "h-16 w-16 rounded-3xl bg-primary text-white hover:brightness-110 hover:scale-105 active:scale-95 transition-all font-bold shadow-lg shadow-primary/30 flex items-center justify-center p-0",
                     )}

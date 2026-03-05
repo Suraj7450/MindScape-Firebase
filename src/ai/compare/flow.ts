@@ -41,8 +41,9 @@ export async function generateComparisonMapV2(
                 apiKey,
                 systemPrompt: system,
                 userPrompt: user,
+                schema: CompareMindMapSchema,
                 options: { model },
-            }) as any;
+            });
 
             // Ensure topic is present for compatibility
             if (!result.topic) {

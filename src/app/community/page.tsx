@@ -196,7 +196,7 @@ export default function CommunityPage() {
                             className="mt-4 text-purple-400"
                             onClick={() => {
                                 setSearchQuery('');
-                                setSelectedCategory('All');
+                                setSelectedCategories([]);
                             }}
                         >
                             Reset all filters

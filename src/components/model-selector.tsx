@@ -40,8 +40,8 @@ export const POLLINATIONS_MODELS = [
         isNew: true
     },
     {
-        value: 'flux-pro',
-        label: 'Flux Pro',
+        value: 'klein-large',
+        label: 'Klein Large',
         cost: 0.008,
         badge: 'Klein 9B',
         icon: Sparkles,

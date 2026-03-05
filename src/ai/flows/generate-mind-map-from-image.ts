@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { MindMapSchema } from '@/ai/mind-map-schema';
+import { AIGeneratedMindMapSchema, AIGeneratedMindMap } from '@/ai/mind-map-schema';
 
 const GenerateMindMapFromImageInputSchema = z.object({
   imageDataUri: z
@@ -36,11 +36,9 @@ type GenerateMindMapFromImageInput = z.infer<
   typeof GenerateMindMapFromImageInputSchema
 >;
 
-const GenerateMindMapFromImageOutputSchema = MindMapSchema;
+const GenerateMindMapFromImageOutputSchema = AIGeneratedMindMapSchema;
 
-export type GenerateMindMapFromImageOutput = z.infer<
-  typeof GenerateMindMapFromImageOutputSchema
->;
+export type GenerateMindMapFromImageOutput = AIGeneratedMindMap;
 
 import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 

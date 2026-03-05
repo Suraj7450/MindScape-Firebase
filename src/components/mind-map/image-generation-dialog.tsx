@@ -115,7 +115,7 @@ export function ImageGenerationDialog({
     isEnhancing
 }: ImageGenerationDialogProps) {
     const [prompt, setPrompt] = useState(initialPrompt);
-    const [model, setModel] = useState('klein');
+    const [model, setModel] = useState('klein-large');
     const [aspectRatio, setAspectRatio] = useState<typeof ASPECT_RATIOS[number]>(ASPECT_RATIOS[0]);
     const [selectedStyle, setSelectedStyle] = useState<string>('cinematic');
     const [composition, setComposition] = useState<string>('none');
@@ -137,13 +137,15 @@ export function ImageGenerationDialog({
             if (user && firestore) {
                 getUserImageSettings(firestore, user.uid).then(settings => {
                     if (settings?.preferredModel) {
-                        setModel(settings.preferredModel);
+                        let prefModel = settings.preferredModel;
+                        if (prefModel === 'flux-pro') prefModel = 'klein-large';
+                        setModel(prefModel);
                     } else {
-                        setModel('flux');
+                        setModel('klein-large');
                     }
                 });
             } else {
-                setModel('flux');
+                setModel('klein-large');
             }
         }
     }, [initialPrompt, isOpen, user, firestore]);
@@ -254,10 +256,7 @@ export function ImageGenerationDialog({
                                             <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
                                                 {STYLE_PRESETS.map((s) => (
                                                     <SelectItem key={s.id} value={s.id} className="focus:bg-zinc-900">
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="font-bold text-xs">{s.label}</span>
-                                                            <span className="text-[10px] text-zinc-500 truncate">{s.description}</span>
-                                                        </div>
+                                                        <span className="font-bold text-xs">{s.label}</span>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

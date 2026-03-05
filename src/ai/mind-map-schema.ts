@@ -201,25 +201,26 @@ export type NestedExpansionOutput = z.infer<typeof NestedExpansionOutputSchema>;
  */
 export const AIGeneratedMindMapSchema = z.object({
   mode: z.literal('single').default('single'),
-  topic: z.string().describe('The main topic of the mind map.'),
-  thought: z.string().optional().describe('Deep reasoning about the entire topic structure.'),
-  shortTitle: z.string().describe('A condensed version of the topic (max 3-4 words).'),
-  icon: z.string().describe('Icon name in kebab-case.'),
+  topic: z.string().describe('The primary focus of the mind map.'),
+  thought: z.string().optional().describe('Strategic reasoning about the layout and content.'),
+  shortTitle: z.string().describe('Condensed 2-4 word title for UI display.'),
+  icon: z.string().describe('Lucide-react icon name for the main topic.'),
   subTopics: z.array(z.object({
-    name: z.string(),
-    thought: z.string().optional(),
-    icon: z.string(),
-    insight: z.string().optional(),
+    name: z.string().min(1).describe('Title of the sub-topic section.'),
+    thought: z.string().optional().describe('Reasoning for this specific sub-topic branch.'),
+    icon: z.string().describe('Lucide-react icon name.'),
+    insight: z.string().optional().describe('A deeper synthesis of this sub-topic.'),
     categories: z.array(z.object({
-      name: z.string(),
+      name: z.string().min(1).describe('The conceptual category name.'),
       thought: z.string().optional(),
-      icon: z.string(),
+      icon: z.string().describe('Lucide-react icon name.'),
       insight: z.string().optional(),
       subCategories: z.array(z.object({
-        name: z.string(),
-        description: z.string(),
-        icon: z.string().optional()
-      })).min(1)
+        name: z.string().min(1).describe('The name of the leaf node.'),
+        description: z.string().min(1).describe('A one-sentence detailed explanation of this node.'),
+        icon: z.string().optional(),
+        tags: z.array(z.string()).optional()
+      })).min(1).describe('Crucial leaf nodes with detailed descriptions.')
     })).min(1)
   })).min(1)
 });

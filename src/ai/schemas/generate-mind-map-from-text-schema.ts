@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { MindMapSchema } from '@/ai/mind-map-schema';
+import { AIGeneratedMindMapSchema, AIGeneratedMindMap } from '@/ai/mind-map-schema';
 
 export const GenerateMindMapFromTextInputSchema = z.object({
   text: z
@@ -32,7 +32,5 @@ export type GenerateMindMapFromTextInput = z.infer<
   typeof GenerateMindMapFromTextInputSchema
 >;
 
-export const GenerateMindMapFromTextOutputSchema = MindMapSchema;
-export type GenerateMindMapFromTextOutput = z.infer<
-  typeof GenerateMindMapFromTextOutputSchema
->;
+export const GenerateMindMapFromTextOutputSchema = AIGeneratedMindMapSchema;
+export type GenerateMindMapFromTextOutput = AIGeneratedMindMap;

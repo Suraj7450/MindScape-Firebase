@@ -6,7 +6,7 @@ const POLLINATIONS_MODELS = {
   'zimage': { cost: 0.0002, quality: 'ultra-fast', description: 'Z-Image Turbo - Accelerated Generation' },
   'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Imagen 4 - State-of-the-art Fidelity' },
   'grok-imagine': { cost: 0.0025, quality: 'alpha', description: 'xAI Grok Imagine - Creative Outputs' },
-  'flux-pro': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 9B - Professional Grade' },
+  'klein-large': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 9B - Professional Grade' },
   'klein': { cost: 0.008, quality: 'high', description: 'FLUX.2 Klein 4B - Efficient High-Detail' },
   'gptimage': { cost: 8.0, quality: 'mini', description: 'GPT Image 1 Mini - Intelligent' }
 } as const;
@@ -32,50 +32,61 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
   const lowerPrompt = prompt.toLowerCase();
   let enhancedPrompt = prompt;
 
+  // De-duplicate: If the prompt already contains these keywords (e.g. from an earlier "Enhance" click), don't add them again
+  const lowerEnhanced = enhancedPrompt.toLowerCase();
+
+  const addKeywords = (keywords: string) => {
+    const kArray = keywords.split(',').map(k => k.trim());
+    const newKeywords = kArray.filter(k => !lowerEnhanced.includes(k.toLowerCase()));
+    if (newKeywords.length > 0) {
+      enhancedPrompt += (enhancedPrompt.endsWith(',') ? ' ' : ', ') + newKeywords.join(', ');
+    }
+  };
+
   // Add composition keywords
   if (composition && composition !== 'none') {
     const compKeywords: Record<string, string> = {
-      'close-up': 'extreme close-up shot, detailed textures, shallow depth of field',
-      'wide-shot': 'wide cinematic pan, sweeping landscape composition, expansive view',
-      'bird-eye': 'overlooking bird\'s eye view from above, high angle perspective',
-      'macro': 'macro photography, extreme detail, focused on tiny intricate features',
-      'low-angle': 'heroic low angle shot, looking up, imposing perspective'
+      'close-up': 'extreme close-up shot, macro detail, shallow depth of field, sharp focus on subject',
+      'wide-shot': 'wide cinematic pan, sweeping landscape, expansive view, immersive environment',
+      'bird-eye': 'overlooking bird\'s eye view from high altitude, top-down perspective, scale and layout focus',
+      'macro': 'macro photography, microscopic detail, intricate textures, extreme close-up',
+      'low-angle': 'heroic low angle shot looking up, powerful perspective, imposing architectural scale'
     };
-    if (compKeywords[composition]) enhancedPrompt += `, ${compKeywords[composition]}`;
+    if (compKeywords[composition]) addKeywords(compKeywords[composition]);
   }
 
   // Add mood keywords
   if (mood && mood !== 'none') {
     const moodKeywords: Record<string, string> = {
-      'golden-hour': 'golden hour sunset lighting, warm orange glow, long soft shadows',
-      'rainy': 'heavy rain, wet surfaces, moody gray lighting, atmospheric droplets',
-      'foggy': 'dense mysterious fog, low visibility, soft ethereal atmosphere',
-      'neon': 'vibrant neon lighting, glowing signs, cyberpunk night aesthetic',
-      'mystical': 'ethereal magical glow, dreamlike lighting, glowing particles',
-      'nocturnal': 'dark midnight lighting, moonlight shadows, deep blue atmosphere'
+      'golden-hour': 'golden hour lighting, warm amber glow, long soft shadows, ethereal sunset atmosphere',
+      'rainy': 'heavy rain, wet reflective surfaces, moody gray overcast lighting, atmospheric mist',
+      'foggy': 'dense mysterious fog, low visibility, soft diffused light, hauntingly beautiful atmosphere',
+      'neon': 'vibrant neon glow, electric colors, synthwave lighting, high contrast shadows',
+      'mystical': 'enchanting magical aura, glowing particles, dreamlike luminance, spiritual atmosphere',
+      'nocturnal': 'dim midnight lighting, deep blue moonlit shadows, calm nocturnal ambiance'
     };
-    if (moodKeywords[mood]) enhancedPrompt += `, ${moodKeywords[mood]}`;
+    if (moodKeywords[mood]) addKeywords(moodKeywords[mood]);
   }
 
   // If a specific style is provided, prioritize it
   if (style && style !== 'none' && style !== 'cinematic') {
     const styleKeywords: Record<string, string> = {
-      'anime': 'Studio Ghibli aesthetic, hand-painted textures, vibrant cel-shading, high detail anime style',
-      '3d-render': 'Unreal Engine 5 aesthetic, Octane render, ray-tracing, intricate PBR materials, digital perfection',
-      'cyberpunk': 'Neon noir lighting, rainy streets, holographic interfaces, vibrant pink and blue color palette',
-      'minimalist': 'Clean lines, negative space, soft neutral colors, elegant simplicity, high-end design',
-      'watercolor': 'Soft bleeding edges, textured paper, vibrant washes, artistic hand-painted watercolor style',
-      'pencil': 'Fine graphite lines, cross-hatching, realistic shading, hand-drawn pencil sketch aesthetic',
-      'polaroid': 'Vintage film grain, washed out colors, soft focus, authentic nostalgic polaroid photo look',
-      'pop-art': 'Bold halftone patterns, vibrant saturated colors, thick black outlines, Andy Warhol aesthetic',
-      'oil-painting': 'Rich impasto textures, visible brushstrokes, classic canvas feel, masterwork oil painting',
-      'pixel-art': 'Sharp 16-bit sprites, limited color palette, clean grid alignment, retro gaming aesthetic'
+      'anime': 'masterpiece anime style, Studio Ghibli inspired, high quality cel shading, vibrant colors, clean lineart',
+      '3d-render': 'hyper-realistic 3D render, Unreal Engine 5, Octane render, ray-tracing, intricate PBR materials, digital masterwork',
+      'cyberpunk': 'neon noir aesthetic, futuristic cyberpunk cityscape, rain-slicked streets, chrome and glass, high-tech noir',
+      'minimalist': 'clean minimalist design, elegant negative space, Bauhaus inspired, soft neutral tones, sophisticated simplicity',
+      'watercolor': 'artistic watercolor painting, wet-on-wet technique, soft color bleeds, textured cold-press paper',
+      'pencil': 'detailed graphite pencil sketch, cross-hatching, artistic hand-drawn texture, traditional art aesthetic',
+      'polaroid': 'vintage 90s polaroid photo, intentional film grain, soft lens blur, nostalgic warm color grading',
+      'pop-art': 'bold pop art style, Roy Lichtenstein inspired, halftone patterns, vibrant saturated primary colors, thick outlines',
+      'oil-painting': 'textured oil on canvas, visible impasto brushstrokes, rich pigment layers, classical masterwork aesthetic',
+      'pixel-art': 'crisp 16-bit pixel art, limited retro palette, clean grid-aligned pixels, nostalgic game aesthetic'
     };
 
     const keywords = styleKeywords[style] || '';
-    if (keywords) enhancedPrompt += `, ${keywords}`;
+    if (keywords) addKeywords(keywords);
   } else if (!style || style === 'cinematic') {
-    // Fallback to the existing person-aware cinematic enhancement if no major style is set
+    // Fallback to cinematic defaults if no major style is set
     const personKeywords = [
       'person', 'people', 'man', 'woman', 'leader', 'figure', 'celebrity',
       'scientist', 'artist', 'politician', 'entrepreneur', 'founder', 'ceo',
@@ -90,13 +101,13 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 
     const isPerson = personKeywords.some(keyword => {
       const regex = new RegExp(`\\b${keyword}\\b`, 'i');
-      return regex.test(lowerPrompt);
+      return regex.test(lowerEnhanced);
     });
 
     if (isPerson) {
-      enhancedPrompt += ', professional portrait photography, dramatic studio lighting, high detail, cinematic composition, 8k quality, photorealistic';
+      addKeywords('professional portrait photography, dramatic studio lighting, 8k resolution, cinematic composition, photorealistic, sharp focus');
     } else {
-      enhancedPrompt += ', cinematic lighting, 3D render, octane render, ultra detailed, 8k quality, dramatic shadows';
+      addKeywords('cinematic landscape photography, dramatic lighting, ultra-detailed, 8k quality, depth of field, atmospheric rendering');
     }
   }
 
@@ -106,7 +117,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['flux', 'zimage', 'imagen-4', 'grok-imagine', 'flux-pro', 'klein'];
+const MODEL_ROTATION_ORDER = ['flux', 'zimage', 'imagen-4', 'grok-imagine', 'klein-large', 'klein'];
 
 
 /**
@@ -131,7 +142,7 @@ export async function POST(req: Request) {
 
     const {
       prompt,
-      model = 'flux',
+      model: requestedModel = 'flux',
       style,
       composition,
       mood,
@@ -139,6 +150,10 @@ export async function POST(req: Request) {
       height = 1024,
       userApiKey
     } = body;
+
+    // Map legacy or incorrect model names
+    let model = requestedModel;
+    if (model === 'flux-pro') model = 'klein-large';
 
     // Validate inputs
     if (!prompt || prompt.trim().length === 0) {
@@ -189,7 +204,6 @@ export async function POST(req: Request) {
           model: currentModel,
           width: width.toString(),
           height: height.toString(),
-          nologo: 'true',
           seed: Math.floor(Math.random() * 1000000).toString()
         });
 

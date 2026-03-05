@@ -11,6 +11,7 @@ import {
   generateMindMapFromImage,
   GenerateMindMapFromImageOutput,
 } from '@/ai/flows/generate-mind-map-from-image';
+import { generateMindMapFromPdf } from '@/ai/flows/generate-mind-map-from-pdf';
 import { generateMindMapFromText } from '@/ai/flows/generate-mind-map-from-text';
 import type {
   GenerateMindMapFromTextInput,
@@ -131,25 +132,41 @@ export async function mapToMindMapData(raw: any, depth: 'low' | 'medium' | 'deep
         tags: Array.isArray(sub.tags) ? sub.tags : []
       }))
     })),
-    subTopics: (raw.subTopics || []).map((st: any): SubTopic => ({
-      name: st.name || '',
-      icon: st.icon || 'flag',
-      insight: st.insight || '',
-      categories: (st.categories || []).map((cat: any): Category => ({
-        name: cat.name || '',
-        icon: cat.icon || 'folder',
-        insight: cat.insight || '',
-        subCategories: (cat.subCategories || [])
-          .filter((sub: any) => sub && typeof sub.name === 'string' && sub.name.trim() !== '')
-          .map((sub: any): SubCategory => ({
-            name: sub.name || '',
-            description: sub.description || '',
-            icon: sub.icon || 'book-open',
-            tags: Array.isArray(sub.tags) ? sub.tags : [],
-            isExpanded: false
-          }))
-      }))
-    }))
+    subTopics: (raw.subTopics || []).map((st: any): SubTopic => {
+      const normalizedName = (st.name || '').trim().replace(/[:.!?]$/, '');
+      return {
+        name: normalizedName,
+        icon: st.icon || 'flag',
+        insight: st.insight || '',
+        id: st.id || `topic-${Math.random().toString(36).substr(2, 9)}`,
+        categories: (st.categories || []).map((cat: any): Category => {
+          const catName = (cat.name || '').trim().replace(/[:.!?]$/, '');
+          return {
+            name: catName,
+            icon: cat.icon || 'folder',
+            insight: cat.insight || '',
+            id: cat.id || `cat-${Math.random().toString(36).substr(2, 9)}`,
+            subCategories: (cat.subCategories || [])
+              .map((sub: any) => {
+                if (typeof sub === 'string') {
+                  const subContent = sub.trim().replace(/[:.!?]$/, '');
+                  return { name: subContent, description: `Details about ${subContent}`, icon: 'book-open', tags: [] };
+                }
+                return sub;
+              })
+              .filter((sub: any) => sub && typeof sub.name === 'string' && sub.name.trim() !== '')
+              .map((sub: any): SubCategory => ({
+                name: (sub.name || '').trim().replace(/[:.!?]$/, ''),
+                description: sub.description || '',
+                icon: sub.icon || 'book-open',
+                tags: Array.isArray(sub.tags) ? sub.tags : [],
+                id: sub.id || `sub-${Math.random().toString(36).substr(2, 9)}`,
+                isExpanded: false
+              }))
+          };
+        })
+      };
+    })
   } as SingleMindMapData;
 }
 
@@ -316,6 +333,33 @@ export async function generateMindMapFromImageAction(
     return {
       data: null,
       error: `Failed to generate mind map from image: ${errorMessage}`,
+    };
+  }
+}
+
+export async function generateMindMapFromPdfAction(
+  input: GenerateMindMapFromTextInput,
+  options: AIActionOptions = {}
+): Promise<{ data: MindMapData | null; error: string | null }> {
+  if (!input.text || input.text.trim().length < 10) {
+    return { data: null, error: 'PDF content is too short to generate a mind map.' };
+  }
+
+  try {
+    const depth = input.depth || 'low';
+    const effectiveApiKey = await resolveApiKey(options);
+    const result = await generateMindMapFromPdf({ ...input, depth, ...options, apiKey: effectiveApiKey });
+    if (!result) return { data: null, error: 'AI failed to process PDF.' };
+
+    const sanitized = await mapToMindMapData(result, depth);
+    return { data: sanitized, error: null };
+  } catch (error) {
+    console.error('Error in generateMindMapFromPdfAction:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'An unknown error occurred.';
+    return {
+      data: null,
+      error: `Failed to generate mind map from PDF: ${errorMessage}`,
     };
   }
 }

@@ -76,6 +76,7 @@ interface UserProfile {
         provider?: 'pollinations';
         imageProvider?: 'pollinations';
         pollinationsModel?: string;
+        pollinationsApiKey?: string;
     };
 }
 export default function ProfilePage() {
@@ -459,10 +460,10 @@ export default function ProfilePage() {
 
     // Helper for navigation items
     const navItems = [
-        { id: 'overview', label: 'Dashboard', icon: Brain },
-        { id: 'lab', label: 'AI Lab', icon: Sparkles },
-        { id: 'preferences', label: 'Preferences', icon: Settings },
-        { id: 'security', label: 'Security', icon: Lock },
+        { id: 'overview', label: 'Dashboard', icon: Brain, desc: 'Your learning metrics and activity history' },
+        { id: 'lab', label: 'AI Lab', icon: Sparkles, desc: 'Experimental AI features and tools' },
+        { id: 'preferences', label: 'Preferences', icon: Settings, desc: 'Customize your MindScape experience' },
+        { id: 'security', label: 'Security', icon: Lock, desc: 'Manage your personal access keys' },
     ] as const;
 
     return (

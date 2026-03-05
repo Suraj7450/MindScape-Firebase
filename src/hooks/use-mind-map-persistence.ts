@@ -161,16 +161,17 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
         isSavingRef.current = true;
 
         try {
-            const summary = mapToSave.summary || `A detailed mind map exploration of ${mapToSave.topic}.`;
+            const safeTopic = mapToSave.topic || (mapToSave as any).compareData?.root?.title || 'mind map topic';
+            const summary = mapToSave.summary || `A detailed mind map exploration of ${safeTopic}.`;
             // Detect person to avoid contradictory "NO portraits" for people
             const personKeywords = ['person', 'scientist', 'mathematician', 'leader', 'artist', 'founder', 'philosopher', 'explorer'];
-            const lowerTopic = mapToSave.topic.toLowerCase();
-            const isProbablyPerson = personKeywords.some(kw => lowerTopic.includes(kw)) || /\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(mapToSave.topic);
+            const lowerTopic = safeTopic.toLowerCase();
+            const isProbablyPerson = personKeywords.some(kw => lowerTopic.includes(kw)) || /\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(safeTopic);
 
             // Create highly specific, literal thumbnail prompt - Unified for all modes
             const thumbnailPrompt = isProbablyPerson
-                ? `Professional studio portrait of ${mapToSave.topic}, photorealistic, high detail, authentic representation, dramatic lighting, sharp focus, 8k quality`
-                : `Professional product photography of ${mapToSave.topic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
+                ? `Professional studio portrait of ${safeTopic}, photorealistic, high detail, authentic representation, dramatic lighting, sharp focus, 8k quality`
+                : `Professional product photography of ${safeTopic}, exact subject matter, literal representation, authentic branding, studio lighting, sharp focus, 8k resolution, NO generic people or portraits, realistic objects only`;
 
             // SPLIT SCHEMA: Metadata vs Content
             const { subTopics, compareData, nodes, edges, id, ...metadata } = mapToSave as any;
@@ -214,7 +215,7 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         console.log('✅ Background thumbnail generated:', data.model);
                     } else {
                         // Fallback to direct URL if API fails
-                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=flux&width=512&height=288&nologo=true&enhance=true`;
+                        finalThumbnailUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(thumbnailPrompt)}?model=flux&width=512&height=288&enhance=true`;
                         console.log('⚠️ Using fallback thumbnail URL');
                     }
 

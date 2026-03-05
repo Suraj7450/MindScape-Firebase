@@ -1105,7 +1105,6 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    )}
                   </div>
 
                   <h3 className="font-bold text-lg text-white mb-2 line-clamp-2 group-hover:text-purple-400 transition-colors font-orbitron tracking-tight pb-1 leading-snug" onClick={() => handleMindMapClick(map.id)}>

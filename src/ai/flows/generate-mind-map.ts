@@ -54,33 +54,33 @@ export async function generateMindMap(
   // Map depth to structural density with STRICT enforcement
   let densityInstruction = '';
   if (depth === 'medium') {
-    // Medium mode: 5×3×5 = 75 items
+    // Medium mode: ~45-50 items
     densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
     - Generate EXACTLY 5 subTopics (no more, no less)
     - EACH subTopic MUST have EXACTLY 3 categories
-    - EACH category MUST have EXACTLY 5 subCategories
-    - Total items: 5 × 3 × 5 = 75 items
+    - EACH category MUST have EXACTLY 3-4 subCategories
+    - Total items: ~45-55 items
     - QUALITY CHECK: Every node must have a full name and description.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets`;
   } else if (depth === 'deep') {
-    // Deep mode: 6×3×6 = 114 items (Sustainable for JSON stability)
+    // Deep mode: ~75-90 items (Safe limit for JSON stability)
     densityInstruction = `STRUCTURE DENSITY (STRICT REQUIREMENTS):
-    - Generate EXACTLY 6 subTopics (no more, no less)
-    - EACH subTopic MUST have EXACTLY 3-4 categories
+    - Generate EXACTLY 5-6 subTopics
+    - EACH subTopic MUST have EXACTLY 3 categories
     - EACH category MUST have EXACTLY 5-6 subCategories
-    - Target: ~115 highly detailed items
+    - Target: ~75-90 highly detailed items
     - QUALITY CHECK: Every node must have a full name, description, and thought process.
     - DO NOT generate empty or placeholder objects.
     - CRITICAL: Ensure ALL JSON is properly closed with matching braces and brackets
     - NEVER use "..." or placeholders to skip content. Every initiated object MUST be complete.
-    - If approaching token limit, prioritize closing JSON structures over adding more content.`;
+    - If approaching output limit, prioritize closing JSON structures over adding more nodes.`;
   } else {
-    // Basic mode: 24-40 items
+    // Basic mode: 20-30 items
     densityInstruction = `STRUCTURE DENSITY (FLEXIBLE):
-    - Generate 4-5 subTopics
-    - EACH subTopic should have 2-3 categories
-    - EACH category should have 3-4 subCategories
-    - Target range: 24 - 40 total items.
+    - Generate 4 subTopics
+    - EACH subTopic should have 2 categories
+    - EACH category should have 2-3 subCategories
+    - Target range: 20-30 total items.
     - Focus on a high-level but substantial overview.`;
   }
 

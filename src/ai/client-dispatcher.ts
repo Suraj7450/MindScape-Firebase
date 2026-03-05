@@ -141,7 +141,7 @@ function isReasoningOnly(raw: any, schema?: any, isFinalAttempt: boolean = false
     const hasRootData = !!raw.root || !!raw.topic;
 
     // Special case: If it has a topic but NO subTopics, and it's supposed to be a mind map (schema check), it's probably empty/truncated.
-    const isMindMapSchema = schema?.description?.toLowerCase().includes('mind map') || JSON.stringify(schema).toLowerCase().includes('subtopics');
+    const isMindMapSchema = (schema?.description || '').toLowerCase().includes('mind map') || JSON.stringify(schema || {}).toLowerCase().includes('subtopics');
     if (isMindMapSchema && hasRootData && !hasSubTopics) {
         // SMART RETRY: If it's the final attempt, we'd rather show a "thin" map than fail/hang
         if (isFinalAttempt) {
@@ -211,11 +211,106 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 }
 
 /**
+ * Normalizes a {name, children} tree format into the expected mind map schema.
+ * Some models (gemini-fast) return a generic tree instead of the exact schema.
+ * 
+ * Tree depth mapping:
+ *   Root          → { topic, shortTitle, icon, subTopics }
+ *   Level 1       → subTopics: [{ name, icon, categories }]
+ *   Level 2       → categories: [{ name, icon, subCategories }]
+ *   Level 3+      → subCategories: [{ name, description, icon }]
+ */
+function normalizeMindMapTree(tree: any): any {
+    const rootName = tree.name || tree.title || 'Document Mind Map';
+    const rootChildren = tree.children || [];
+
+    // Build subTopics from level 1 children
+    const subTopics = rootChildren.map((l1: any) => {
+        const l1Children = l1.children || [];
+
+        // Build categories from level 2 children
+        const categories = l1Children.map((l2: any) => {
+            const l2Children = l2.children || [];
+
+            // Build subCategories from level 3+ children
+            const subCategories = l2Children.map((l3: any) => ({
+                name: l3.name || l3.title || 'Detail',
+                description: l3.description || l3.value || l3.content
+                    || (l3.children && l3.children.length > 0
+                        ? l3.children.map((c: any) => c.name || c.title || '').join(', ')
+                        : `Details about ${l3.name || 'this item'}`),
+                icon: l3.icon || 'circle',
+                tags: l3.tags || [],
+            }));
+
+            return {
+                name: l2.name || l2.title || 'Category',
+                icon: l2.icon || 'folder',
+                subCategories: subCategories.length > 0 ? subCategories : [
+                    { name: l2.name || 'Detail', description: l2.description || `About ${l2.name}`, icon: 'circle' }
+                ],
+            };
+        });
+
+        return {
+            name: l1.name || l1.title || 'Sub-Topic',
+            icon: l1.icon || 'layers',
+            categories: categories.length > 0 ? categories : [
+                {
+                    name: l1.name || 'Overview',
+                    icon: 'folder',
+                    subCategories: [
+                        { name: l1.name || 'Detail', description: l1.description || `About ${l1.name}`, icon: 'circle' }
+                    ]
+                }
+            ],
+        };
+    });
+
+    const normalized = {
+        mode: 'single' as const,
+        topic: rootName,
+        shortTitle: rootName.split(' ').slice(0, 3).join(' '),
+        icon: tree.icon || 'brain',
+        subTopics: subTopics.length > 0 ? subTopics : [],
+    };
+
+    console.log(`🔄 Normalized: topic="${normalized.topic}", subTopics=${normalized.subTopics.length}`);
+    return normalized;
+}
+
+/**
  * Validates and parses the AI response text.
  * Handles markdown stripping, robust JSON extraction, and schema validation.
  */
 function validateAndParse(raw: any, schema?: any, strict: boolean = false): any {
     if (typeof raw !== 'string') {
+        // Debug: log what the AI returned at the top level
+        if (typeof raw === 'object' && raw !== null) {
+            const keys = Object.keys(raw);
+            console.log(`🔍 validateAndParse: raw is object with keys [${keys.slice(0, 10).join(', ')}]`);
+
+            // If top-level keys don't include expected schema fields, check for nested wrappers
+            if (!raw.topic && !raw.subTopics && !raw.compareData) {
+                // 1. Check for simple wrapper keys like { mindMap: {...} }
+                const wrapperKeys = ['mindMap', 'mindmap', 'data', 'result', 'output', 'response', 'mind_map'];
+                for (const key of wrapperKeys) {
+                    if (raw[key] && typeof raw[key] === 'object') {
+                        console.log(`🔍 validateAndParse: Unwrapping nested data from "${key}" key`);
+                        raw = raw[key];
+                        break;
+                    }
+                }
+
+                // 2. Normalize {name, children} tree format → expected schema format
+                // Some models (gemini-fast) return a generic tree instead of the exact schema
+                if (!raw.topic && raw.name && Array.isArray(raw.children)) {
+                    console.log(`🔄 validateAndParse: Normalizing {name, children} format → schema format`);
+                    raw = normalizeMindMapTree(raw);
+                }
+            }
+        }
+
         if (schema) {
             const result = schema.safeParse(raw);
             if (!result.success) {
@@ -273,25 +368,37 @@ function performSchemaValidation(parsed: any, schema: any, originalRaw: string, 
 
     const result = schema.safeParse(parsed);
     if (!result.success) {
-        // --- FIX 3: Partial Salvage Acceptance ---
-        // If schema fails but we have at least 4 subTopics, accept it as a "salvaged" map.
+        // --- FIX 3: Enhanced Partial Salvage Acceptance ---
+        // If schema fails, we still try to salvage as much as possible to prevent UI crashes.
         const partial = parsed as any;
-        if (
-            partial?.subTopics &&
-            Array.isArray(partial.subTopics) &&
-            partial.subTopics.length >= 4
-        ) {
-            console.warn('⚠️ Accepting partial deep-mode mind map due to size limits. Zod Error:', result.error.message);
+
+        // Ensure top-level structure
+        if (!partial.subTopics || !Array.isArray(partial.subTopics)) {
+            partial.subTopics = [];
+        }
+
+        // Recursive sanitization to ensure every node has its required child arrays
+        // This prevents "cannot read property map of undefined" in the frontend.
+        partial.subTopics.forEach((st: any) => {
+            if (!st.categories || !Array.isArray(st.categories)) {
+                st.categories = [];
+            }
+            st.categories.forEach((cat: any) => {
+                if (!cat.subCategories || !Array.isArray(cat.subCategories)) {
+                    cat.subCategories = [];
+                }
+            });
+        });
+
+        // If we have at least 2 subTopics OR we are in loose mode, proceed with the sanitized map.
+        if (partial.subTopics.length >= 2 || !strict) {
+            console.warn('⚠️ Salvaging partial mind map after schema/truncation mismatch. Zod Error:', result.error.message);
             return partial;
         }
 
         if (strict) {
             console.error("❌ Schema Validation Error:", result.error);
             throw new StructuredOutputError("AI response did not match the required schema structure.", originalRaw, result.error);
-        } else {
-            console.warn("⚠️ Schema Validation failed in loose mode, ensuring minimum structure.");
-            if (!parsed.subTopics) parsed.subTopics = [];
-            return parsed;
         }
     }
     return result.data;

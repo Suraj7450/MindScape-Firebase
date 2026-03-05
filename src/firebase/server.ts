@@ -9,10 +9,23 @@ import * as path from 'path';
 export function initializeFirebaseServer() {
     if (admin.apps.length === 0) {
         try {
-            // Try to use service account if available via root path
-            const saPath = path.join(process.cwd(), 'service-account.json');
+            // First try to use environment variables for service account
+            if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+                try {
+                    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+                    admin.initializeApp({
+                        credential: admin.credential.cert(serviceAccount)
+                    });
+                    console.log("✅ Firebase Admin initialized via FIREBASE_SERVICE_ACCOUNT_JSON env var");
+                    return { app: admin.app(), firestore: admin.firestore() };
+                } catch (jsonErr) {
+                    console.error("❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", jsonErr);
+                }
+            }
 
-            if (fs.existsSync(saPath)) {
+            // Fallback: check for service-account.json file if not in production
+            const saPath = path.join(process.cwd(), 'service-account.json');
+            if (process.env.NODE_ENV !== 'production' && fs.existsSync(saPath)) {
                 const saContent = fs.readFileSync(saPath, 'utf8');
                 const serviceAccount = JSON.parse(saContent);
 
@@ -21,8 +34,7 @@ export function initializeFirebaseServer() {
                 });
                 console.log("✅ Firebase Admin initialized with service account from:", saPath);
             } else {
-                console.log("⚠️ service-account.json not found at:", saPath);
-                // Fallback to default credentials (environment variables)
+                // Final fallback to default credentials
                 admin.initializeApp();
                 console.log("ℹ️ Firebase Admin initialized with default credentials");
             }

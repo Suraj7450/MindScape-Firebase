@@ -47,6 +47,7 @@ import { collection, getDocs, query, where, doc, getDoc, limit, increment, updat
 import {
   generateMindMapAction,
   generateMindMapFromImageAction,
+  generateMindMapFromPdfAction,
   generateMindMapFromTextAction,
   generateComparisonMapAction,
   mapToMindMapData,
@@ -394,8 +395,7 @@ function MindMapPageContent() {
                 });
               } else if (sessionType === 'pdf') {
                 currentMode = 'vision-pdf';
-                // PDF content is text-based, so we use the text action
-                result = await generateMindMapFromTextAction({
+                result = await generateMindMapFromPdfAction({
                   text: fileContent,
                   context: additionalText, // Include custom topic if provided
                   targetLang: params.lang,
@@ -422,8 +422,6 @@ function MindMapPageContent() {
                   userId: user?.uid,
                 });
               }
-              sessionStorage.removeItem(`session-type-${params.sessionId}`);
-              sessionStorage.removeItem(`session-content-${params.sessionId}`);
             }
           } else if (params.studioId) {
             const rawStudioData = sessionStorage.getItem(`studio-data-${params.studioId}`);
@@ -490,6 +488,10 @@ function MindMapPageContent() {
                 navigateToMap(savedId);
               }
             });
+          }
+          if (params.sessionId) {
+            sessionStorage.removeItem(`session-type-${params.sessionId}`);
+            sessionStorage.removeItem(`session-content-${params.sessionId}`);
           }
         } else {
           setIsLoading(false);
