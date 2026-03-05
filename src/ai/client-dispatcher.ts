@@ -131,33 +131,45 @@ const providerMonitor = new ProviderMonitor();
 function isReasoningOnly(raw: any, schema?: any, isFinalAttempt: boolean = false): boolean {
     if (typeof raw !== 'object' || raw === null) return false;
 
-    // Detect reasoning-heavy fields
-    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning || (typeof raw.thought === 'string' && raw.thought.length > 300);
+    // Detect reasoning-heavy fields used by various models
+    const hasReasoning = !!raw.reasoning_content || !!raw.reasoning || (typeof raw.thought === 'string' && raw.thought.length > 200);
 
-    // Check for "meaningful" data. For mind maps, this means having subTopics.
-    // If it's a compare result, it needs compareData.
+    // Check for "meaningful" data.
     const hasSubTopics = Array.isArray(raw.subTopics) && raw.subTopics.length > 0;
     const hasCompareData = !!raw.compareData || !!raw.similarities || !!raw.differences;
     const hasRootData = !!raw.root || !!raw.topic;
 
-    // Special case: If it has a topic but NO subTopics, and it's supposed to be a mind map (schema check), it's probably empty/truncated.
+    // Check for general content fields (for non-mindmap tasks)
+    const hasGeneralContent = !!raw.content || !!raw.text || !!raw.enhancedPrompt || !!raw.answer || !!raw.result;
+
+    // Mind Map detection
     const isMindMapSchema = (schema?.description || '').toLowerCase().includes('mind map') || JSON.stringify(schema || {}).toLowerCase().includes('subtopics');
+
     if (isMindMapSchema && hasRootData && !hasSubTopics) {
-        // SMART RETRY: If it's the final attempt, we'd rather show a "thin" map than fail/hang
         if (isFinalAttempt) {
-            console.warn('⚠️ Final attempt: Accepting response with topic but no subTopics to prevent hang.');
+            console.warn('⚠️ Final attempt: Accepting response with topic but no subTopics.');
             return false;
         }
-        console.warn('⚠️ Response contains topic but no subTopics. Treating as empty/truncated for retry.');
         return true;
     }
 
-    // Special case: if it has virtually no data but was marked as success, it might be a reasoning-only failure
-    if (Object.keys(raw).length <= 2 && (raw.thought || raw.reasoning)) {
-        return !isFinalAttempt; // On final attempt, we might have to accept it if that's all we got
+    // If it has reasoning but ALSO has either mindmap data, compare data, OR general content, it's NOT reasoning-only.
+    const hasActualData = hasSubTopics || hasCompareData || hasGeneralContent;
+
+    // If it's a very small object and has reasoning, it's likely reasoning-only
+    if (Object.keys(raw).length <= 2 && hasReasoning && !hasActualData) {
+        return !isFinalAttempt;
     }
 
-    return hasReasoning && !(hasSubTopics || hasCompareData);
+    // If it's not a mindmap or compare task, be much more lenient
+    if (!isMindMapSchema && !hasCompareData) {
+        // If it has any data at all, it's fine
+        if (hasActualData) return false;
+        // If it only has reasoning and it's not the final attempt, retry
+        return hasReasoning && !isFinalAttempt;
+    }
+
+    return hasReasoning && !hasActualData;
 }
 
 /**
@@ -340,7 +352,10 @@ function validateAndParse(raw: any, schema?: any, strict: boolean = false): any 
     try {
         return performSchemaValidation(JSON.parse(cleaned), schema, cleaned, strict);
     } catch (e) {
-        // 3. Robust Extraction fallback
+        // If no schema is expected, this is a plain-text response — return it as-is
+        if (!schema) return cleaned;
+
+        // 3. Robust Extraction fallback (only for structured/schema responses)
         // Sometimes models prefix the JSON with prose even if told not to
         const firstBrace = cleaned.indexOf('{');
         const lastBrace = cleaned.lastIndexOf('}');

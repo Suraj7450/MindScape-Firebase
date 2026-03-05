@@ -794,14 +794,16 @@ export const MindMap = ({
     setIsImageLabOpen(true);
   };
 
-  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string) => {
+  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string, colorPalette?: string, lighting?: string) => {
     setIsEnhancing(true);
     try {
       const { enhancedPrompt, error } = await enhanceImagePromptAction({
         prompt,
         style,
         composition,
-        mood
+        mood,
+        colorPalette,
+        lighting
       }, providerOptions);
 
       if (error) throw new Error(error);
@@ -862,6 +864,8 @@ export const MindMap = ({
           style: settings.style,
           composition: settings.composition,
           mood: settings.mood,
+          colorPalette: settings.colorPalette,
+          lighting: settings.lighting,
           width: settings.width,
           height: settings.height,
           userId: user?.uid,
@@ -1541,14 +1545,16 @@ export const MindMap = ({
           nodeName={nestedLabNode.topic}
           nodeDescription={`Updating thumbnail for ${nestedLabNode.topic}`}
           initialPrompt={`${nestedLabNode.topic}, professional photography, high quality, detailed, 8k`}
-          onEnhancePrompt={async (prompt, style, composition, mood) => {
+          onEnhancePrompt={async (prompt, style, composition, mood, colorPalette, lighting) => {
             setIsEnhancingNested(true);
             try {
               const { enhancedPrompt, error } = await enhanceImagePromptAction({
                 prompt,
                 style,
                 composition,
-                mood
+                mood,
+                colorPalette,
+                lighting
               }, providerOptions);
               if (error) throw new Error(error);
               return enhancedPrompt?.enhancedPrompt || prompt;

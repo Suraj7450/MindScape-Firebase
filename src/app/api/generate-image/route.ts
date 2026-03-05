@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server';
 const POLLINATIONS_MODELS = {
   'flux': { cost: 0.0002, quality: 'high', description: 'Flux Schnell - High Quality & Rapid Speed' },
   'zimage': { cost: 0.0002, quality: 'ultra-fast', description: 'Z-Image Turbo - Accelerated Generation' },
-  'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Imagen 4 - State-of-the-art Fidelity' },
-  'grok-imagine': { cost: 0.0025, quality: 'alpha', description: 'xAI Grok Imagine - Creative Outputs' },
-  'klein-large': { cost: 0.008, quality: 'premium', description: 'FLUX.2 Klein 9B - Professional Grade' },
+  'flux-2-dev': { cost: 0.001, quality: 'alpha', description: 'FLUX.2 Dev (api.airforce) - High Detail' },
+  'imagen-4': { cost: 0.0025, quality: 'alpha', description: 'Google Imagen 4 (api.airforce) - High Fidelity' },
+  'grok-imagine': { cost: 0.0025, quality: 'alpha', description: 'xAI Grok Imagine (api.airforce) - Creative' },
+  'klein-large': { cost: 0.012, quality: 'premium', description: 'FLUX.2 Klein 9B - Professional Grade' },
   'klein': { cost: 0.008, quality: 'high', description: 'FLUX.2 Klein 4B - Efficient High-Detail' },
   'gptimage': { cost: 8.0, quality: 'mini', description: 'GPT Image 1 Mini - Intelligent' }
 } as const;
@@ -19,6 +20,8 @@ interface GenerateImageRequest {
   style?: string;
   composition?: string;
   mood?: string;
+  colorPalette?: string;
+  lighting?: string;
   width?: number;
   height?: number;
   userId?: string;
@@ -28,7 +31,7 @@ interface GenerateImageRequest {
 /**
  * Enhance prompt with style-specific keywords or cinematic defaults
  */
-function applyStyleToPrompt(prompt: string, style?: string, composition?: string, mood?: string): string {
+function applyStyleToPrompt(prompt: string, style?: string, composition?: string, mood?: string, colorPalette?: string, lighting?: string): string {
   const lowerPrompt = prompt.toLowerCase();
   let enhancedPrompt = prompt;
 
@@ -66,6 +69,34 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
       'nocturnal': 'dim midnight lighting, deep blue moonlit shadows, calm nocturnal ambiance'
     };
     if (moodKeywords[mood]) addKeywords(moodKeywords[mood]);
+  }
+
+  // Add color palette keywords
+  if (colorPalette && colorPalette !== 'none') {
+    const paletteKeywords: Record<string, string> = {
+      'warm': 'warm amber and orange tones, sunset color palette, cozy inviting warmth',
+      'cool': 'cool blue and teal tones, icy clean color palette, serene atmosphere',
+      'monochrome': 'black and white monochrome, dramatic contrast, desaturated tonal range',
+      'vibrant': 'highly saturated vivid colors, bold chromatic intensity, eye-catching palette',
+      'pastel': 'soft delicate pastel colors, muted gentle tones, dreamy watercolor palette',
+      'earth': 'earthy brown green terracotta tones, organic natural color palette, grounding warmth',
+      'neon-palette': 'electric neon colors, fluorescent pink blue green, high contrast glowing spectrum'
+    };
+    if (paletteKeywords[colorPalette]) addKeywords(paletteKeywords[colorPalette]);
+  }
+
+  // Add lighting keywords
+  if (lighting && lighting !== 'none') {
+    const lightingKeywords: Record<string, string> = {
+      'natural': 'soft natural daylight, open shade, true-to-life color rendering',
+      'studio': 'professional three-point studio lighting, clean catchlights, controlled exposure',
+      'dramatic': 'chiaroscuro dramatic lighting, deep shadows, intense spotlight contrast',
+      'backlit': 'strong backlit silhouette, rim-lit edges, glowing halo effect',
+      'rim-light': 'precise rim lighting, edge-lit contours, subject separation from background',
+      'volumetric': 'volumetric god rays, light shafts through atmosphere, cinematic haze',
+      'candlelight': 'warm flickering candlelight, intimate low-key amber glow, romantic chiaroscuro'
+    };
+    if (lightingKeywords[lighting]) addKeywords(lightingKeywords[lighting]);
   }
 
   // If a specific style is provided, prioritize it
@@ -117,7 +148,7 @@ function applyStyleToPrompt(prompt: string, style?: string, composition?: string
 /**
  * Model registry for rotation
  */
-const MODEL_ROTATION_ORDER = ['flux', 'zimage', 'imagen-4', 'grok-imagine', 'klein-large', 'klein'];
+const MODEL_ROTATION_ORDER = ['flux', 'zimage', 'flux-2-dev', 'imagen-4', 'grok-imagine', 'klein', 'klein-large'];
 
 
 /**
@@ -146,6 +177,8 @@ export async function POST(req: Request) {
       style,
       composition,
       mood,
+      colorPalette,
+      lighting,
       width = 1024,
       height = 1024,
       userApiKey
@@ -187,7 +220,7 @@ export async function POST(req: Request) {
     }
 
     // Enhance prompt using the new style-aware logic
-    const enhancedPrompt = applyStyleToPrompt(prompt, style, composition, mood);
+    const enhancedPrompt = applyStyleToPrompt(prompt, style, composition, mood, colorPalette, lighting);
 
     // Implement model rotation for higher success rate
     let currentModel = model;

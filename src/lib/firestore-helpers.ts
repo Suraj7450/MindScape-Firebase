@@ -89,7 +89,7 @@ export async function getUserImageSettings(firestore: Firestore, userId: string)
                 console.log('✅ Found API key in old location (apiSettings), using it');
                 return {
                     pollinationsApiKey: userData.apiSettings.pollinationsApiKey,
-                    preferredModel: userData.apiSettings.pollinationsModel || 'flux',
+                    preferredModel: (userData.apiSettings.pollinationsModel === 'flux-pro' ? 'klein-large' : userData.apiSettings.pollinationsModel) || 'flux',
                     apiKeyCreatedAt: Date.now(),
                     apiKeyLastUsed: Date.now()
                 };

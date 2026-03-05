@@ -10,6 +10,8 @@ import { Achievement } from '@/lib/achievements';
 
 interface PersistenceOptions {
     onRemoteUpdate?: (data: MindMapData) => void;
+    userApiKey?: string;
+    preferredModel?: string;
 }
 
 /**
@@ -184,15 +186,23 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                 try {
                     console.log('🖼️ Generating background thumbnail...');
 
-                    // Try to get user's API key if available (gracefully handle permission errors)
-                    let userSettings = null;
-                    try {
-                        const { getUserImageSettings } = await import('@/lib/firestore-helpers');
-                        userSettings = await getUserImageSettings(firestore, user.uid);
-                    } catch (firestoreError: any) {
-                        console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
-                        // Continue without user settings - will use server API key
+                    // Use the user's API key from AI config context (passed via options)
+                    // Only fall back to Firestore settings if config key is not available
+                    let effectiveApiKey = options.userApiKey;
+                    let effectiveModel = options.preferredModel || 'flux';
+
+                    if (!effectiveApiKey) {
+                        try {
+                            const { getUserImageSettings } = await import('@/lib/firestore-helpers');
+                            const userSettings = await getUserImageSettings(firestore, user.uid);
+                            if (userSettings?.pollinationsApiKey) effectiveApiKey = userSettings.pollinationsApiKey;
+                            if (userSettings?.preferredModel) effectiveModel = userSettings.preferredModel;
+                        } catch (firestoreError: any) {
+                            console.warn('⚠️ Could not load user settings from Firestore:', firestoreError.message);
+                        }
                     }
+
+                    console.log(`🖼️ Thumbnail using: ${effectiveApiKey ? 'User Key' : 'Server Key'}, Model: ${effectiveModel}`);
 
                     // Call Pollinations API
                     const response = await fetch('/api/generate-image', {
@@ -200,11 +210,11 @@ export function useMindMapPersistence(options: PersistenceOptions = {}) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: thumbnailPrompt,
-                            model: userSettings?.preferredModel || 'flux',
+                            model: effectiveModel,
                             width: 512,
                             height: 288,
                             userId: user.uid,
-                            userApiKey: userSettings?.pollinationsApiKey
+                            userApiKey: effectiveApiKey
                         })
                     });
 

@@ -16,6 +16,8 @@ const EnhanceImagePromptInputSchema = z.object({
     style: z.string().optional().describe('An optional artistic style to apply.'),
     composition: z.string().optional().describe('An optional camera composition/angle.'),
     mood: z.string().optional().describe('An optional mood or lighting atmosphere.'),
+    colorPalette: z.string().optional().describe('An optional color palette preference.'),
+    lighting: z.string().optional().describe('An optional lighting technique.'),
 });
 export type EnhanceImagePromptInput = z.infer<
     typeof EnhanceImagePromptInputSchema
@@ -61,8 +63,10 @@ Guidelines:
     const compositionContext = input.composition && input.composition !== 'none' ? `\nComposition Context: Use a ${input.composition} camera angle.` : '';
     const moodContext = input.mood && input.mood !== 'none' ? `\nMood Context: Atmospheric ${input.mood} lighting and environment.` : '';
     const styleContext = input.style ? `\nStyle Context: ${styleInstructions[input.style] || input.style}` : '';
+    const colorContext = input.colorPalette && input.colorPalette !== 'none' ? `\nColor Palette: Use a ${input.colorPalette} color scheme throughout the image.` : '';
+    const lightingContext = input.lighting && input.lighting !== 'none' ? `\nLighting Technique: Apply ${input.lighting} lighting for the scene.` : '';
 
-    const userPrompt = `Concept to enhance: "${input.prompt}"${styleContext}${compositionContext}${moodContext}\n\nCreate a professional-grade prompt that captures this perfectly.`;
+    const userPrompt = `Concept to enhance: "${input.prompt}"${styleContext}${compositionContext}${moodContext}${colorContext}${lightingContext}\n\nCreate a professional-grade prompt that captures this perfectly.`;
 
     try {
         const result = await generateContent({

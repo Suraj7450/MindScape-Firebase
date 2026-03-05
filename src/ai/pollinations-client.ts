@@ -92,7 +92,9 @@ export async function generateContentWithPollinations(
 
     // Override if specific capabilities are needed
     if (hasImages) {
-        model = 'openai'; // Vision support
+        // Rotate vision models instead of retrying the same one
+        const visionModels = ['openai', 'gemini', 'qwen-vl'];
+        model = visionModels[attempt % visionModels.length];
     } else if (systemPrompt.toLowerCase().includes('search') && attempt === 0) {
         // Use high-reliability model for grounded JSON tasks on first try
         model = options.model || 'openai';
@@ -101,10 +103,13 @@ export async function generateContentWithPollinations(
     console.log(`🤖 Pollinations Expert Selector: Mode=${hasImages ? 'Vision' : 'Text'}, Model=${model}, Attempt=${attempt}`);
 
     try {
+        // Only inject JSON rules if we are explicitly asking for a structured response
+        const isStructured = options.response_format || systemPrompt.toLowerCase().includes('json');
+
         const messages: any[] = [
             {
                 role: 'system',
-                content: systemPrompt + `
+                content: systemPrompt + (isStructured ? `
                 
 CRITICAL SAFETY & OUTPUT RULES:
 - You must return ONLY the final structured JSON answer.
@@ -114,7 +119,7 @@ CRITICAL SAFETY & OUTPUT RULES:
 - Keep the response concise, factual, and strictly schema-compliant.
 - Output ONLY the raw JSON string, starting with '{' and ending with '}'.
 - NEVER include comments (// or /* ... */) in the JSON.
-`
+` : '')
             }
         ];
 
@@ -184,7 +189,7 @@ CRITICAL SAFETY & OUTPUT RULES:
 
         let response: Response;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
 
         try {
             response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -199,7 +204,7 @@ CRITICAL SAFETY & OUTPUT RULES:
         } catch (fetchError: any) {
             clearTimeout(timeoutId);
             if (fetchError.name === 'AbortError') {
-                console.warn(`🕒 Pollinations API request timed out (30s). Attempt: ${attempt}`);
+                console.warn(`🕒 Pollinations API request timed out (120s). Attempt: ${attempt}`);
                 if (attempt < 2) {
                     return generateContentWithPollinations(systemPrompt, userPrompt, images, {
                         ...options,

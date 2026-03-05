@@ -98,8 +98,10 @@ function MindMapPageContent() {
   const handleUpdateRef = useRef<(data: Partial<MindMapData>) => void>(() => { });
 
   const persistenceOptions = useMemo(() => ({
-    onRemoteUpdate: (data: MindMapData) => handleUpdateRef.current(data)
-  }), []);
+    onRemoteUpdate: (data: MindMapData) => handleUpdateRef.current(data),
+    userApiKey: config.pollinationsApiKey,
+    preferredModel: config.pollinationsModel,
+  }), [config.pollinationsApiKey, config.pollinationsModel]);
 
   const { aiPersona, updatePersona: handlePersonaChange, subscribeToMap, saveMap: handleSaveMap, setupAutoSave } = useMindMapPersistence(persistenceOptions);
 
@@ -239,7 +241,7 @@ function MindMapPageContent() {
         return;
       }
 
-      if (lastFetchedParamsRef.current === currentParamsKey && isLoading) return;
+      if (lastFetchedParamsRef.current === currentParamsKey) return;
       lastFetchedParamsRef.current = currentParamsKey;
 
       setIsLoading(true);

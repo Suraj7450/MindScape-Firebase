@@ -34,7 +34,7 @@ export async function getUserImageSettingsAdmin(userId: string): Promise<UserIma
             if (userData?.apiSettings?.pollinationsApiKey) {
                 return {
                     pollinationsApiKey: userData.apiSettings.pollinationsApiKey,
-                    preferredModel: userData.apiSettings.pollinationsModel || 'klein-large',
+                    preferredModel: userData.apiSettings.pollinationsModel || 'flux',
                     apiKeyCreatedAt: Date.now(),
                     apiKeyLastUsed: Date.now()
                 };

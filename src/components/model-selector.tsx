@@ -10,16 +10,28 @@ export const POLLINATIONS_MODELS = [
         badge: 'Fast',
         icon: Zap,
         description: 'Flux Schnell - High Quality & Rapid Speed (Instant)',
-        isNew: false
+        isNew: false,
+        pollenApprox: '5K'
     },
     {
         value: 'zimage',
         label: 'Z-Image Turbo',
         cost: 0.0002,
-        badge: 'Ultra Fast',
+        badge: 'Turbo',
         icon: Sparkles,
         description: 'Z-Image Turbo - Accelerated generation for dynamic workflows',
-        isNew: true
+        isNew: false,
+        pollenApprox: '5K'
+    },
+    {
+        value: 'flux-2-dev',
+        label: 'FLUX.2 Dev',
+        cost: 0.001,
+        badge: 'Alpha',
+        icon: Palette,
+        description: 'FLUX.2 Dev (api.airforce) - High detail research model',
+        isNew: true,
+        pollenApprox: '1K'
     },
     {
         value: 'imagen-4',
@@ -27,8 +39,9 @@ export const POLLINATIONS_MODELS = [
         cost: 0.0025,
         badge: 'Alpha',
         icon: Crown,
-        description: 'Google Imagen 4 - State-of-the-art visual fidelity',
-        isNew: true
+        description: 'Google Imagen 4 (api.airforce) - State-of-the-art fidelity',
+        isNew: true,
+        pollenApprox: '400'
     },
     {
         value: 'grok-imagine',
@@ -36,35 +49,39 @@ export const POLLINATIONS_MODELS = [
         cost: 0.0025,
         badge: 'Alpha',
         icon: Brain,
-        description: 'xAI Grok Imagine - Creative and expressive outputs',
-        isNew: true
-    },
-    {
-        value: 'klein-large',
-        label: 'Klein Large',
-        cost: 0.008,
-        badge: 'Klein 9B',
-        icon: Sparkles,
-        description: 'FLUX.2 Klein 9B - Professional Grade lighting and detail',
-        isNew: false
+        description: 'xAI Grok Imagine (api.airforce) - Creative and expressive',
+        isNew: true,
+        pollenApprox: '400'
     },
     {
         value: 'klein',
-        label: 'Flux Klein',
+        label: 'Flux Klein 4B',
         cost: 0.008,
-        badge: 'Klein 4B',
-        icon: Zap,
-        description: 'FLUX.2 Klein 4B - Efficient high-detail generation',
-        isNew: true
+        badge: 'High-Res',
+        icon: Monitor,
+        description: 'FLUX.2 Klein 4B - Efficient high-detail generation (sb_pollen)',
+        isNew: false,
+        pollenApprox: '150'
+    },
+    {
+        value: 'klein-large',
+        label: 'Flux Klein 9B',
+        cost: 0.012,
+        badge: 'Premium',
+        icon: Cloud,
+        description: 'FLUX.2 Klein 9B - Professional grade high-fidelity (sb_pollen)',
+        isNew: false,
+        pollenApprox: '85'
     },
     {
         value: 'gptimage',
-        label: 'GPT Image 1',
+        label: 'GPT Image 1 Mini',
         cost: 8.0,
         badge: 'Mini',
-        icon: Crown,
-        description: 'OpenAI GPT Image 1 Mini - Intelligent composition',
-        isNew: true
+        icon: Brain,
+        description: 'GPT Image 1 Mini - Intelligent text-to-image hybrid model',
+        isNew: false,
+        pollenApprox: '75'
     }
 ] as const;
 
@@ -118,34 +135,38 @@ export function ModelSelector({
                                 <Icon className="w-4 h-4 text-zinc-400 shrink-0 group-hover:text-violet-400 transition-colors" />
 
                                 <div className="flex flex-col min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-semibold text-zinc-200 text-[13px] whitespace-nowrap">{model.label}</span>
-                                        {model.isNew && (
-                                            <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-violet-500/10 text-violet-400 border-violet-500/20 leading-none font-bold uppercase tracking-widest">
-                                                NEW
-                                            </Badge>
-                                        )}
+                                    <div className="flex items-center gap-1.5 whitespace-nowrap overflow-visible">
+                                        <span className="font-semibold text-zinc-200 text-[13px]">{model.label}</span>
+                                        <div className="flex gap-1 shrink-0">
+                                            {model.isNew && (
+                                                <Badge className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 leading-none font-bold uppercase tracking-widest">
+                                                    NEW
+                                                </Badge>
+                                            )}
+                                            {model.badge === 'Alpha' && (
+                                                <Badge className="text-[9px] h-3.5 px-1 bg-amber-500/10 text-amber-500 border-amber-500/20 leading-none font-bold uppercase tracking-widest flex items-center gap-0.5">
+                                                    ⚠️ ALPHA
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
                                     <span className="text-[10px] text-zinc-500 truncate mt-0.5 opacity-80 leading-tight">
                                         {model.description}
                                     </span>
                                 </div>
 
-                                <div className="flex justify-center">
-                                    <Badge
-                                        variant="outline"
-                                        className="text-[9px] px-2 h-4.5 font-bold bg-zinc-950/50 border-zinc-700/50 text-zinc-500 uppercase tracking-widest w-[85px] justify-center"
-                                    >
-                                        {model.badge}
-                                    </Badge>
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                    <span className="text-[10px] font-bold text-zinc-400">{model.pollenApprox}</span>
+                                    <span className="text-[8px] text-zinc-600 font-black uppercase tracking-tighter">Images</span>
                                 </div>
 
                                 <div className="flex justify-end pr-1">
-                                    {showCost && (
-                                        <span className="text-[11px] font-mono text-zinc-400 font-medium whitespace-nowrap">
-                                            {model.cost < 0.01 ? model.cost.toFixed(4) : model.cost.toFixed(2)}/img
+                                    <div className="nm-inset-glow px-2 py-0.5 rounded-lg bg-zinc-900/50 border border-white/5">
+                                        <span className="text-[11px] font-mono text-violet-400 font-bold whitespace-nowrap">
+                                            ${model.cost < 0.01 ? model.cost.toFixed(4) : model.cost.toFixed(2)}
                                         </span>
-                                    )}
+                                        <span className="text-[8px] text-zinc-600 ml-0.5 uppercase tracking-tighter">/img</span>
+                                    </div>
                                 </div>
                             </div>
                         </SelectItem>
@@ -155,6 +176,8 @@ export function ModelSelector({
         </Select>
     );
 }
+
+
 
 /**
  * Compact model selector for inline use

@@ -781,10 +781,11 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          model: 'flux',
+          model: config.pollinationsModel || 'flux',
           width: 512,
           height: 288,
           userId: user.uid,
+          userApiKey: config.pollinationsApiKey,
         })
       });
 
@@ -875,6 +876,11 @@ export default function DashboardPage() {
         body: JSON.stringify({
           prompt: settings.enhancedPrompt,
           model: settings.model,
+          style: settings.style,
+          composition: settings.composition,
+          mood: settings.mood,
+          colorPalette: settings.colorPalette,
+          lighting: settings.lighting,
           width: settings.width,
           height: settings.height,
           userId: user.uid,
@@ -925,14 +931,16 @@ export default function DashboardPage() {
     }
   };
 
-  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string) => {
+  const handleEnhancePrompt = async (prompt: string, style?: string, composition?: string, mood?: string, colorPalette?: string, lighting?: string) => {
     setIsEnhancingPrompt(true);
     try {
       const { enhancedPrompt, error } = await enhanceImagePromptAction({
         prompt,
         style,
         composition,
-        mood
+        mood,
+        colorPalette,
+        lighting
       }, {
         provider: config.provider,
         apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey

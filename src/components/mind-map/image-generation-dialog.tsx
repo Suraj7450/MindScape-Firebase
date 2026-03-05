@@ -33,7 +33,9 @@ import {
     Zap,
     Wind,
     Moon,
-    Flame
+    Flame,
+    Lightbulb,
+    Droplets
 } from 'lucide-react';
 import { ModelSelector } from '@/components/model-selector';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +51,7 @@ interface ImageGenerationDialogProps {
     nodeName: string;
     nodeDescription: string;
     initialPrompt: string;
-    onEnhancePrompt: (prompt: string, style?: string, composition?: string, mood?: string) => Promise<string>;
+    onEnhancePrompt: (prompt: string, style?: string, composition?: string, mood?: string, colorPalette?: string, lighting?: string) => Promise<string>;
     isEnhancing: boolean;
 }
 
@@ -61,6 +63,8 @@ export interface ImageSettings {
     style: string;
     composition?: string;
     mood?: string;
+    colorPalette?: string;
+    lighting?: string;
     width: number;
     height: number;
 }
@@ -94,6 +98,28 @@ const COMPOSITIONS = [
     { id: 'low-angle', label: 'Low Angle' },
 ] as const;
 
+const COLOR_PALETTES = [
+    { id: 'none', label: 'Auto' },
+    { id: 'warm', label: 'Warm Tones' },
+    { id: 'cool', label: 'Cool Tones' },
+    { id: 'monochrome', label: 'Monochrome' },
+    { id: 'vibrant', label: 'Vibrant' },
+    { id: 'pastel', label: 'Pastel' },
+    { id: 'earth', label: 'Earth Tones' },
+    { id: 'neon-palette', label: 'Neon Spectrum' },
+] as const;
+
+const LIGHTINGS = [
+    { id: 'none', label: 'Auto' },
+    { id: 'natural', label: 'Natural' },
+    { id: 'studio', label: 'Studio' },
+    { id: 'dramatic', label: 'Dramatic' },
+    { id: 'backlit', label: 'Backlit' },
+    { id: 'rim-light', label: 'Rim Light' },
+    { id: 'volumetric', label: 'Volumetric' },
+    { id: 'candlelight', label: 'Candlelight' },
+] as const;
+
 const MOODS = [
     { id: 'none', label: 'Default', icon: Zap },
     { id: 'golden-hour', label: 'Golden Hour', icon: Sun },
@@ -115,11 +141,13 @@ export function ImageGenerationDialog({
     isEnhancing
 }: ImageGenerationDialogProps) {
     const [prompt, setPrompt] = useState(initialPrompt);
-    const [model, setModel] = useState('klein-large');
+    const [model, setModel] = useState('flux');
     const [aspectRatio, setAspectRatio] = useState<typeof ASPECT_RATIOS[number]>(ASPECT_RATIOS[0]);
     const [selectedStyle, setSelectedStyle] = useState<string>('cinematic');
     const [composition, setComposition] = useState<string>('none');
     const [mood, setMood] = useState<string>('none');
+    const [colorPalette, setColorPalette] = useState<string>('none');
+    const [lighting, setLighting] = useState<string>('none');
 
     const { user } = useUser();
     const firestore = useFirestore();
@@ -132,6 +160,8 @@ export function ImageGenerationDialog({
             setAspectRatio(ASPECT_RATIOS[0]);
             setComposition('none');
             setMood('none');
+            setColorPalette('none');
+            setLighting('none');
 
             // Load user's preferred model
             if (user && firestore) {
@@ -141,17 +171,17 @@ export function ImageGenerationDialog({
                         if (prefModel === 'flux-pro') prefModel = 'klein-large';
                         setModel(prefModel);
                     } else {
-                        setModel('klein-large');
+                        setModel('flux');
                     }
                 });
             } else {
-                setModel('klein-large');
+                setModel('flux');
             }
         }
     }, [initialPrompt, isOpen, user, firestore]);
 
     const handleEnhance = async () => {
-        const enhanced = await onEnhancePrompt(prompt, selectedStyle, composition, mood);
+        const enhanced = await onEnhancePrompt(prompt, selectedStyle, composition, mood, colorPalette, lighting);
         if (enhanced) setPrompt(enhanced);
     };
 
@@ -164,6 +194,8 @@ export function ImageGenerationDialog({
             style: selectedStyle,
             composition,
             mood,
+            colorPalette,
+            lighting,
             width: aspectRatio.width,
             height: aspectRatio.height
         });
@@ -172,194 +204,222 @@ export function ImageGenerationDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl bg-zinc-950 border-zinc-800 text-zinc-100 p-0 overflow-hidden rounded-[2.5rem] max-h-[92vh] flex flex-col">
+            <DialogContent className="max-w-3xl bg-zinc-950 border-zinc-800 text-zinc-100 p-0 overflow-hidden rounded-[2.5rem] max-h-[92vh] flex flex-col">
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="bg-gradient-to-br from-violet-500/10 via-transparent to-emerald-500/10 p-8">
+                    <div className="bg-gradient-to-br from-violet-500/10 via-transparent to-emerald-500/10 p-6 sm:p-8">
+                        {/* Header */}
                         <DialogHeader className="mb-6">
-                            <div className="flex items-center justify-between gap-3 mb-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
-                                        <Sparkles className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <DialogTitle className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
-                                            Visual Insight Lab
-                                        </DialogTitle>
-                                        <DialogDescription className="text-zinc-500 text-sm mt-1">
-                                            Generating for <span className="text-violet-400 font-semibold italic">"{nodeName}"</span>
-                                        </DialogDescription>
-                                    </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                                    <Sparkles className="w-6 h-6" />
                                 </div>
-                                <div className="hidden sm:flex flex-col items-end gap-1">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-600">AI Model</Label>
-                                    <ModelSelector
-                                        value={model}
-                                        onChange={setModel}
-                                        className="h-10 bg-zinc-900/50 border-zinc-800 rounded-xl"
-                                    />
+                                <div className="flex-1 min-w-0">
+                                    <DialogTitle className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
+                                        Visual Insight Lab
+                                    </DialogTitle>
+                                    <DialogDescription className="text-zinc-500 text-sm mt-0.5 truncate">
+                                        Generating for <span className="text-violet-400 font-semibold italic">"{nodeName}"</span>
+                                    </DialogDescription>
                                 </div>
                             </div>
                         </DialogHeader>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
-                            <div className="space-y-8">
-                                {/* Prompt Input Section */}
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-                                            <ImageIcon className="w-4 h-4" />
-                                            Prompt Engineering
-                                        </Label>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className={cn(
-                                                "h-9 px-4 text-[10px] font-bold uppercase tracking-widest transition-all gap-2 rounded-full border shadow-sm",
-                                                selectedStyle
-                                                    ? "bg-violet-500/10 text-violet-400 border-violet-500/20 hover:bg-violet-500/20"
-                                                    : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700"
-                                            )}
-                                            onClick={handleEnhance}
-                                            disabled={isEnhancing}
-                                        >
-                                            {isEnhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                                            {selectedStyle ? `Enhance (${selectedStyle})` : 'Enhance with AI'}
-                                        </Button>
-                                    </div>
-                                    <div className="relative group">
-                                        <Textarea
-                                            value={prompt}
-                                            onChange={(e) => setPrompt(e.target.value)}
-                                            placeholder="Describe your vision..."
-                                            className="min-h-[140px] bg-zinc-900/40 border-zinc-800 focus:border-violet-500/50 focus:ring-violet-500/20 rounded-[2rem] resize-none text-zinc-200 placeholder:text-zinc-700 transition-all text-base leading-relaxed p-6"
-                                        />
-                                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Badge variant="outline" className="text-[10px] bg-zinc-950/80 border-zinc-800 text-zinc-500 font-mono py-1 px-3 rounded-full">
-                                                {prompt.length} chars
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Creative Controls Grid */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    {/* Style Switcher */}
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
-                                            <Palette className="w-3.5 h-3.5" />
-                                            Artistic DNA
-                                        </Label>
-                                        <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-                                            <SelectTrigger className="h-12 bg-zinc-900/30 border-zinc-800 rounded-2xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
-                                                {STYLE_PRESETS.map((s) => (
-                                                    <SelectItem key={s.id} value={s.id} className="focus:bg-zinc-900">
-                                                        <span className="font-bold text-xs">{s.label}</span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Composition Selector */}
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
-                                            <Camera className="w-3.5 h-3.5" />
-                                            Composition
-                                        </Label>
-                                        <Select value={composition} onValueChange={setComposition}>
-                                            <SelectTrigger className="h-12 bg-zinc-900/30 border-zinc-800 rounded-2xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
-                                                {COMPOSITIONS.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id} className="focus:bg-zinc-900 text-xs">
-                                                        {c.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                {/* Mood Toggles */}
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Atmosphere & Mood</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {MOODS.map((m) => (
-                                            <button
-                                                key={m.id}
-                                                onClick={() => setMood(m.id)}
-                                                className={cn(
-                                                    "px-4 py-2.5 rounded-xl text-[11px] font-bold border transition-all flex items-center gap-2",
-                                                    mood === m.id
-                                                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                                                        : "bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:border-zinc-700"
-                                                )}
-                                            >
-                                                <m.icon className="w-3.5 h-3.5" />
-                                                {m.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                        {/* 1. Prompt Area */}
+                        <div className="space-y-3 mb-6">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
+                                    <ImageIcon className="w-3.5 h-3.5" />
+                                    Prompt
+                                </Label>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn(
+                                        "h-8 px-3 text-[10px] font-bold uppercase tracking-widest transition-all gap-1.5 rounded-full border shadow-sm",
+                                        selectedStyle
+                                            ? "bg-violet-500/10 text-violet-400 border-violet-500/20 hover:bg-violet-500/20"
+                                            : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700"
+                                    )}
+                                    onClick={handleEnhance}
+                                    disabled={isEnhancing}
+                                >
+                                    {isEnhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                    {selectedStyle ? `Enhance (${selectedStyle})` : 'Enhance with AI'}
+                                </Button>
+                            </div>
+                            <div className="relative group">
+                                <Textarea
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder="Describe your vision..."
+                                    className="min-h-[100px] bg-zinc-900/40 border-zinc-800 focus:border-violet-500/50 focus:ring-violet-500/20 rounded-2xl resize-none text-zinc-200 placeholder:text-zinc-700 transition-all text-sm leading-relaxed p-5"
+                                />
+                                <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Badge variant="outline" className="text-[9px] bg-zinc-950/80 border-zinc-800 text-zinc-500 font-mono py-0.5 px-2 rounded-full">
+                                        {prompt.length}
+                                    </Badge>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Right Sidebar: Aspect Ratio & Final Actions */}
-                            <div className="space-y-8 lg:border-l lg:border-zinc-800/50 lg:pl-8">
-                                <div className="space-y-4">
-                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Canvas Ratio</Label>
-                                    <div className="grid grid-cols-3 lg:grid-cols-1 gap-2">
-                                        {ASPECT_RATIOS.map((ratio) => (
-                                            <button
-                                                key={ratio.value}
-                                                onClick={() => setAspectRatio(ratio)}
-                                                className={cn(
-                                                    "flex items-center lg:justify-start justify-center gap-3 p-3 rounded-2xl border transition-all group",
-                                                    aspectRatio.value === ratio.value
-                                                        ? "bg-violet-500/10 border-violet-500/40 text-violet-400"
-                                                        : "bg-zinc-900/30 border-zinc-800/50 text-zinc-500 hover:border-zinc-700 hover:text-zinc-400"
-                                                )}
-                                            >
-                                                <ratio.icon className={cn(
-                                                    "w-5 h-5",
-                                                    aspectRatio.value === ratio.value ? "text-violet-400" : "text-zinc-600 group-hover:text-zinc-400"
-                                                )} />
-                                                <div className="hidden lg:block text-left">
-                                                    <div className="font-bold text-xs">{ratio.fullLabel}</div>
-                                                    <div className="text-[10px] opacity-40">{ratio.value}</div>
-                                                </div>
-                                                <div className="lg:hidden text-[10px] font-black">{ratio.label}</div>
-                                            </button>
+                        {/* 2. Creative Controls — 2x2 grid + model row */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                            {/* Style */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-1.5">
+                                    <Palette className="w-3 h-3" />
+                                    Style
+                                </Label>
+                                <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+                                    <SelectTrigger className="h-9 bg-zinc-900/30 border-zinc-800 rounded-xl text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
+                                        {STYLE_PRESETS.map((s) => (
+                                            <SelectItem key={s.id} value={s.id} className="focus:bg-zinc-900">
+                                                <span className="font-bold text-xs">{s.label}</span>
+                                            </SelectItem>
                                         ))}
-                                    </div>
-                                </div>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                                <div className="lg:pt-8 lg:border-t lg:border-zinc-900 flex flex-col gap-3">
-                                    <div className="flex flex-col gap-1 mb-2 lg:hidden">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Model</Label>
-                                        <ModelSelector
-                                            value={model}
-                                            onChange={setModel}
-                                            className="h-10 bg-zinc-900/50 border-zinc-800 rounded-xl"
-                                        />
-                                    </div>
-                                    <Button
-                                        onClick={handleGenerate}
-                                        className="w-full h-14 bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest rounded-3xl shadow-[0_10px_40px_rgba(139,92,246,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] text-sm"
+                            {/* Composition */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-1.5">
+                                    <Camera className="w-3 h-3" />
+                                    Composition
+                                </Label>
+                                <Select value={composition} onValueChange={setComposition}>
+                                    <SelectTrigger className="h-9 bg-zinc-900/30 border-zinc-800 rounded-xl text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
+                                        {COMPOSITIONS.map((c) => (
+                                            <SelectItem key={c.id} value={c.id} className="focus:bg-zinc-900 text-xs">
+                                                {c.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Color Palette */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-1.5">
+                                    <Droplets className="w-3 h-3" />
+                                    Color
+                                </Label>
+                                <Select value={colorPalette} onValueChange={setColorPalette}>
+                                    <SelectTrigger className="h-9 bg-zinc-900/30 border-zinc-800 rounded-xl text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
+                                        {COLOR_PALETTES.map((cp) => (
+                                            <SelectItem key={cp.id} value={cp.id} className="focus:bg-zinc-900 text-xs">
+                                                {cp.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Lighting */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-1.5">
+                                    <Lightbulb className="w-3 h-3" />
+                                    Lighting
+                                </Label>
+                                <Select value={lighting} onValueChange={setLighting}>
+                                    <SelectTrigger className="h-9 bg-zinc-900/30 border-zinc-800 rounded-xl text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-zinc-950 border-zinc-800 z-[250]">
+                                        {LIGHTINGS.map((l) => (
+                                            <SelectItem key={l.id} value={l.id} className="focus:bg-zinc-900 text-xs">
+                                                {l.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* AI Model — standalone compact row */}
+                        <div className="flex items-center gap-3 mb-5">
+                            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-1.5 whitespace-nowrap">
+                                <Sparkles className="w-3 h-3" />
+                                AI Model
+                            </Label>
+                            <ModelSelector
+                                value={model}
+                                onChange={setModel}
+                                className="h-9 bg-zinc-900/30 border-zinc-800 rounded-xl text-xs flex-1 max-w-xs"
+                            />
+                        </div>
+
+                        {/* 3. Mood Chips — inline */}
+                        <div className="space-y-2 mb-6">
+                            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Atmosphere & Mood</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {MOODS.map((m) => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setMood(m.id)}
+                                        className={cn(
+                                            "px-3 py-2 rounded-xl text-[10px] font-bold border transition-all flex items-center gap-1.5",
+                                            mood === m.id
+                                                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                                                : "bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                                        )}
                                     >
-                                        Launch Render
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        onClick={onClose}
-                                        className="w-full h-12 rounded-2xl bg-transparent border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/40 font-bold uppercase tracking-widest text-[10px] transition-all duration-300"
+                                        <m.icon className="w-3 h-3" />
+                                        {m.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 4. Bottom Action Bar — Aspect Ratio + Launch */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-5 border-t border-zinc-800/50">
+                            {/* Aspect Ratio — horizontal toggle group */}
+                            <div className="flex items-center gap-1.5 bg-zinc-900/30 rounded-2xl p-1.5 border border-zinc-800/50">
+                                {ASPECT_RATIOS.map((ratio) => (
+                                    <button
+                                        key={ratio.value}
+                                        onClick={() => setAspectRatio(ratio)}
+                                        className={cn(
+                                            "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold transition-all",
+                                            aspectRatio.value === ratio.value
+                                                ? "bg-violet-500/15 text-violet-400 shadow-sm"
+                                                : "text-zinc-500 hover:text-zinc-300"
+                                        )}
                                     >
-                                        Abort Mission
-                                    </Button>
-                                </div>
+                                        <ratio.icon className="w-4 h-4" />
+                                        <span className="hidden sm:inline">{ratio.fullLabel}</span>
+                                        <span className="sm:hidden">{ratio.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex-1" />
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    onClick={onClose}
+                                    className="h-11 px-5 rounded-xl bg-transparent border border-zinc-800 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 font-bold uppercase tracking-widest text-[10px] transition-all duration-300"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleGenerate}
+                                    className="h-11 px-8 bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest rounded-xl shadow-[0_8px_30px_rgba(139,92,246,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] text-xs"
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Launch Render
+                                </Button>
                             </div>
                         </div>
                     </div>

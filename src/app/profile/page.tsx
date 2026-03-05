@@ -217,7 +217,9 @@ export default function ProfilePage() {
         // Load additional image settings
         getUserImageSettings(firestore, user.uid).then(settings => {
             if (settings?.preferredModel) {
-                setPreferredModel(settings.preferredModel);
+                let prefModel = settings.preferredModel;
+                if (prefModel === 'flux-pro') prefModel = 'klein-large';
+                setPreferredModel(prefModel);
             }
         });
 
