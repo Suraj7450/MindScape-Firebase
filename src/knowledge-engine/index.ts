@@ -75,21 +75,26 @@ export function analyzeDocument(text: string): SKEEAnalysisResult {
     // A meaningful analysis has detected headings OR multiple sections OR enough keywords.
     // Without this gate, a short unstructured document would flood the prompt
     // with co-occurrence noise and confuse the AI model.
+    // For longer documents, lower thresholds since even imperfect analysis helps.
     const totalKeywords = keywords.perSection.reduce(
         (sum, sk) => sum + sk.keywords.length, 0
     );
 
-    const isMeaningful =
-        headings.length >= 2 ||       // Document has clear heading structure
-        sections.length >= 3 ||       // Multiple distinct sections found
-        totalKeywords >= 15;           // Rich keyword distribution across sections
+    const isLongDoc = text.length > 5000;
+    const isMeaningful = isLongDoc
+        ? (headings.length >= 1 ||       // Even 1 heading in a long doc is useful
+            sections.length >= 2 ||       // 2+ sections in a long doc
+            totalKeywords >= 8)           // Reasonable keyword spread
+        : (headings.length >= 2 ||       // Short docs need clearer structure
+            sections.length >= 3 ||       // Multiple distinct sections
+            totalKeywords >= 15);         // Rich keyword distribution
 
     const structuredContext = isMeaningful
         ? graphToPromptContext(graph)
         : '';
 
     if (!isMeaningful) {
-        console.log(`🧠 SKEE: Analysis below quality threshold (headings=${headings.length}, sections=${sections.length}, keywords=${totalKeywords}). Skipping context injection.`);
+        console.log(`🧠 SKEE: Analysis below quality threshold (headings=${headings.length}, sections=${sections.length}, keywords=${totalKeywords}, docLen=${text.length}). Skipping context injection.`);
     }
 
     return {

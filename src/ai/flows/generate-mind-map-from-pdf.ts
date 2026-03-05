@@ -26,7 +26,7 @@ import { analyzeDocument } from '@/knowledge-engine';
 const DIRECT_GENERATION_THRESHOLD = 3000;
 
 /** Maximum combined summary length to send to the final generation step */
-const MAX_SUMMARY_LENGTH = 6000;
+const MAX_SUMMARY_LENGTH = 12000;
 
 /** Maximum retries for the final mind map generation if schema validation fails */
 const MAX_GENERATION_RETRIES = 2;
@@ -100,14 +100,18 @@ export async function generateMindMapFromPdf(
     }
 
     // ── Stage 5: Generate MindMap ───────────────────────────────────
-    // Density mapping
+    // Dynamic density: use SKEE section count as minimum subTopics when structure is detected
+    const skeeSections = hasStructure ? skeeResult.stats.sectionsCreated : 0;
     let densityInstruction = '';
     if (depth === 'medium') {
-        densityInstruction = 'STRUCTURE DENSITY: Generate EXACTLY 5 subTopics. Each subTopic MUST have EXACTLY 3 categories. (Target: ~60 nodes)';
+        const minSubs = Math.max(5, skeeSections);
+        densityInstruction = `STRUCTURE DENSITY: Generate EXACTLY ${minSubs} subTopics. Each subTopic MUST have EXACTLY 3 categories. (Target: ~${minSubs * 12} nodes)`;
     } else if (depth === 'deep') {
-        densityInstruction = 'STRUCTURE DENSITY: Generate EXACTLY 6 subTopics. Each subTopic MUST have EXACTLY 4 categories. (Target: ~120 nodes)';
+        const minSubs = Math.max(6, skeeSections);
+        densityInstruction = `STRUCTURE DENSITY: Generate EXACTLY ${minSubs} subTopics. Each subTopic MUST have EXACTLY 4 categories. (Target: ~${minSubs * 20} nodes)`;
     } else {
-        densityInstruction = 'STRUCTURE DENSITY: Generate 4 subTopics. Each subTopic should have 2 categories. (Target: ~24 nodes)';
+        const minSubs = Math.max(4, skeeSections);
+        densityInstruction = `STRUCTURE DENSITY: Generate at least ${minSubs} subTopics. Each subTopic should have 2-3 categories. (Target: ~${minSubs * 8} nodes)`;
     }
 
     const targetLangInstruction = targetLang

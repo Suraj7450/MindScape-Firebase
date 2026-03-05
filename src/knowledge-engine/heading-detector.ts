@@ -76,10 +76,34 @@ export function detectHeadings(text: string): DetectedHeading[] {
     }
 
     // --- Pattern 4: Labeled headings (Chapter X, Section X) ---
+    // Enhanced to capture both prefix and title for common PDF formats
     const labeledRe = new RegExp(LABELED_HEADING_PATTERN.source, 'gi');
     while ((match = labeledRe.exec(text)) !== null) {
+        // Use the full match for context, title is the captured group
         const title = match[1]?.trim() || match[0].trim();
         addHeading(1, title, match.index);
+    }
+
+    // --- Pattern 5: "Section N:" / "Section N –" with colon or dash separator ---
+    // Catches formats like "Section 1: Entering Text and Numbers"
+    const sectionColonRe = /(?:^|\n)\s*(?:section|chapter|part|module|unit)\s+(\d+)\s*[:–\-]\s*([^\n]{2,80})/gi;
+    while ((match = sectionColonRe.exec(text)) !== null) {
+        const sectionNum = parseInt(match[1]);
+        const title = match[2].trim();
+        addHeading(1, `Section ${sectionNum}: ${title}`, match.index);
+    }
+
+    // --- Pattern 6: Title-case lines between blank lines (visual heading heuristic) ---
+    // Common in PDFs where headings are visually separated but have no markers
+    const titleCaseRe = /\n\s*\n\s*([A-Z][a-zA-Z\s,&\-]{4,60})\s*\n\s*\n/g;
+    while ((match = titleCaseRe.exec(text)) !== null) {
+        const candidate = match[1].trim();
+        // Skip if it looks like a sentence (has too many lowercase words)
+        const words = candidate.split(/\s+/);
+        const capitalizedWords = words.filter(w => /^[A-Z]/.test(w));
+        if (capitalizedWords.length >= words.length * 0.5 && words.length <= 8) {
+            addHeading(1, candidate, match.index);
+        }
     }
 
     // Sort by position
