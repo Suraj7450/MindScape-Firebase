@@ -31,6 +31,7 @@ const GenerateMindMapFromImageInputSchema = z.object({
     .default('low')
     .describe('The level of detail/depth for the mind map structure.'),
   apiKey: z.string().optional().describe('Optional custom API key to use for this request.'),
+  sessionId: z.string().optional().describe('The session ID for the current mind map.'),
 });
 type GenerateMindMapFromImageInput = z.infer<
   typeof GenerateMindMapFromImageInputSchema

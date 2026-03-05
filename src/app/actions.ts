@@ -175,6 +175,7 @@ export interface GenerateMindMapFromImageInput {
   targetLang?: string;
   persona?: string;
   depth?: 'low' | 'medium' | 'deep';
+  sessionId?: string;
 }
 
 /**
@@ -446,7 +447,41 @@ export async function chatAction(
 ): Promise<{ response: ChatWithAssistantOutput | null; error: string | null }> {
   try {
     const effectiveApiKey = await resolveApiKey(options);
-    const result = await chatWithAssistant({ ...input, ...options, apiKey: effectiveApiKey });
+
+    // Inject PDF context if requested
+    let pdfContext = input.pdfContext;
+    if (input.usePdfContext && !pdfContext && (input.sessionId || input.topic)) {
+      const { getPdfContext } = await import('@/lib/pdf-context-store');
+
+      // Try memory store first
+      const contextKey = input.sessionId || input.topic || 'default';
+      pdfContext = getPdfContext(contextKey) || undefined;
+
+      // Fallback: Try Firestore if sessionId is a valid doc ID
+      if (!pdfContext && input.sessionId && !input.sessionId.startsWith('session-')) {
+        try {
+          const { getMindMapAdmin } = await import('@/lib/firestore-server-helpers');
+          const mapData = await getMindMapAdmin(input.sessionId);
+          if (mapData && mapData.pdfContext) {
+            console.log(`🧠 chatAction: Retrieved PDF context from Firestore for doc ${input.sessionId}`);
+            pdfContext = mapData.pdfContext;
+
+            // Also store it back in memory for next time
+            const { setPdfContext } = await import('@/lib/pdf-context-store');
+            setPdfContext(input.sessionId, pdfContext as any);
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to fetch PDF context from Firestore:', err);
+        }
+      }
+    }
+
+    const result = await chatWithAssistant({
+      ...input,
+      ...options,
+      pdfContext,
+      apiKey: effectiveApiKey
+    });
     return { response: result, error: null };
   } catch (error) {
     console.error(error);

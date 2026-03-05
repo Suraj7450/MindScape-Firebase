@@ -105,3 +105,79 @@ export async function summarizeChunksParallel(
 
     return summaries;
 }
+
+// ─── Concept Extraction (PMG — Progressive Map Generation) ───────────
+
+import { extractConcepts, ExtractedConcept } from '@/knowledge-engine/concept-extractor';
+
+/**
+ * Extracts concepts from multiple chunks in parallel using a semaphore.
+ * Much faster than sequential summarization because:
+ * 1. All chunks start simultaneously (up to concurrency limit)
+ * 2. No inter-batch delays
+ * 3. Concept extraction prompts are simpler → faster AI responses
+ *
+ * @param chunks - Array of text chunk strings.
+ * @param concurrency - Max simultaneous AI calls (default: 8).
+ * @param apiKey - Optional API key for Pollinations.
+ * @returns Flat array of extracted concepts from all chunks.
+ */
+export async function extractConceptsParallel(
+    chunks: string[],
+    concurrency: number = 8,
+    apiKey?: string
+): Promise<ExtractedConcept[]> {
+    console.log(`🔬 PMG: Extracting concepts from ${chunks.length} chunks (concurrency: ${concurrency})...`);
+    const startTime = Date.now();
+
+    // Semaphore for concurrency control
+    let active = 0;
+    const queue: (() => void)[] = [];
+
+    const acquire = (): Promise<void> => {
+        if (active < concurrency) {
+            active++;
+            return Promise.resolve();
+        }
+        return new Promise<void>(resolve => queue.push(resolve));
+    };
+
+    const release = () => {
+        active--;
+        if (queue.length > 0) {
+            active++;
+            queue.shift()!();
+        }
+    };
+
+    // Launch all extractions with semaphore gating
+    const results = await Promise.allSettled(
+        chunks.map(async (chunk, idx) => {
+            await acquire();
+            try {
+                return await extractConcepts(chunk, { apiKey, attempt: 0 });
+            } catch (err: any) {
+                console.warn(`⚠️ Chunk ${idx + 1} concept extraction failed: ${err.message}`);
+                return [] as ExtractedConcept[];
+            } finally {
+                release();
+            }
+        })
+    );
+
+    // Flatten results
+    const allConcepts: ExtractedConcept[] = [];
+    let successCount = 0;
+
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+            allConcepts.push(...result.value);
+            successCount++;
+        }
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`🔬 PMG: Extracted ${allConcepts.length} concepts from ${successCount}/${chunks.length} chunks in ${elapsed}s`);
+
+    return allConcepts;
+}

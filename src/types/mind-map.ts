@@ -2,6 +2,7 @@
 import { Timestamp } from 'firebase/firestore';
 
 export interface SubCategory {
+  id?: string;
   name: string;
   description: string;
   icon?: string;
@@ -17,6 +18,7 @@ export interface SubCategory {
 }
 
 export interface Category {
+  id?: string;
   name: string;
   thought?: string;
   icon: string;
@@ -25,6 +27,7 @@ export interface Category {
 }
 
 export interface SubTopic {
+  id?: string;
   name: string;
   thought?: string;
   icon: string;
@@ -132,6 +135,16 @@ export interface BaseMindMapData {
   searchSources?: SearchSource[];
   searchImages?: SearchImage[];
   searchTimestamp?: string;
+  pdfContext?: PdfContextData;
+}
+
+export interface PdfContextData {
+  summary: string;
+  concepts: {
+    title: string;
+    description: string;
+  }[];
+  timestamp: number;
 }
 
 export interface SearchSource {

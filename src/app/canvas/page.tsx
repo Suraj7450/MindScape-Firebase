@@ -85,6 +85,7 @@ function MindMapPageContent() {
   const [tempPersona, setTempPersona] = useState<string>('Standard');
   const [tempDepth, setTempDepth] = useState<'low' | 'medium' | 'deep'>('low');
   const [showReferences, setShowReferences] = useState(false);
+  const [usePdfContext, setUsePdfContext] = useState(false);
 
   // Universal Nested Maps Dialog state
   const [mapHierarchy, setMapHierarchy] = useState<{
@@ -387,6 +388,7 @@ function MindMapPageContent() {
                   targetLang: params.lang,
                   persona: aiPersona,
                   depth: params.depth,
+                  sessionId: params.sessionId || undefined,
                 }, {
                   provider: config.provider,
                   apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
@@ -401,6 +403,7 @@ function MindMapPageContent() {
                   targetLang: params.lang,
                   persona: aiPersona,
                   depth: params.depth,
+                  sessionId: params.sessionId || undefined,
                 }, {
                   provider: config.provider,
                   apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
@@ -415,6 +418,7 @@ function MindMapPageContent() {
                   targetLang: params.lang,
                   persona: aiPersona,
                   depth: params.depth,
+                  sessionId: params.sessionId || undefined,
                 }, {
                   provider: config.provider,
                   apiKey: config.provider === 'pollinations' ? config.pollinationsApiKey : config.apiKey,
@@ -475,6 +479,10 @@ function MindMapPageContent() {
           });
 
           setIsLoading(false);
+
+          if (result.data.pdfContext) {
+            setUsePdfContext(true);
+          }
 
           const isNewlyGenerated = !['saved', 'self-reference', 'studio'].includes(currentMode);
           if (isNewlyGenerated && user && result.data) {
@@ -647,6 +655,13 @@ function MindMapPageContent() {
     }
   }, [mindMap, fetchMapHierarchy]);
 
+  // Set default chat mode to PDF-Aware if the mind map has PDF context
+  useEffect(() => {
+    if (mindMap?.pdfContext) {
+      setUsePdfContext(true);
+    }
+  }, [mindMap]);
+
   const onMapUpdate = useCallback((updatedData: Partial<MindMapData>) => {
     const currentMap = mindMapRef.current;
     if (!currentMap) return;
@@ -672,6 +687,10 @@ function MindMapPageContent() {
   }, [handleSaveMapFromHook]);
 
   const handleExplainInChat = useCallback((message: string) => {
+    // If we have PDF context in the current map, auto-enable PDF-aware responses
+    if (mindMapRef.current?.pdfContext) {
+      setUsePdfContext(true);
+    }
     setChatInitialMessage(message);
     setChatMode('chat');
     setIsChatOpen(true);
@@ -1099,6 +1118,9 @@ function MindMapPageContent() {
         initialMode={chatMode}
         initialMessage={chatInitialMessage}
         mindMapData={mindMap || undefined}
+        sessionId={params.mapId || params.sessionId || undefined}
+        usePdfContext={usePdfContext}
+        onUsePdfContextChange={setUsePdfContext}
       />
     </>
   );

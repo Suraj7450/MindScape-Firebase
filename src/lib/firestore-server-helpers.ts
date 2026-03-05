@@ -47,3 +47,23 @@ export async function getUserImageSettingsAdmin(userId: string): Promise<UserIma
         return null;
     }
 }
+
+/**
+ * Get a mind map document by ID using Firebase Admin SDK.
+ * Bypasses permission checks.
+ */
+export async function getMindMapAdmin(mapId: string): Promise<any | null> {
+    try {
+        const { firestore } = initializeFirebaseServer();
+        const mapDoc = await firestore.collection('mindMaps').doc(mapId).get();
+
+        if (mapDoc.exists) {
+            return mapDoc.data();
+        }
+        return null;
+    } catch (error) {
+        console.error('Error in getMindMapAdmin:', error);
+        return null;
+    }
+}
+

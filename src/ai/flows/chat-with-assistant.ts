@@ -44,6 +44,15 @@ const ChatWithAssistantInputSchema = z.object({
     )
     .optional()
     .describe('Optional file attachments (PDF/TXT text or Image base64).'),
+  pdfContext: z.object({
+    summary: z.string(),
+    concepts: z.array(z.object({
+      title: z.string(),
+      description: z.string()
+    }))
+  }).optional().describe('Context from a previously processed PDF.'),
+  usePdfContext: z.boolean().optional().describe('Whether to use the stored PDF context for this session.'),
+  sessionId: z.string().optional().describe('The session ID to retrieve PDF context for.')
 });
 export type ChatWithAssistantInput = z.infer<
   typeof ChatWithAssistantInputSchema
@@ -61,7 +70,7 @@ import { generateContent, AIProvider } from '@/ai/client-dispatcher';
 export async function chatWithAssistant(
   input: ChatWithAssistantInput & { apiKey?: string; provider?: AIProvider }
 ): Promise<ChatWithAssistantOutput> {
-  const { provider, apiKey, topic, persona, history, question, attachments } = input;
+  const { provider, apiKey, topic, persona, history, question, attachments, pdfContext } = input;
 
   // Generate search context for real-time information
   // ALWAYS inject current date, search sources are optional
@@ -137,6 +146,20 @@ ${JSON.stringify(mindscapeMap, null, 2)}
 🧠 **Current Topic**: ${topic}
 ${searchSection}
 
+${pdfContext ? `
+📄 **DOCUMENT-AWARE MODE ENABLED**:
+You have been provided with the extracted context from a PDF document uploaded by the user. 
+- **PRIORITY**: Always use the provided document context to answer questions about the topic.
+- **GROUNDING**: If the user's question is covered in the PDF, your answer MUST be based on it.
+- **IDENTIFICATION**: Briefly mention if your answer is based on the provided document when appropriate (e.g., "According to the document...").
+
+**Document Summary**:
+${pdfContext.summary}
+
+**Knowledge Graph / Key Concepts**:
+${pdfContext.concepts.map(c => `- **${c.title}**: ${c.description}`).join('\n')}
+` : ''}
+
 ${attachments && attachments.length > 0 ? `
 📎 **Attached Files**:
 ${attachments
@@ -161,7 +184,7 @@ ${historyText ? `**Chat History**:\n${historyText}` : ''}
 ---
 
 ## 🎯 Your Mission
-Provide clear, engaging, and visually structured responses${!isUserGuideMode ? ' based on the MOST RECENT information available in the search results above' : ', acting as the ultimate MindScape expert'}.
+Provide clear, engaging, and visually structured responses${pdfContext ? ' based primarily on the DOCUMENT CONTEXT above' : !isUserGuideMode ? ' based on the MOST RECENT information available in the search results above' : ', acting as the ultimate MindScape expert'}.
 
 ## 📋 Formatting Guidelines (Use Markdown)
 - Start with a brief intro.

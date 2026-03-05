@@ -12,6 +12,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Loader2,
   Send,
@@ -134,8 +136,10 @@ interface ChatPanelProps {
   onClose: () => void;
   topic: string;
   initialMessage?: string;
-  initialMode?: 'chat' | 'quiz';
   mindMapData?: MindMapData;
+  sessionId?: string;
+  usePdfContext?: boolean;
+  onUsePdfContextChange?: (usePdf: boolean) => void;
 }
 
 const allSuggestionPrompts = [
@@ -165,16 +169,16 @@ const allSuggestionPrompts = [
 
 ];
 
-/**
- * A slide-out chat panel for interacting with an AI assistant with session management.
- */
 export function ChatPanel({
   isOpen,
   onClose,
   topic,
   initialMessage,
   initialMode = 'chat',
-  mindMapData
+  mindMapData,
+  sessionId,
+  usePdfContext: propUsePdfContext = false,
+  onUsePdfContextChange
 }: ChatPanelProps) {
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
@@ -227,6 +231,20 @@ export function ChatPanel({
   const [quizDifficulty, setQuizDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [quizShowingDifficultySelector, setQuizShowingDifficultySelector] = useState(false);
   const [hiddenSelectorMessages, setHiddenSelectorMessages] = useState<Set<number>>(new Set());
+
+  // PDF CONTEXT STATE
+  const [localUsePdfContext, setLocalUsePdfContext] = useState(propUsePdfContext);
+
+  // Sync with prop if it changes externally
+  useEffect(() => {
+    setLocalUsePdfContext(propUsePdfContext);
+  }, [propUsePdfContext]);
+
+  const usePdfContext = propUsePdfContext || localUsePdfContext;
+  const setUsePdfContext = (val: boolean) => {
+    setLocalUsePdfContext(val);
+    if (onUsePdfContextChange) onUsePdfContextChange(val);
+  };
 
   /**
    * Starts a new chat session.
@@ -327,6 +345,8 @@ export function ChatPanel({
       topic,
       history,
       persona,
+      usePdfContext,
+      sessionId: sessionId || activeSessionId,
       attachments: currentAttachments
     }, providerOptions);
     setIsLoading(false);
@@ -1503,6 +1523,23 @@ export function ChatPanel({
                   </motion.div>
                 ))}
               </AnimatePresence>
+            </div>
+          )}
+
+          {/* PDF Context Toggle */}
+          {mindMapData && (
+            <div className="flex items-center justify-end gap-2 mb-3 px-1">
+              <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full shadow-sm">
+                <Label htmlFor="pdf-context" className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest cursor-pointer">
+                  {usePdfContext ? '📄 PDF Aware' : '🌐 Standard'}
+                </Label>
+                <Switch
+                  id="pdf-context"
+                  checked={usePdfContext}
+                  onCheckedChange={setUsePdfContext}
+                  className="scale-75 data-[state=checked]:bg-primary"
+                />
+              </div>
             </div>
           )}
 
